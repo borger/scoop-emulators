@@ -10,6 +10,11 @@
             "FCEUX"
         ]
     ],
+    "pre_install": [
+        "if (!(Test-Path \"$persist_dir\\fceux.cfg\")) {",
+        "    New-Item \"$dir\\fceux.cfg\" -Type File | Out-Null",
+        "}"
+    ],
     "persist": [
         "cheats",
         "fcs",
