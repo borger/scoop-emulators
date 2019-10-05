@@ -64,7 +64,7 @@ This bucket will always have at least one commit per day for the nightly builds.
 ## Contributing
 Thank you for considering contributing to the Emulators Scoop Bucket! You may propose new features or improvements of existing bucket behavior in the GitHub issue board. If you propose a new feature, please be willing to implement at least some of the code that would be needed to complete the feature.
 
-### Developers
-[borger](https://github.com/borger/)
-
-[hermanjustnu](https://github.com/hermanjustnu/)
+### Credits
+- [lukesampson](https://github.com/lukesampson) for creating Scoop and the original Retroarch manifest.
+- [hermanjustnu](https://github.com/hermanjustnu/) for the original scoop-emulator repo.
+- [Ash258](https://github.com/Ash258) for creating the original RPCS3 manifest.
