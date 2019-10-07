@@ -47,8 +47,8 @@
     ],
     "checkver": {
         "url": "https://www.retroarch.com/?page=platforms",
-        "regex": "The current stable version is: (?<main>[\\d.]+)(\\s*(\\(?)<\\[?)(\\w+)(\\)?)(\\]?))?",
-        "replace": "${3}${2}"
+        "regex": "The current stable version is: (?<main>[\\d.]+)(\\s*(\\(|\\[)(\\w+)(\\)|\\]))?",
+        "replace": "${5}${3}"
     },
     "autoupdate": {
         "architecture": {
