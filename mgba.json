@@ -1,17 +1,17 @@
 {
     "homepage": "https://mgba.io",
-    "version": "0.7.3",
+    "version": "0.8-b1",
     "license": "MPL-2.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/mgba-emu/mgba/releases/download/0.7.3/mGBA-0.7.3-win64.7z",
-            "hash": "552045a351f9f3a3728e9b5988069bbba2d5a277fe24898a2be7c2ee94892ee4",
-            "extract_dir": "mGBA-0.7.3-win64"
+            "url": "https://github.com/mgba-emu/mgba/releases/download/0.8-b1/mGBA-0.8-b1-win64.7z",
+            "hash": "5718c23b3df97629684046ca4feb08557dcfc8789084d7f8cf8cb19088cc3cc5",
+            "extract_dir": "mGBA-0.8-b1-win64"
         },
         "32bit": {
-            "url": "https://github.com/mgba-emu/mgba/releases/download/0.7.3/mGBA-0.7.3-win32.7z",
-            "hash": "dbb7e096d443ffa7a599f78147687e82b875118f0faf8893a83ec3299f822fde",
-            "extract_dir": "mGBA-0.7.3-win32"
+            "url": "https://github.com/mgba-emu/mgba/releases/download/0.8-b1/mGBA-0.8-b1-win32.7z",
+            "hash": "3e281147531eec41666fc8b57dc11a7a9ed7a6b6464e740e3e52414d651d69b1",
+            "extract_dir": "mGBA-0.8-b1-win32"
         }
     },
     "shortcuts": [
@@ -25,12 +25,10 @@
         "    New-Item \"$dir\\config.ini\" -Type File | Out-Null",
         "}"
     ],
-    "persist": [
-        "config.ini"
-    ],
+    "persist": "config.ini",
     "checkver": {
         "url": "https://github.com/mgba-emu/mgba/releases/latest",
-        "re": "(?smi)\"/mgba-emu/mgba/releases/tag/([\\d.]+)\"(?<junk>.*)relative-time datetime=\"(?<date>[\\d]{4}-[\\d]{2}-[\\d]{2})T"
+        "re": "\"/mgba-emu/mgba/releases/tag/(?<version>(.*?)(?=\\s*))\">"
     },
     "autoupdate": {
         "architecture": {
