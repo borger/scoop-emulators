@@ -1,8 +1,8 @@
 {
     "homepage": "http://cemu.info/",
-    "version": "1.15.20d",
+    "version": "1.15.20f",
     "url": "http://cemu.info/releases/cemu_1.15.20.zip",
-    "hash": "6a2e4c3a3834af7cb2fd41af6e2a47c1c65f57a63e20be017eae1d92311089ff",
+    "hash": "59d019b52d15fd368a060f3cf7177f58e2a87d230f9d0a807c81ce99d3f9c464",
     "extract_dir": "cemu_1.15.20",
     "shortcuts": [
         [
