@@ -1,8 +1,8 @@
 {
     "homepage": "https://github.com/doZennn/steam-rom-manager",
-    "version": "2.2.20",
-    "url": "https://github.com/doZennn/steam-rom-manager/releases/download/v2.2.20/Steam.ROM.Manager-portable-2.2.20.exe",
-    "hash": "184ee3b8147279b262e08b36065211d4d4e1f55ae159efb405f1938c44a28cac",
+    "version": "2.2.21",
+    "url": "https://github.com/doZennn/steam-rom-manager/releases/download/v2.2.21/Steam-ROM-Manager-portable-2.2.21.exe",
+    "hash": "18f9a55244b67632ccb4f8be5c2d5876b0a89a6fc5b3ebcd9179c3f8b727d5b7",
     "shortcuts": [
         [
             "steam-rom-manager.exe",
@@ -18,6 +18,6 @@
         "re": ".*[mM]anager-portable-(?<version>[\\d\\w.]+).exe"
     },
     "autoupdate": {
-        "url": "https://github.com/doZennn/steam-rom-manager/releases/download/v$version/Steam.ROM.Manager-portable-$version.exe"
+        "url": "https://github.com/doZennn/steam-rom-manager/releases/download/v$version/Steam-ROM-Manager-portable-$version.exe"
     }
 }
