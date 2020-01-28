@@ -5,7 +5,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/mgba-emu/mgba/releases/download/0.8.0/mGBA-0.8.0-win64.7z",
-            "hash": "509bb94076369022b1cdb7aedeb7b766ba0b2129392d4973944607fda14ca3b8",
+            "hash": "9a45fb1c9288e3e01e6781b0f5ea3a3d6c75e7331e79b112862a0fe454dabfe2",
             "extract_dir": "mGBA-0.8.0-win64"
         },
         "32bit": {
