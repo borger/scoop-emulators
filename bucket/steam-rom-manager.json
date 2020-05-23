@@ -1,8 +1,8 @@
 {
     "homepage": "https://github.com/doZennn/steam-rom-manager",
-    "version": "2.2.26",
-    "url": "https://github.com/doZennn/steam-rom-manager/releases/download/v2.2.26/Steam-ROM-Manager-portable-2.2.26.exe",
-    "hash": "be3e3de59c22c71c936716da064074676736b4d5b6130162b112963aa873bae7",
+    "version": "2.2.27",
+    "url": "https://github.com/doZennn/steam-rom-manager/releases/download/v2.2.27/Steam-ROM-Manager-portable-2.2.27.exe",
+    "hash": "31cf6f71363217bd04011a6261bc29523e78a1840da8cb08d3321e5beee038e9",
     "shortcuts": [
         [
             "steam-rom-manager.exe",
