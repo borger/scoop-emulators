@@ -6,7 +6,8 @@
     "extract_dir": "bsnes_v115-windows",
     "shortcuts": [
         [
-            "bsnes.exe"
+            "bsnes.exe",
+            "bsnes"
         ]
     ],
     "pre_install": [
