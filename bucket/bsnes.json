@@ -9,6 +9,11 @@
             "bsnes.exe"
         ]
     ],
+    "pre_install": [
+        "if (!(Test-Path \"$persist_dir\\settings.bml\")) {",
+        "    New-Item \"$dir\\settings.bml\" -Type File | Out-Null",
+        "}"
+    ],
     "persist": [
         "Firmware",
         "settings.bml"
