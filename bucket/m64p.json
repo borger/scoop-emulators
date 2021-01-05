@@ -1,8 +1,8 @@
 {
     "homepage": "https://m64p.github.io/",
-    "version": "da3fc8e",
-    "url": "https://github.com/loganmc10/m64p/releases/download/Dec152020/m64p-win64-da3fc8e.zip",
-    "hash": "1a88c3f7e52ac37c2dee336b63c8b7334f0f8f037196514b8afe4f4c532dc7fe",
+    "version": "fdab032",
+    "url": "https://github.com/loganmc10/m64p/releases/download/Jan42021/m64p-win64-fdab032.zip",
+    "hash": "81963947f60b7da3de061442c222663a648ca5915d2df60d8e7313bcdc679ee9",
     "extract_dir": "mupen64plus",
     "shortcuts": [
         [
