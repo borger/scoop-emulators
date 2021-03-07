@@ -1,17 +1,17 @@
 {
     "homepage": "https://www.scummvm.org/",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "license": "GPL-2.0-or-later",
     "architecture": {
         "64bit": {
-            "url": "https://www.scummvm.org/frs/scummvm/2.2.0/scummvm-2.2.0-win32-x86_64.zip",
-            "hash": "ea19452e2ece41eb2795b3a2930908030c18e510e73a344e7340753971fc7191",
-            "extract_dir": "scummvm-2.2.0-win32-x86_64"
+            "url": "https://www.scummvm.org/frs/scummvm/2.2.1/scummvm-2.2.1-win32-x86_64.zip",
+            "hash": "f0195c1c90f9fe9f3ae5423c4b5a6c03e87895daaec85bde68803b2f34417c59",
+            "extract_dir": "scummvm-2.2.1-win32-x86_64"
         },
         "32bit": {
-            "url": "https://www.scummvm.org/frs/scummvm/2.2.0/scummvm-2.2.0-win32.zip",
-            "hash": "1081efc8193cb006d6550037a98151860bb77d4323929fb5e7ed3b9ed777efc5",
-            "extract_dir": "scummvm-2.2.0-win32"
+            "url": "https://www.scummvm.org/frs/scummvm/2.2.1/scummvm-2.2.1-win32.zip",
+            "hash": "131b2fbd8805d592504cbb3af3663d326aa0e0fad0640ccfda954baf043c2111",
+            "extract_dir": "scummvm-2.2.1-win32"
         }
     },
     "shortcuts": [
