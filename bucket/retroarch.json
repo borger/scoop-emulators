@@ -6,11 +6,11 @@
     "architecture": {
         "64bit": {
             "url": "https://buildbot.libretro.com/stable/1.9.4/windows/x86_64/RetroArch.7z",
-            "hash": "fc48ce12426f6b731479cd9b51cb6e83594f70b7a55adb448915f5e52a629abc"
+            "hash": "549372470f8ec7941cf2cbca2e8b1921a9d5f05c25f13775d03ccd1e206c1fc1"
         },
         "32bit": {
             "url": "https://buildbot.libretro.com/stable/1.9.4/windows/x86/RetroArch.7z",
-            "hash": "9fd513b412f19678d0d8d0eef27c6a0a0faddcd8a698fd037b4ccd4c804e8d0f"
+            "hash": "526131c667d56b52ab07f209c02f79094c02cd5cbd09dea73926c554b3ca8d21"
         }
     },
     "pre_install": [
