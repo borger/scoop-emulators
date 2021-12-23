@@ -23,7 +23,7 @@
         "ROMs"
     ],
     "checkver": {
-        "url": "https://www.pj64-emu.com/download/project64-latest",
+        "url": "https://www.pj64-emu.com/public-releases",
         "re": "(?smi)<h3>Thank you for downloading Project64 v([\\d.]+)</h3>(?<temp>.*)<a href=\"/(?<url>file/setup-project64-v[\\d\\-a-z]+)/\">"
     },
     "autoupdate": {
