@@ -2,7 +2,7 @@
     "homepage": "https://www.retroarch.com/",
     "description": "Frontend for emulators, game engines and media players.",
     "license": "GPL-3.0-only",
-    "version": "1.9.11",
+    "version": "1.2",
     "architecture": {
         "64bit": {
             "url": "https://buildbot.libretro.com/stable/1.9.11/windows/x86_64/RetroArch.7z",
