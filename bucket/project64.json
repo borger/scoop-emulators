@@ -24,8 +24,7 @@
     ],
     "checkver": {
         "url": "https://www.pj64-emu.com/public-releases",
-        "re": "(?smi)<h3>Project64 ([\\d.]+) Zip</h3>(?<temp>.*)<a href=\"/(?<url>download/project64-[\\d\\-a-z]+-zip)\">"
-
+        "re": "<a href=\"/download/project64-[\\d\\-a-z]+-zip\">Project64  <version>[\\d\\-a-z]+</version> Zip</a>"
     },
     "autoupdate": {
         "url": "https://www.pj64-emu.com/$matchUrl"
