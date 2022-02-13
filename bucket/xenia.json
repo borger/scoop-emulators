@@ -1,6 +1,6 @@
 {
     "homepage": "https://xenia.jp",
-    "description": "Xbox 360 Research Emulator",
+    "description": "Microsoft Xbox 360 emulator",
     "version": "1.0.2576",
     "license": "BSD-3-Clause",
     "architecture": {

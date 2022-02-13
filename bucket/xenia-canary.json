@@ -1,6 +1,6 @@
 {
     "homepage": "https://xenia.jp",
-    "description": "Xbox 360 Research Emulator (development branch)",
+    "description": "Microsoft Xbox 360 Emulator (development branch)",
     "version": "7b6cbc2",
     "license": "BSD-3-Clause",
     "architecture": {
