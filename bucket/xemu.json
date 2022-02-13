@@ -1,6 +1,6 @@
 {
     "homepage": "https://xemu.app",
-    "description": "Microsoft Xbox Emulator",
+    "description": "Microsoft Xbox emulator",
     "version": "0.6.2-75-g8919bae311",
     "license": "GPL-2.0",
     "architecture": {
