@@ -69,3 +69,5 @@ Thank you for considering contributing to the Emulators Scoop Bucket! You may pr
 - [lukesampson](https://github.com/lukesampson) for creating Scoop and the original Retroarch manifest.
 - [hermanjustnu](https://github.com/hermanjustnu/) for the original scoop-emulator repo.
 - [Ash258](https://github.com/Ash258) for creating the original RPCS3 manifest.
+- [Calinou](https://github.com/Calinou) for creating the scoop-games repository.
+- [beyondmeat](https://github.com/beyondmeat) for helping add more emulators to this bucket.
