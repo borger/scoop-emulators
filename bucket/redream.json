@@ -1,7 +1,7 @@
 {
     "homepage": "https://redream.io",
-    "description": "Sega Dreamcast emulator that can render games in HD and 4K (nightly)",
-    "version": "1.5.0-1022-g2e8f5ec",
+    "description": "Sega Dreamcast emulator that can render games in HD and 4K",
+    "version": "1.5.0",
     "license": "",
     "architecture": {
         "64bit": {
@@ -29,7 +29,7 @@
     ],
     "checkver": {
         "url": "https://redream.io/download",
-        "regex": "v(\\d\\.\\d\\.\\d-\\d{4}-g[a-f0-9]+)"
+        "regex": "v(\\d\\.\\d\\.\\d)"
     },
     "autoupdate": {
         "architecture": {
