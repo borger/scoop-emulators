@@ -37,6 +37,9 @@ Unfortunately as of today, there's no way to specify a custom install folder per
 
     mklink /D "<destination-path>" "C:\Users\<username>\scoop\apps\<app-name>\current"
 
+## List of Emulators
+See this [Link](https://rasa.github.io/scoop-directory/by-score#borger_scoop-emulators).
+
 ## Updates
 #### Updating Scoop
 To update scoop itself, run
