@@ -1,7 +1,7 @@
 {
     "homepage": "http://mamedev.org/",
     "license": "GPL-2.0-or-later",
-    "version": "0.236",
+    "version": "0.240",
     "architecture": {
         "64bit": {
             "url": "https://github.com/mamedev/mame/releases/download/mame0240/mame0240b_64bit.exe#/dl.7z",
