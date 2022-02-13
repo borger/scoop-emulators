@@ -1,48 +1,58 @@
 {
-    "homepage": "https://www.ppsspp.org/",
-    "version": "1.12.3-905-4c095ce06",
-    "license": {
-        "identifier": "GPL-2.0-or-later",
-        "url": "https://github.com/hrydgard/ppsspp/raw/master/LICENSE.TXT"
+    "homepage": "https://pcsx2.net/",
+    "description": "A feature rich FOSS PlayStation 2 emulator (development version)",
+    "license": "LGPL-3.0-or-later",
+    "version": "1.7-2357",
+    "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v1.7.2357&platform=windows-x86#/dl.7z",
+    "hash": "daf83eab3dbbc7c2c5d98951c0e7749afaa0decf307caca8e6605c1688df5813",
+    "extract_dir": "pcsx2-v1.7.2357-windows-x86",
+    "pre_install": [
+        "if (!(Test-Path \"$persist_dir\")) {",
+        "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
+        "   if (Test-Path \"$env:USERPROFILE\\Documents\\PCSX2\") {",
+        "       Write-host \"Migrating AppData...\" -ForegroundColor yellow",
+        "       Copy-Item -Path \"$env:USERPROFILE\\Documents\\PCSX2\\*\" -Destination \"$persist_dir\" -Recurse",
+        "       Remove-Item -Path \"$env:USERPROFILE\\Documents\\PCSX2\" -Recurse",
+        "   }",
+        "}"
+    ],
+    "bin": "pcsx2.exe",
+    "persist": [
+        "bios",
+        "cheats",
+        "cheats_ws",
+        "inis",
+        "logs",
+        "memcards",
+        "shaders\\GSdx_FX_Settings.ini",
+        "snaps",
+        "sstates",
+        "portable.ini"
+    ],
+    "shortcuts": [
+        [
+            "pcsx2.exe",
+            "PCSX2-dev"
+        ]
+    ],
+    "suggest": {
+        "Visual Studio redist 2015": [
+            "vcredist",
+            "vcredist2015"
+        ]
     },
-    "description": "PPSSPP is a Playstation emulator that can run your PSP games in full HD resolution",
-    "architecture": {
-        "64bit": {
-            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.12.3-905-g4c095ce06&platform=windows-amd64#/dl.7z",
-            "hash": "9c7500ac24b12e2b6f1f2443ff5929464348215033ab2e5c7606d64cb64a19e3",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows64.exe",
-                    "PPSSPP (Development)"
-                ]
-            ]
-        },
-        "32bit": {
-            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.12.3-905-g4c095ce06&platform=windows-x86#/dl.7z",
-            "hash": "555938fd48cf5ae34afc0511f986834a91c24ec885fbb66114d24af223d36d7b",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows.exe",
-                    "PPSSPP (Development)"
-                ]
-            ]
-        }
-    },
-    "persist": "memstick",
-    "extract_dir": "ppsspp",
     "checkver": {
-        "url": "https://buildbot.orphis.net/ppsspp/index.php",
-        "regex": "rev=v(?<version>[\\d.]+)-(?<build>[\\d]+)-g(?<commit>[\\da-fA-F]+)&(?:amp;)platform=windows-amd64",
-        "replace": "${version}-${build}-${commit}"
+        "url": "https://buildbot.orphis.net/pcsx2/index.php",
+        "regex": "v(?<basever>\\d+\\.\\d+)\\.(?<build>\\d+)",
+        "replace": "${basever}-${build}"
     },
     "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v$matchVersion-$matchBuild-g$matchCommit&platform=windows-amd64#/dl.7z"
-            },
-            "32bit": {
-                "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v$matchVersion-$matchBuild-g$matchCommit&platform=windows-x86#/dl.7z"
-            }
-        }
-    }
+        "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v$matchBasever.$matchBuild&platform=windows-x86#/dl.7z",
+        "extract_dir": "pcsx2-v$matchBasever.$matchBuild-windows-x86"
+    },
+    "notes": [
+        "ATTENTION: PCSX2 requires a dump of the PS2 BIOS to function.",
+        "Place the BIOS file in $persist_dir\\bios",
+        "Learn more at https://pcsx2.net/config-guide/official-english-pcsx2-configuration-guide.html#Bios"
+    ]
 }
