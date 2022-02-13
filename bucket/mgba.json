@@ -1,23 +1,22 @@
 {
     "homepage": "https://mgba.io/",
-    "description": "A fast, accurate, and portable GBA emulator (development version)",
+    "description": "A fast, accurate, and portable GBA emulator",
     "license": "MPL-2.0",
-    "version": "7265-20220212",
+    "version": "0.9.3",
     "architecture": {
         "64bit": {
-            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-02-12-win64-7265-9cfa7120b186b125406a850d373d86e5be40a7bd.7z",
-            "hash": "f2aeb40ae932e06e5189250e1f0af38aab935db264a04638395ca3d5c5f8341c"
+            "url": "https://github.com/mgba-emu/mgba/releases/download/0.9.3/mGBA-0.9.3-win64.7z",
+            "hash": "a84ba662a2808f2d47de6f00d437981359194b807447043860a33ce15b3f5468",
+            "extract_dir": "mGBA-0.9.3-win64"
         },
         "32bit": {
-            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-02-12-win32-7265-9cfa7120b186b125406a850d373d86e5be40a7bd.7z",
-            "hash": "f4c98db1fcea8bd37e5b4c40ae3fa530dc2e9e6776b044be17e6bc4220ad9f6b"
+            "url": "https://github.com/mgba-emu/mgba/releases/download/0.9.3/mGBA-0.9.3-win32.7z",
+            "hash": "54df53ba5bb463395da0b85db8692234259c2ab7210781d49426b78e5a259757",
+            "extract_dir": "mGBA-0.9.3-win32"
         }
     },
     "installer": {
         "script": [
-            "Move-Item -Path \"$(Get-ChildItem -Path $dir)\\*\" -Destination \"$dir\"",
-            "Set-Location -Path $dir",
-            "Remove-Item -Path $(Get-ChildItem -Path $dir -Name -Include mGBA-build*)",
             "if (!(Test-Path \"$persist_dir\\qt.ini\")) {",
             "   New-Item \"$dir\\qt.ini\" -ItemType \"file\" | Out-Null ",
             "}",
@@ -37,7 +36,7 @@
     "shortcuts": [
         [
             "mGBA.exe",
-            "mGBA (Development)"
+            "mGBA"
         ]
     ],
     "persist": [
@@ -51,17 +50,17 @@
         "config.ini"
     ],
     "checkver": {
-        "url": "https://mgba.io/builds/1/",
-        "regex": "build-(?<year>20\\d{2})-(?<month>\\d{2})-(?<day>\\d{2})-win32-(?<ver>[\\d]+)-(?<git>\\w{40})\\.7z",
-        "replace": "$4-$1$2$3"
+        "github": "https://github.com/mgba-emu/mgba"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-$matchYear-$matchMonth-$matchDay-win64-$matchVer-$matchGit.7z"
+                "url": "https://github.com/mgba-emu/mgba/releases/download/$version/mGBA-$version-win64.7z",
+                "extract_dir": "mGBA-$version-win64"
             },
             "32bit": {
-                "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-$matchYear-$matchMonth-$matchDay-win32-$matchVer-$matchGit.7z"
+                "url": "https://github.com/mgba-emu/mgba/releases/download/$version/mGBA-$version-win32.7z",
+                "extract_dir": "mGBA-$version-win32"
             }
         }
     }
