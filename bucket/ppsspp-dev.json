@@ -1,58 +1,67 @@
 {
-    "homepage": "https://pcsx2.net/",
-    "description": "A feature rich FOSS PlayStation 2 emulator (development version)",
-    "license": "LGPL-3.0-or-later",
-    "version": "1.7-2357",
-    "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v1.7.2357&platform=windows-x86#/dl.7z",
-    "hash": "daf83eab3dbbc7c2c5d98951c0e7749afaa0decf307caca8e6605c1688df5813",
-    "extract_dir": "pcsx2-v1.7.2357-windows-x86",
+    "homepage": "https://www.ppsspp.org",
+    "description": "Sony PSP emulator (Development)",
+    "version": "1.12.3-905",
+    "license": "GPL-2.0-or-later",
+    "architecture": {
+        "64bit": {
+            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.12.3-905-$commit&platform=windows-amd64",
+            "hash": "c273e1fb85c565cccc33754c6afc461528cede61b997b9523ca92d3848b2de93",
+            "bin": [
+                [
+                    "PPSSPPWindows64.exe",
+                    "ppsspp-dev"
+                ]
+            ],
+            "shortcuts": [
+                [
+                    "PPSSPPWindows64.exe",
+                    "PPSSPP (development)"
+                ]
+            ]
+        },
+        "32bit": {
+            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.12.3-905-$commit&platform=windows-x86",
+            "hash": "555938fd48cf5ae34afc0511f986834a91c24ec885fbb66114d24af223d36d7b",
+            "bin": [
+                [
+                    "PPSSPPWindows.exe",
+                    "ppsspp-dev"
+                ]
+            ],
+            "shortcuts": [
+                [
+                    "PPSSPPWindows.exe",
+                    "PPSSPP (development)"
+                ]
+            ]
+        }
+    },
+    "extract_dir": "ppsspp",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
-        "   if (Test-Path \"$env:USERPROFILE\\Documents\\PCSX2\") {",
-        "       Write-host \"Migrating AppData...\" -ForegroundColor yellow",
-        "       Copy-Item -Path \"$env:USERPROFILE\\Documents\\PCSX2\\*\" -Destination \"$persist_dir\" -Recurse",
-        "       Remove-Item -Path \"$env:USERPROFILE\\Documents\\PCSX2\" -Recurse",
-        "   }",
+        "   New-item \"$persist_dir\\memstick\" -ItemType Directory | Out-Null",
         "}"
     ],
-    "bin": "pcsx2.exe",
     "persist": [
-        "bios",
-        "cheats",
-        "cheats_ws",
-        "inis",
-        "logs",
-        "memcards",
-        "shaders\\GSdx_FX_Settings.ini",
-        "snaps",
-        "sstates",
-        "portable.ini"
+        "memstick",
+        "assets",
+        "demos"
     ],
-    "shortcuts": [
-        [
-            "pcsx2.exe",
-            "PCSX2-dev"
-        ]
-    ],
-    "suggest": {
-        "Visual Studio redist 2015": [
-            "vcredist",
-            "vcredist2015"
-        ]
-    },
     "checkver": {
-        "url": "https://buildbot.orphis.net/pcsx2/index.php",
-        "regex": "v(?<basever>\\d+\\.\\d+)\\.(?<build>\\d+)",
+        "url": "https://buildbot.orphis.net/ppsspp/index.php",
+        "regex": "v(?<basever>\\d{1,2}\\.\\d{1,2}\\.\\d{1,2})-(?<build>\\d{1,4})-g(?<commit>[a-f0-9]{9})",
         "replace": "${basever}-${build}"
     },
     "autoupdate": {
-        "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v$matchBasever.$matchBuild&platform=windows-x86#/dl.7z",
-        "extract_dir": "pcsx2-v$matchBasever.$matchBuild-windows-x86"
-    },
-    "notes": [
-        "ATTENTION: PCSX2 requires a dump of the PS2 BIOS to function.",
-        "Place the BIOS file in $persist_dir\\bios",
-        "Learn more at https://pcsx2.net/config-guide/official-english-pcsx2-configuration-guide.html#Bios"
-    ]
+        "architecture": {
+            "64bit": {
+                "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v$matchBasever-$matchBuild-$commit&platform=windows-amd64"
+            },
+            "32bit": {
+                "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v$matchBasever-$matchBuild-$commit&platform=windows-x86"
+            }
+        }
+    }
 }
