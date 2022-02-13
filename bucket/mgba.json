@@ -1,44 +1,67 @@
 {
-    "homepage": "https://mgba.io",
-    "version": "0.9.2",
+    "homepage": "https://mgba.io/",
+    "description": "A fast, accurate, and portable GBA emulator (development version)",
     "license": "MPL-2.0",
+    "version": "7265-20220212",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/mgba-emu/mgba/releases/download/0.9.2/mGBA-0.9.2-win64.7z",
-            "hash": "d4128d77ea3dac0ca87c360c67eb600f94741e551c03587bf17ed29af0bdc084",
-            "extract_dir": "mGBA-0.9.2-win64"
+            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-02-12-win64-7265-9cfa7120b186b125406a850d373d86e5be40a7bd.7z",
+            "hash": "f2aeb40ae932e06e5189250e1f0af38aab935db264a04638395ca3d5c5f8341c"
         },
         "32bit": {
-            "url": "https://github.com/mgba-emu/mgba/releases/download/0.9.2/mGBA-0.9.2-win32.7z",
-            "hash": "0e3bcbc08963d3c10e368d7b6740c43640f5769ea7fd50d91f055321ab2dcd69",
-            "extract_dir": "mGBA-0.9.2-win32"
+            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-02-12-win32-7265-9cfa7120b186b125406a850d373d86e5be40a7bd.7z",
+            "hash": "f4c98db1fcea8bd37e5b4c40ae3fa530dc2e9e6776b044be17e6bc4220ad9f6b"
         }
     },
+    "installer": {
+        "script": [
+            "Move-Item -Path \"$(Get-ChildItem -Path $dir)\\*\" -Destination \"$dir\"",
+            "Set-Location -Path $dir",
+            "Remove-Item -Path $(Get-ChildItem -Path $dir -Name -Include mGBA-build*)",
+            "if (!(Test-Path \"$persist_dir\\qt.ini\")) {",
+            "   New-Item \"$dir\\qt.ini\" -ItemType \"file\" | Out-Null ",
+            "}",
+            "if (!(Test-Path \"$persist_dir\\config.ini\")) {",
+            "   Set-Content \"$dir\\config.ini\" '[ports.qt]'",
+            "   'cheats', 'patch', 'savegame', 'savestate', 'screenshot' | ForEach-Object {",
+            "       Add-Content -Path \"$dir\\config.ini\" -Value $_`Path`=$persist_dir\\$_ }",
+            "}"
+        ]
+    },
+    "bin": [
+        [
+            "mGBA.exe",
+            "mgba-sdl.exe"
+        ]
+    ],
     "shortcuts": [
         [
             "mGBA.exe",
-            "mGBA"
+            "mGBA (Development)"
         ]
     ],
-    "pre_install": [
-        "if (!(Test-Path \"$persist_dir\\config.ini\")) {",
-        "    New-Item \"$dir\\config.ini\" -Type File | Out-Null",
-        "}"
+    "persist": [
+        "cheats",
+        "patch",
+        "savegame",
+        "savestate",
+        "screenshot",
+        "shaders",
+        "qt.ini",
+        "config.ini"
     ],
-    "persist": "config.ini",
     "checkver": {
-        "url": "https://github.com/mgba-emu/mgba/releases/latest",
-        "re": "\"/mgba-emu/mgba/releases/tag/(?<version>(.*?)(?=\\s*))\">"
+        "url": "https://mgba.io/builds/1/",
+        "regex": "build-(?<year>20\\d{2})-(?<month>\\d{2})-(?<day>\\d{2})-win32-(?<ver>[\\d]+)-(?<git>\\w{40})\\.7z",
+        "replace": "$4-$1$2$3"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/mgba-emu/mgba/releases/download/$version/mGBA-$version-win64.7z",
-                "extract_dir": "mGBA-$version-win64"
+                "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-$matchYear-$matchMonth-$matchDay-win64-$matchVer-$matchGit.7z"
             },
             "32bit": {
-                "url": "https://github.com/mgba-emu/mgba/releases/download/$version/mGBA-$version-win32.7z",
-                "extract_dir": "mGBA-$version-win32"
+                "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-$matchYear-$matchMonth-$matchDay-win32-$matchVer-$matchGit.7z"
             }
         }
     }
