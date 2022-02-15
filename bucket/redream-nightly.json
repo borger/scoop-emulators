@@ -1,12 +1,12 @@
 {
     "homepage": "https://redream.io",
     "description": "Sega Dreamcast emulator (nightly)",
-    "version": "1.5.0-1025-g511d269",
+    "version": "1.5.0-1022-g2e8f5ec",
     "license": "",
     "architecture": {
         "64bit": {
-            "url": "https://redream.io/download/redream.x86_64-windows-v1.5.0-1025-g511d269.zip",
-            "hash": "2fc2a3831333a14c3f2d16f42b8e0c46739813f96e6baf0e696b3b34d9379201"
+            "url": "https://redream.io/download/redream.x86_64-windows-v1.5.0-1022-g2e8f5ec.zip",
+            "hash": "75e34d605185c4b4cc6482ce85870b999fbf81dd340a874f8369a834857be39e"
         }
     },
     "pre_install": [
