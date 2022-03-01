@@ -2,15 +2,15 @@
     "homepage": "https://mgba.io/",
     "description": "A fast, accurate, and portable GBA emulator (development version)",
     "license": "MPL-2.0",
-    "version": "7292-20220301",
+    "version": "7293-20220301",
     "architecture": {
         "64bit": {
-            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-03-01-win64-7292-db9d0434e75930793c2ce4914887aa3b55b22876.7z",
-            "hash": "743c44895589a92714143ec713fb8459391675758bbb628f820087a183ce79a8"
+            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-03-01-win64-7293-245a20b442d577c90221fdbfd16ea573d0046523.7z",
+            "hash": "dab858a96ef342ac498f7a3cb368272879c1eb81c33e4eda3b65d35bef978fd5"
         },
         "32bit": {
-            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-03-01-win32-7292-db9d0434e75930793c2ce4914887aa3b55b22876.7z",
-            "hash": "222c8c9ca9826e871b3b2bbdd1b12c7902352fdc5334b80b77956008d704f5f8"
+            "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-03-01-win32-7293-245a20b442d577c90221fdbfd16ea573d0046523.7z",
+            "hash": "a8b0ac02983690dbaab0e98c38c60f5189b688557d0011047bfaee16c6e2c0a9"
         }
     },
     "installer": {
