@@ -1,6 +1,6 @@
 {
     "homepage": "https://mgba.io/",
-    "description": "A fast, accurate, and portable GBA emulator",
+    "description": "Nintendo Gameboy Advance",
     "license": "MPL-2.0",
     "version": "0.9.3",
     "architecture": {

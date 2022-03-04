@@ -1,6 +1,6 @@
 {
     "homepage": "https://pcsx2.net/",
-    "description": "A feature rich FOSS PlayStation 2 emulator",
+    "description": "Sony PlayStation 2 emulator",
     "license": "LGPL-3.0-or-later",
     "version": "1.6.0",
     "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.6.0/pcsx2-1.6.0-binaries.7z",

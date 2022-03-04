@@ -1,6 +1,6 @@
 {
     "homepage": "https://www.ppsspp.org",
-    "description": "Sony PSP emulator (Development)",
+    "description": "Sony PlayStation Portable (PSP) emulator",
     "version": "1.12.3-983",
     "license": "GPL-2.0-or-later",
     "architecture": {
