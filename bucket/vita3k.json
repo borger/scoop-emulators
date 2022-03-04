@@ -2,7 +2,10 @@
     "homepage": "https://vita3k.org",
     "description": "Sony PlayStation Vita emulator",
     "version": "608573",
-    "license": "GPL-2.0",
+    "license": {
+        "identifier": "GPL-2.0",
+        "url": "https://github.com/Vita3K/Vita3K/blob/master/COPYING.txt"
+    },
     "architecture": {
         "64bit": {
             "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/windows-latest.zip",
@@ -31,7 +34,7 @@
     ],
     "checkver": {
         "github": "https://github.com/Vita3K/Vita3K",
-        "regex": "([a-f0-9]{6})"
+        "regex": "commit/([a-f0-9]{7})"
     },
     "autoupdate": {
         "architecture": {
