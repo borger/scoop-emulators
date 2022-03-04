@@ -2,7 +2,10 @@
     "homepage": "https://xemu.app",
     "description": "Microsoft Xbox emulator",
     "version": "0.6.2-79-ga32f271d55",
-    "license": "GPL-2.0",
+    "license": {
+        "identifier": "GPL-2.0",
+        "url": "https://github.com/mborgerson/xemu/blob/master/LICENSE"
+    },
     "architecture": {
         "64bit": {
             "url": "https://github.com/mborgerson/xemu/releases/download/gh-release%2F0.6.2-79-ga32f271d55/xemu-win-release.zip",
@@ -29,7 +32,7 @@
     ],
     "checkver": {
         "github": "https://github.com/mborgerson/xemu",
-        "regex": "gh-release%2F(.+)/xemu-win-release\\.zip"
+        "regex": "([\\d\\.]+-\\d{1,2}-g[a-f0-9]+)"
     },
     "autoupdate": {
         "architecture": {
