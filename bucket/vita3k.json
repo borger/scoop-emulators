@@ -22,7 +22,7 @@
     "bin": "Vita3K.exe",
     "checkver": {
         "github": "https://github.com/Vita3K/Vita3K",
-        "regex": "commit/([a-f0-9]{7})"
+        "regex": "commit[/:]\\s?([a-f0-9]{7})"
     },
     "persist": [
         "data",
