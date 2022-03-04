@@ -1,0 +1,55 @@
+{
+    "homepage": "https://github.com/pineappleEA/pineapple-src",
+    "description": "A Yuzu Early Access fork with Linux-specific patches",
+    "version": "EA-2526",
+    "license": {
+        "identifier": "GPL-2.0",
+        "url": "https://github.com/pineappleEA/pineapple-src/blob/main/LICENSE"
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/pineappleEA/pineapple-src/releases/download/EA-2526/Windows-Yuzu-EA-2526.7z",
+            "hash": "72cd44c6bf0703c700bc588f5c33fba318b29681fac2e8cfec057315aec05c84"
+        }
+    },
+    "extract_dir": "yuzu-windows-msvc-early-access",
+    "pre_install": [
+        "if (!(Test-Path \"$persist_dir\")) {",
+        "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
+        "   New-item \"$persist_dir\\user\" -ItemType Directory | Out-Null",
+        "   if (Test-Path \"$env:APPDATA\\yuzu\") {",
+        "       Write-host \"Migrating AppData...\" -ForegroundColor yellow",
+        "       Copy-Item -Path \"$env:APPDATA\\yuzu\\*\" -Destination \"$persist_dir\\user\" -Recurse",
+        "       Remove-Item -Path \"$env:APPDATA\\yuzu\" -Recurse",
+        "   }",
+        "}"
+    ],
+    "bin": [
+        [
+            "yuzu.exe",
+            "yuzu-dev"
+        ],
+        "yuzu-cmd.exe"
+    ],
+    "shortcuts": [
+        [
+            "yuzu.exe",
+            "Yuzu (Development)"
+        ]
+    ],
+    "persist": [
+        "user",
+        "plugins"
+    ],
+    "checkver": {
+        "github": "https://github.com/pineappleEA/pineapple-src",
+        "regex": "(EA-\\d+) \\(auto-updater\\)"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/pineappleEA/pineapple-src/releases/download/$version/Windows-Yuzu-$version.7z"
+            }
+        }
+    }
+}
