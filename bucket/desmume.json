@@ -20,12 +20,12 @@
     ],
     "pre_install": [
         "if (!(test-path \"$dir\\DeSmuME.exe\")) {",
-            "gci \"$dir\" \"DeSmuME*.exe\" |",
-            "? { $_.Name -match '(?i)DeSmuME_[\\d.]+_x[\\d]{2}.exe' } |",
-            "% {",
-                "warn \"Moving $($_.Name) to DeSmuMe.exe\"",
-                "mv \"$dir\\$($_.Name)\" \"$dir\\DeSmuMe.exe\"",
-            "}",
+        "gci \"$dir\" \"DeSmuME*.exe\" |",
+        "? { $_.Name -match '(?i)DeSmuME_[\\d.]+_x[\\d]{2}.exe' } |",
+        "% {",
+        "warn \"Moving $($_.Name) to DeSmuMe.exe\"",
+        "mv \"$dir\\$($_.Name)\" \"$dir\\DeSmuMe.exe\"",
+        "}",
         "}"
     ],
     "checkver": {
