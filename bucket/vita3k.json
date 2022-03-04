@@ -1,7 +1,7 @@
 {
     "homepage": "https://vita3k.org",
     "description": "Sony PlayStation Vita emulator",
-    "version": "608573",
+    "version": "b37293f",
     "license": {
         "identifier": "GPL-2.0",
         "url": "https://github.com/Vita3K/Vita3K/blob/master/COPYING.txt"
