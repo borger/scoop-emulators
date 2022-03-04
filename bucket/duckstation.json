@@ -1,7 +1,10 @@
 {
     "homepage": "https://github.com/stenzek/duckstation/",
-    "description": "A fast PlayStation 1 emulator for PC and Android",
-    "license": "GPL-3.0-only",
+    "description": "Sony PlayStation emulator",
+    "license": {
+        "identifier": "GPL-3.0-only",
+        "url": "https://github.com/stenzek/duckstation/blob/master/LICENSE"
+    },
     "version": "20220118-g50db81a",
     "architecture": {
         "64bit": {
@@ -18,13 +21,16 @@
         ]
     },
     "bin": [
-        "duckstation-nogui-x64-ReleaseLTCG.exe",
+        [
+            "duckstation-nogui-x64-ReleaseLTCG.exe",
+            "duckstation"
+        ],
         "duckstation-qt-x64-ReleaseLTCG.exe"
     ],
     "shortcuts": [
         [
             "duckstation-qt-x64-ReleaseLTCG.exe",
-            "Duckstation"
+            "DuckStation"
         ]
     ],
     "persist": [
