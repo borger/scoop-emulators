@@ -1,7 +1,11 @@
 {
-    "homepage": "http://mamedev.org/",
-    "license": "GPL-2.0-or-later",
+    "homepage": "http://mamedev.org",
+    "description": "Arcade machine emulator",
     "version": "0.241",
+    "license": {
+        "identifier": "GPL-2.0",
+        "url": "https://github.com/mamedev/mame/blob/master/COPYING"
+    },
     "architecture": {
         "64bit": {
             "url": "https://github.com/mamedev/mame/releases/download/mame0241/mame0241b_64bit.exe#/dl.7z",
