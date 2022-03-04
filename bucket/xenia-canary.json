@@ -1,8 +1,11 @@
 {
     "homepage": "https://xenia.jp",
-    "description": "Microsoft Xbox 360 Emulator (development branch)",
+    "description": "Microsoft Xbox 360 emulator",
     "version": "bd52b63",
-    "license": "BSD-3-Clause",
+    "license": {
+        "identifier": "BSD-3-Clause",
+        "url": "https://github.com/xenia-canary/xenia-canary/blob/canary_pr/LICENSE"
+    },
     "architecture": {
         "64bit": {
             "url": "https://github.com/xenia-canary/xenia-canary/releases/download/bd52b63/xenia_canary.zip",
@@ -25,7 +28,7 @@
     "shortcuts": [
         [
             "xenia_canary.exe",
-            "Xenia Canary"
+            "Xenia (Canary)"
         ]
     ],
     "persist": [
@@ -36,7 +39,7 @@
     ],
     "checkver": {
         "github": "https://github.com/xenia-canary/xenia-canary",
-        "regex": "([a-f0-9]+)/xenia_canary\\.zip"
+        "regex": "([a-f0-9]{6,7})_canary_experimental"
     },
     "autoupdate": {
         "architecture": {
