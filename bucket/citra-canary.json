@@ -1,14 +1,28 @@
 {
     "homepage": "https://citra-emu.org/",
     "description": "Nintendo 3DS emulator",
+    "version": "2070-20220304",
     "license": {
         "identifier": "GPL-2.0",
         "url": "https://github.com/citra-emu/citra-canary/blob/master/license.txt"
     },
-    "version": "2070-20220304",
     "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-2070/citra-windows-mingw-20220304-6f73b31.7z",
     "hash": "8999f16d075908a1f0720f841f77ce2190ae0d6d1ea22c2883395bab0c0557eb",
+    "autoupdate": {
+        "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-$matchBuild/citra-windows-mingw-$matchDate-$matchRandom.7z"
+    },
+    "bin": [
+        "citra.exe",
+        "citra-qt.exe",
+        "citra-room.exe"
+    ],
+    "checkver": {
+        "github": "https://github.com/citra-emu/citra-canary",
+        "regex": "download/canary-(?<build>[\\d]+)/citra-windows-mingw-(?<date>[\\d]+)-(?<random>[a-fA-F\\d]+).7z",
+        "replace": "${1}-${2}"
+    },
     "extract_dir": "canary-mingw",
+    "persist": "user",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\user\")) {",
         "   New-Item -Path \"$persist_dir\" -Name \"user\" -ItemType \"directory\" | Out-Null",
@@ -19,24 +33,10 @@
         "   }",
         "}"
     ],
-    "bin": [
-        "citra.exe",
-        "citra-qt.exe",
-        "citra-room.exe"
-    ],
     "shortcuts": [
         [
             "citra-qt.exe",
             "Citra (Canary)"
         ]
-    ],
-    "persist": "user",
-    "checkver": {
-        "github": "https://github.com/citra-emu/citra-canary",
-        "regex": "download/canary-(?<build>[\\d]+)/citra-windows-mingw-(?<date>[\\d]+)-(?<random>[a-fA-F\\d]+).7z",
-        "replace": "${1}-${2}"
-    },
-    "autoupdate": {
-        "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-$matchBuild/citra-windows-mingw-$matchDate-$matchRandom.7z"
-    }
+    ]
 }

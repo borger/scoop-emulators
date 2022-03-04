@@ -9,14 +9,19 @@
             "hash": "b0e3abf5048f78e352b42c3e1660a2c6e85d6905cd9f60d06ca2f2318fa3152c"
         }
     },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://cemu.info/releases/cemu_$matchVersion.zip"
+            }
+        },
+        "extract_dir": "cemu_$matchVersion"
+    },
     "bin": "Cemu.exe",
+    "checkver": {
+        "regex": "Download latest version \\(v((?<version>[\\d.]+)[\\w]*?),"
+    },
     "extract_dir": "cemu_1.26.2",
-    "shortcuts": [
-        [
-            "cemu.exe",
-            "Cemu"
-        ]
-    ],
     "installer": {
         "script": [
             "'cemuhook.dll', 'keystone.dll' | ForEach-Object {",
@@ -38,19 +43,14 @@
         "sharedFonts",
         "shaderCache\\transferable"
     ],
+    "shortcuts": [
+        [
+            "cemu.exe",
+            "Cemu"
+        ]
+    ],
     "suggest": {
-        "vcredist": "extras/vcredist2015",
-        "cemuhook": "cemuhook"
-    },
-    "checkver": {
-        "regex": "Download latest version \\(v((?<version>[\\d.]+)[\\w]*?),"
-    },
-    "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "https://cemu.info/releases/cemu_$matchVersion.zip"
-            }
-        },
-        "extract_dir": "cemu_$matchVersion"
+        "cemuhook": "cemuhook",
+        "vcredist": "extras/vcredist2015"
     }
 }

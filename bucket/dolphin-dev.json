@@ -1,14 +1,29 @@
 {
     "homepage": "https://dolphin-emu.org/",
     "description": "A Nintendo GameCube and Wii emulator",
+    "version": "5.0-16116",
     "license": {
         "identifier": "GPL-2.0-or-later",
         "url": "https://github.com/dolphin-emu/dolphin/blob/master/COPYING"
     },
-    "version": "5.0-16116",
     "url": "https://dl.dolphin-emu.org/builds/fe/0c/dolphin-master-5.0-16116-x64.7z",
     "hash": "328c02513f465760847906718226f8e8038f0adf937c635f300954f09fc86249",
+    "autoupdate": {
+        "url": "https://dl.dolphin-emu.org/builds/$matchPath/dolphin-master-$version-x64.7z"
+    },
+    "bin": [
+        [
+            "Dolphin.exe",
+            "dolphin-dev"
+        ]
+    ],
+    "checkver": {
+        "url": "https://dolphin-emu.org/download/",
+        "regex": "https://dl.dolphin-emu.org/builds/(?<path>[A-Fa-f\\d]{2}/[A-Fa-f\\d]{2})/dolphin-master-(?<version>[\\d.]+-[\\d]+)-x64.7z"
+    },
     "extract_dir": "Dolphin-x64",
+    "persist": "User",
+    "post_install": "Set-Content -Value $null -Path \"$dir\\portable.txt\"",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
@@ -20,28 +35,13 @@
         "   }",
         "}"
     ],
-    "bin": [
-        [
-            "Dolphin.exe",
-            "dolphin-dev"
-        ]
-    ],
     "shortcuts": [
         [
             "Dolphin.exe",
             "Dolphin (Dev)"
         ]
     ],
-    "persist": "User",
-    "post_install": "Set-Content -Value $null -Path \"$dir\\portable.txt\"",
     "suggest": {
         "vcredist": "extras/vcredist2019"
-    },
-    "checkver": {
-        "url": "https://dolphin-emu.org/download/",
-        "re": "https://dl.dolphin-emu.org/builds/(?<path>[A-Fa-f\\d]{2}/[A-Fa-f\\d]{2})/dolphin-master-(?<version>[\\d.]+-[\\d]+)-x64.7z"
-    },
-    "autoupdate": {
-        "url": "https://dl.dolphin-emu.org/builds/$matchPath/dolphin-master-$version-x64.7z"
     }
 }

@@ -12,7 +12,29 @@
             "hash": "72cd44c6bf0703c700bc588f5c33fba318b29681fac2e8cfec057315aec05c84"
         }
     },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/pineappleEA/pineapple-src/releases/download/$version/Windows-Yuzu-$version.7z"
+            }
+        }
+    },
+    "bin": [
+        [
+            "yuzu.exe",
+            "yuzu-dev"
+        ],
+        "yuzu-cmd.exe"
+    ],
+    "checkver": {
+        "github": "https://github.com/pineappleEA/pineapple-src",
+        "regex": "(EA-\\d+) \\(auto-updater\\)"
+    },
     "extract_dir": "yuzu-windows-msvc-early-access",
+    "persist": [
+        "user",
+        "plugins"
+    ],
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
@@ -24,32 +46,10 @@
         "   }",
         "}"
     ],
-    "bin": [
-        [
-            "yuzu.exe",
-            "yuzu-dev"
-        ],
-        "yuzu-cmd.exe"
-    ],
     "shortcuts": [
         [
             "yuzu.exe",
             "Yuzu (Development)"
         ]
-    ],
-    "persist": [
-        "user",
-        "plugins"
-    ],
-    "checkver": {
-        "github": "https://github.com/pineappleEA/pineapple-src",
-        "regex": "(EA-\\d+) \\(auto-updater\\)"
-    },
-    "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "https://github.com/pineappleEA/pineapple-src/releases/download/$version/Windows-Yuzu-$version.7z"
-            }
-        }
-    }
+    ]
 }
