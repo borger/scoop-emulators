@@ -1,27 +1,35 @@
 {
     "homepage": "http://www.snes9x.com/",
+    "description": "Nintendo SNES (Super Nintendo Entertainment System) emulator",
     "version": "1.60",
     "license": {
-        "identifier": "Freeware",
-        "url": "https://github.com/snes9xgit/snes9x/raw/master/LICENSE"
+        "identifier": "Non-commercial",
+        "url": "https://github.com/snes9xgit/snes9x/blob/master/LICENSE"
     },
     "architecture": {
-        "64bit": {
-            "url": "https://github.com/snes9xgit/snes9x/releases/download/1.60/snes9x-1.60-win32-x64.zip",
-            "hash": "d5914d166e6d9987429566b8ad70f42d8c851c87ababace738918966852a58a3",
+        "32bit": {
+            "url": "https://github.com/snes9xgit/snes9x/releases/download/1.60/snes9x-1.60-win32.zip",
+            "hash": "c373522f4e9872626fbc29fa9e83d06122530e53e2328d39811394ca391ef728",
+            "bin": "snes9x.exe",
             "shortcuts": [
                 [
-                    "snes9x-x64.exe",
+                    "snes9x.exe",
                     "Snes9X"
                 ]
             ]
         },
-        "32bit": {
-            "url": "https://github.com/snes9xgit/snes9x/releases/download/1.60/snes9x-1.60-win32.zip",
-            "hash": "c373522f4e9872626fbc29fa9e83d06122530e53e2328d39811394ca391ef728",
+        "64bit": {
+            "url": "https://github.com/snes9xgit/snes9x/releases/download/1.60/snes9x-1.60-win32-x64.zip",
+            "hash": "d5914d166e6d9987429566b8ad70f42d8c851c87ababace738918966852a58a3",
+            "bin": [
+                [
+                    "snes9x-x64.exe",
+                    "Snes9X"
+                ]
+            ],
             "shortcuts": [
                 [
-                    "snes9x.exe",
+                    "snes9x-x64.exe",
                     "Snes9X"
                 ]
             ]
@@ -33,15 +41,15 @@
         "}"
     ],
     "persist": [
-        "Roms",
-        "Screenshots",
-        "Movies",
-        "SPCs",
-        "Saves",
-        "Cheats",
         "BIOS",
+        "Cheats",
+        "Movies",
         "Patches",
+        "Roms",
         "SatData",
+        "Saves",
+        "Screenshots",
+        "SPCs",
         "snes9x.conf"
     ],
     "checkver": {
@@ -49,11 +57,11 @@
     },
     "autoupdate": {
         "architecture": {
-            "64bit": {
-                "url": "https://github.com/snes9xgit/snes9x/releases/download/$version/snes9x-$version-win32-x64.zip"
-            },
             "32bit": {
                 "url": "https://github.com/snes9xgit/snes9x/releases/download/$version/snes9x-$version-win32.zip"
+            },
+            "64bit": {
+                "url": "https://github.com/snes9xgit/snes9x/releases/download/$version/snes9x-$version-win32-x64.zip"
             }
         }
     }
