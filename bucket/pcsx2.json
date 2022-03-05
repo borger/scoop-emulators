@@ -48,9 +48,6 @@
         ]
     ],
     "suggest": {
-        "Visual Studio redist 2019": [
-            "vcredist",
-            "vcredist2019"
-        ]
+        "Microsoft Visual C++ Runtime 2019": "extras/vcredist2019"
     }
 }
