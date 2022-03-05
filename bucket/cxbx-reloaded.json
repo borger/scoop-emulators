@@ -1,13 +1,13 @@
 {
     "homepage": "https://cxbx-reloaded.co.uk/",
     "description": "Microsoft Xbox emulator",
-    "version": "25b9a2e",
+    "version": "1e300d6",
     "license": {
         "identifier": "GPL-2.0",
         "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/blob/master/COPYING"
     },
-    "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-25b9a2e/CxbxReloaded-Release-VS2019.zip",
-    "hash": "6a606a8c9fee0f068b8a56806cdd54633f59b6923f5eaee8706e5d978e069939",
+    "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-1e300d6/CxbxReloaded-Release-VS2019.zip",
+    "hash": "b07bb6db061ca9de6a3bb6c33f42227ef3fc4c50f6c8f1a8342255db31f17864",
     "autoupdate": {
         "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$version/CxbxReloaded-Release-VS2019.zip"
     },
