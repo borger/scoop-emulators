@@ -9,7 +9,7 @@
     "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-25b9a2e/CxbxReloaded-Release-VS2019.zip",
     "hash": "6a606a8c9fee0f068b8a56806cdd54633f59b6923f5eaee8706e5d978e069939",
     "autoupdate": {
-        "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$matchSha/CxbxReloaded-Release-VS2019.zip"
+        "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$version/CxbxReloaded-Release-VS2019.zip"
     },
     "bin": "cxbx.exe",
     "checkver": {
