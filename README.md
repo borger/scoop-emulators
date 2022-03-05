@@ -4,7 +4,7 @@
 
 # Emulators Scoop Bucket
 
-This bucket for [Scoop](http://scoop.sh). It is focused on currently maintained portable 64-bit Windows emulators and related tooling. Interested in adding something? See our [contribution guide](#Contributing) before working on a pull request.
+This bucket is for [Scoop](http://scoop.sh). It is focused on currently maintained portable 64-bit Windows emulators and related tooling. Interested in adding something? See our [contribution guide](#Contributing) before working on a pull request.
 
 This bucket is curated and not intended to be a catch-all. All emulators in this bucket are currently maintained, have active development, and have a strong active user-base. For other emulators,games, and other tooling, check out [scoop-games](https://github.com/Calinou/scoop-games).
 
