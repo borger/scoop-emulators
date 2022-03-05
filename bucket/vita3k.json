@@ -33,7 +33,6 @@
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
-        "   New-item \"$persist_dir\\data\" -ItemType Directory | Out-Null",
         "   New-Item \"$persist_dir\\config.yml\" -Type File | Out-Null",
         "}"
     ],
