@@ -4,7 +4,7 @@
 
 # Emulators Scoop Bucket
 
-This is a [Scoop](http://scoop.sh) bucket for emulators. It's focused on Windows emulators and core tooling. Interested in adding something? See our [contribution guide](#Contributing) before working on a pull request.
+This is a [Scoop](http://scoop.sh) bucket for emulators. It's focused on Windows emulators and core tooling. Interested in adding something? See our [contribution guide](#contributing) before working on a pull request.
 
 This bucket is curated and not intended to be a catch-all. All emulators in this bucket are maintained, have active development, and have a strong active user-base. For other emulators, games, and other apps, check out [scoop-games](https://github.com/Calinou/scoop-games) or other scoop buckets.
 
@@ -101,7 +101,7 @@ scoop update
 scoop update *
 ```
 
-## 5. Contributing
+## Contributing
 
 Thank you for considering contributing to the Emulators Scoop Bucket! You may propose new features or improvements of existing bucket behavior in the GitHub issue board. If you propose a new feature, please be willing to implement at least some of the code that would be needed to complete the feature.
 
