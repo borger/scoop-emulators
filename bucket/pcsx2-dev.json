@@ -1,15 +1,15 @@
 {
     "homepage": "https://pcsx2.net/",
     "description": "Sony PlayStation 2 emulator",
-    "version": "1.7-2413",
+    "version": "1.7-2414",
     "license": "LGPL-3.0-or-later",
     "notes": [
         "ATTENTION: PCSX2 requires a dump of the PS2 BIOS to function.",
         "Place the BIOS file in $persist_dir\\bios",
         "Learn more at https://pcsx2.net/config-guide/official-english-pcsx2-configuration-guide.html#Bios"
     ],
-    "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v1.7.2413&platform=windows-x86",
-    "hash": "9216cf3beafb64ffb69b45b69ae4a024d9445bf57ae9c18f942f1d8b3a645eaa",
+    "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v1.7.2414&platform=windows-x86",
+    "hash": "84c088b2a844a25073a241b2153ec869c95e10b5bffd5799452472c7efe2229b",
     "autoupdate": {
         "url": "https://buildbot.orphis.net/pcsx2/index.php?m=dl&rev=v$matchBasever.$matchBuild&platform=windows-x86",
         "extract_dir": "pcsx2-v$matchBasever.$matchBuild-windows-x86"
@@ -20,7 +20,7 @@
         "regex": "v(?<basever>\\d+\\.\\d+)\\.(?<build>\\d+)",
         "replace": "${basever}-${build}"
     },
-    "extract_dir": "pcsx2-v1.7.2413-windows-x86",
+    "extract_dir": "pcsx2-v1.7.2414-windows-x86",
     "persist": [
         "bios",
         "cheats",
