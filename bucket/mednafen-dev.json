@@ -56,6 +56,12 @@
         "snaps",
         "mednafen.cfg"
     ],
+    "shortcuts": [
+        [
+            "mednafen.exe",
+            "mednafen (dev)"
+        ]
+    ],
     "suggest": {
         "Mednaffe": "mednaffe"
     }
