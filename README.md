@@ -92,7 +92,7 @@ scoop update retroarch
 scoop update citra-canary mesen
 ```
 
-### 5. Automating Updates
+### 4c. Automating Updates
 
 Create a PowerShell script and add it to Windows' Task Scheduler or add multiple "start a program" actions to run daily or in your preferred schedule. The script contents would just be:
 
@@ -101,7 +101,7 @@ scoop update
 scoop update *
 ```
 
-## 6. Contributing
+## 5. Contributing
 
 Thank you for considering contributing to the Emulators Scoop Bucket! You may propose new features or improvements of existing bucket behavior in the GitHub issue board. If you propose a new feature, please be willing to implement at least some of the code that would be needed to complete the feature.
 
