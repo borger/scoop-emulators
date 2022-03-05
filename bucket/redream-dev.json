@@ -16,6 +16,7 @@
             }
         }
     },
+    "bin": "redream.exe",
     "checkver": {
         "url": "https://redream.io/download",
         "regex": "v(\\d\\.\\d\\.\\d-\\d{4}-g[a-f0-9]+)"

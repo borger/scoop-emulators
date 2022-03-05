@@ -16,8 +16,15 @@
     "checkver": {
         "github": "https://github.com/Arisotura/melonDS"
     },
+    "installer": {
+        "script": [
+            "$FILE = 'melonDS.ini'",
+            "if (!(Test-Path \"$persist_dir\\$FILE\")) {",
+            "    New-Item \"$dir\\$FILE\" -Type File | Out-Null",
+            "}"
+        ]
+    },
     "persist": "melonDS.ini",
-    "pre_install": "if (!(Test-Path \"$persist_dir\\melonDS.ini\")) { New-Item -ItemType File \"$dir\\melonDS.ini\" | Out-Null }",
     "shortcuts": [
         [
             "melonDS.exe",
