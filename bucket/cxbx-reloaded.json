@@ -13,7 +13,7 @@
     },
     "bin": "cxbx.exe",
     "checkver": {
-        "github": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded",
+        "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases.atom",
         "regex": "CI-([a-f\\d]+)"
     },
     "persist": [
