@@ -1,6 +1,6 @@
 {
     "version": "0.9.9",
-    "description": "Nintendo NES and Famicom emulator",
+    "description": "Nintendo NES (Nintendo Entertainment System) and Famicom emulator",
     "homepage": "https://www.mesen.ca",
     "license": {
         "url": "https://github.com/SourMesen/Mesen/blob/master/LICENSE",

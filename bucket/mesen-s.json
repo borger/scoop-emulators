@@ -1,6 +1,6 @@
 {
     "version": "0.4.0",
-    "description": "Nintendo SNES and Super Game Boy emulator",
+    "description": "Nintendo SNES (Super Nintendo Entertainment System) and Super Game Boy emulator",
     "homepage": "https://www.mesen.ca",
     "license": {
         "url": "https://github.com/SourMesen/Mesen-S/blob/master/LICENSE",
