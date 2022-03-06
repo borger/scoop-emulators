@@ -1,4 +1,16 @@
 {
+    "json.schemas": [
+        {
+            "url": "https://raw.githubusercontent.com/scoopinstaller/scoop/master/schema.json",
+            "fileMatch": [
+                "bucket/*.json"
+            ]
+        }
+    ],
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true
+    },
     "cSpell.words": [
         "appdata",
         "autoupdate",
