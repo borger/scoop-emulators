@@ -1,5 +1,6 @@
 {
     "homepage": "https://desmume.org",
+    "description": "Nintendo DS emulator",
     "version": "ccaedcb",
     "license": {
         "identifier": "GPL-2.0",
