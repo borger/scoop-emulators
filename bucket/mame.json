@@ -30,7 +30,7 @@
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/mamedev/mame/releases/download/mame0241/mame0241b_64bit.exe#/mame.7z",
+            "url": "https://github.com/mamedev/mame/releases/download/mame0241/mame0241b_64bit.exe#/dl.7z",
             "hash": "8b643ef1c9a5842133b98a99e96126ca530ee01d1a2bc335f8da96db61a3aea2",
             "pre_install": [
                 "if(!(Test-Path \"$persist_dir\\mame.ini\")) {",
@@ -40,7 +40,7 @@
             ],
             "bin": [
                 [
-                    "mame64.exe",
+                    "mame.exe",
                     "mame"
                 ]
             ],
