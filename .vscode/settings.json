@@ -1,0 +1,57 @@
+{
+    "cSpell.words": [
+        "appdata",
+        "autoupdate",
+        "basever",
+        "beyondmeat",
+        "Calinou",
+        "checkurls",
+        "checkver",
+        "citra",
+        "createconfig",
+        "ctrlr",
+        "hermanjustnu",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "lukesampson",
+        "MAME",
+        "memstick",
+        "mesen",
+        "mklink",
+        "msvc",
+        "ppsspp",
+        "Retroarch",
+        "RPCS",
+        "useb",
+        "yuzu"
+    ],
+    "sortJSON.orderOverride": ["identifier",
+        "homepage",
+        "description",
+        "version",
+        "license",
+        "notes",
+        "url",
+        "hash",
+        "pre-install",
+        "post-install"
+    ],
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true,
+        "source.fixAll.sortJSON": true
+      },
+
+    "sort-json.settings.orderOverride": [
+        "homepage",
+        "description",
+        "version",
+        "license",
+        "notes",
+        "url",
+        "hash",
+        "pre-install",
+        "post-install"
+    ],
+    "editor.defaultFormatter": "richie5um2.vscode-sort-json",
+    "editor.formatOnSave": true
+}
