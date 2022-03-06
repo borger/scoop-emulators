@@ -1,7 +1,10 @@
 {
     "homepage": "https://desmume.org",
     "version": "ccaedcb",
-    "license": "GPL-2.0",
+    "license": {
+        "identifier": "GPL-2.0",
+        "url": "https://github.com/TASEmulators/desmume/blob/master/license.txt"
+    },
     "architecture": {
         "64bit": {
             "url": "https://nightly.link/TASEmulators/desmume/workflows/build_win/master/desmume-win-x64.zip",
