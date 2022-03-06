@@ -36,12 +36,6 @@
         "regex": "SameBoy v([\\d.]+)"
     },
     "persist": [
-        "cheats",
-        "fcs",
-        "movies",
-        "sav",
-        "snaps",
-        "fceux.cfg"
     ],
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\fceux.cfg\")) {",
