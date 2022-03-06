@@ -7,7 +7,7 @@
         "identifier": "GPL-2.0"
     },
     "pre_install": [
-        "if (!(Test-Path \"$persist_dir\\settings.xml\")) {",
+        "if (!(Test-Path \"$persist_dir\\desmume.ini\")) {",
         "    New-Item \"$dir\\desmume.ini\" -Type File | Out-Null",
         "}"
     ],
