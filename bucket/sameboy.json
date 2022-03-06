@@ -34,12 +34,5 @@
     "checkver": {
         "github": "https://github.com/LIJI32/SameBoy",
         "regex": "SameBoy v([\\d.]+)"
-    },
-    "persist": [
-    ],
-    "pre_install": [
-        "if (!(Test-Path \"$persist_dir\\fceux.cfg\")) {",
-        "    New-Item \"$dir\\fceux.cfg\" -Type File | Out-Null",
-        "}"
-    ]
+    }
 }
