@@ -18,19 +18,6 @@
         "regex": ".*bsnes_v(?<version>[\\d\\w.]+)-windows.zip"
     },
     "extract_dir": "bsnes_v115-windows",
-    "persist": [
-        "Firmware",
-        "settings.bml"
-    ],
-    "pre_install": [
-        "if (!(Test-Path \"$persist_dir\\settings.bml\")) {",
-        "    New-Item \"$dir\\settings.bml\" -Type File | Out-Null",
-        "}"
-    ],
-    "shortcuts": [
-        [
-            "bsnes.exe",
-            "bsnes"
-        ]
-    ]
+    "persist": ["Firmware", "settings.bml"],
+    "shortcuts": [["bsnes.exe", "bsnes"]]
 }
