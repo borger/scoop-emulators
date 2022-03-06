@@ -52,6 +52,11 @@
         "pre-install",
         "post-install"
     ],
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
     "editor.defaultFormatter": "richie5um2.vscode-sort-json",
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "prettier.enable": false,
+    "html.format.enable": false
 }

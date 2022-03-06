@@ -1,6 +1,6 @@
 {
     "homepage": "https://vba-m.com",
-    "description": "Community-maintained, improved version of the VisualBoyAdvance Game Boy emulator",
+    "description": "Nintendo Game Boy Advance emulator",
     "version": "2.1.4",
     "license": "GPL-2.0-or-later",
     "architecture": {

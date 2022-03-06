@@ -1,6 +1,6 @@
 {
     "homepage": "https://www.mesen.ca",
-    "description": "Nintendo SNES and Super GameBoy emulator",
+    "description": "Nintendo SNES and Super Game Boy emulator",
     "version": "0.4.0",
     "license": "GPL-3.0-only",
     "notes": "Configuration files cannot be persisted, but will be retained during the update",
