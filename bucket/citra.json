@@ -1,13 +1,11 @@
 {
-    "version": "1757-20220305",
+    "version": "1757",
     "description": "Nintendo 3DS emulator",
     "homepage": "https://citra-emu.org/",
     "license": {
         "url": "https://github.com/citra-emu/citra-nightly/blob/master/license.txt",
         "identifier": "GPL-2.0"
     },
-    "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-1757/citra-windows-mingw-20220305-ac98458.7z",
-    "hash": "0e6979f48bd735fbc07f237f15d3cdcbd56278e5927d291345741eaaca02214b",
     "extract_dir": "nightly-mingw",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\user\")) {",
@@ -33,10 +31,20 @@
     "persist": "user",
     "checkver": {
         "github": "https://github.com/citra-emu/citra-nightly",
-        "regex": "download/nightly-(?<build>[\\d]+)/citra-windows-mingw-(?<date>[\\d]+)-(?<random>[a-fA-F\\d]+).7z",
-        "replace": "${1}-${2}"
+        "regex": "download/nightly-([\\d]+)/citra-windows-(?<env>[\\w]+)-(?<commit>[\\d]{8}-[\\da-f]{7})\\.(?<zip>7z|zip)"
     },
     "autoupdate": {
-        "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-$matchBuild/citra-windows-mingw-$matchDate-$matchRandom.7z"
+        "extract_dir": "canary-$matchEnv",
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-$version/citra-windows-$matchEnv-$matchCommit.$matchZip"
+            }
+        }
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-1757/citra-windows-mingw-20220305-ac98458.7z",
+            "hash": "0e6979f48bd735fbc07f237f15d3cdcbd56278e5927d291345741eaaca02214b"
+        }
     }
 }

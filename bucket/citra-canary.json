@@ -1,13 +1,11 @@
 {
-    "version": "2072-20220306",
+    "version": "2072",
     "description": "Nintendo 3DS emulator",
     "homepage": "https://citra-emu.org/",
     "license": {
         "url": "https://github.com/citra-emu/citra-canary/blob/master/license.txt",
-        "identifier": "GPL-2.0"
+        "identifier": "GPL-2.0-only"
     },
-    "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-2072/citra-windows-mingw-20220306-8aa6f20.7z",
-    "hash": "169d9561ac29b72bb8b67dcb2bfa263d47fa417be3665099397f6eab220eb097",
     "extract_dir": "canary-mingw",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\user\")) {",
@@ -33,10 +31,20 @@
     "persist": "user",
     "checkver": {
         "github": "https://github.com/citra-emu/citra-canary",
-        "regex": "download/canary-(?<build>[\\d]+)/citra-windows-mingw-(?<date>[\\d]+)-(?<random>[a-fA-F\\d]+).7z",
-        "replace": "${1}-${2}"
+        "regex": "releases/download/canary-([\\d]+)/citra-windows-(?<env>[\\w]+)-(?<commit>[\\d]{8}-[\\da-f]{7})\\.(?<zip>7z|zip)"
     },
     "autoupdate": {
-        "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-$matchBuild/citra-windows-mingw-$matchDate-$matchRandom.7z"
+        "extract_dir": "canary-$matchEnv",
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-$version/citra-windows-$matchEnv-$matchCommit.$matchZip"
+            }
+        }
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-2072/citra-windows-mingw-20220306-8aa6f20.7z",
+            "hash": "169d9561ac29b72bb8b67dcb2bfa263d47fa417be3665099397f6eab220eb097"
+        }
     }
 }
