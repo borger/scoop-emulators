@@ -1,10 +1,37 @@
 {
-    "homepage": "http://www.fceux.com",
-    "description": "Nintendo NES and Famicom emulator",
     "version": "2.6.2",
+    "description": "Nintendo NES and Famicom emulator",
+    "homepage": "http://www.fceux.com",
     "license": {
-        "identifier": "GPL-2.0",
-        "url": "https://github.com/TASEmulators/fceux/blob/master/COPYING"
+        "url": "https://github.com/TASEmulators/fceux/blob/master/COPYING",
+        "identifier": "GPL-2.0"
+    },
+    "pre_install": [
+        "if (!(Test-Path \"$persist_dir\\fceux.cfg\")) {",
+        "    New-Item \"$dir\\fceux.cfg\" -Type File | Out-Null",
+        "}"
+    ],
+    "persist": [
+        "cheats",
+        "fcs",
+        "movies",
+        "sav",
+        "snaps",
+        "fceux.cfg"
+    ],
+    "checkver": {
+        "github": "https://github.com/TASEmulators/fceux",
+        "regex": "fceux-([\\d.]+)"
+    },
+    "autoupdate": {
+        "architecture": {
+            "32bit": {
+                "url": "http://sourceforge.net/projects/fceultra/files/Binaries/$version/fceux-$version-win32.zip/download#/fceux.zip"
+            },
+            "64bit": {
+                "url": "http://sourceforge.net/projects/fceultra/files/Binaries/$version/qfceux-$version-win64.zip/download#/qfceux.zip"
+            }
+        }
     },
     "architecture": {
         "32bit": {
@@ -26,13 +53,13 @@
         "64bit": {
             "url": "http://sourceforge.net/projects/fceultra/files/Binaries/2.6.2/qfceux-2.6.2-win64.zip/download#/qfceux.zip",
             "hash": "806bed10d378cf36b0ed2f60c55c05a574c2492d687efe368f58aa4c330783b2",
+            "extract_dir": "bin",
             "bin": [
                 [
                     "qfceux.exe",
                     "fceux"
                 ]
             ],
-            "extract_dir": "bin",
             "shortcuts": [
                 [
                     "qfceux.exe",
@@ -40,32 +67,5 @@
                 ]
             ]
         }
-    },
-    "autoupdate": {
-        "architecture": {
-            "32bit": {
-                "url": "http://sourceforge.net/projects/fceultra/files/Binaries/$version/fceux-$version-win32.zip/download#/fceux.zip"
-            },
-            "64bit": {
-                "url": "http://sourceforge.net/projects/fceultra/files/Binaries/$version/qfceux-$version-win64.zip/download#/qfceux.zip"
-            }
-        }
-    },
-    "checkver": {
-        "github": "https://github.com/TASEmulators/fceux",
-        "regex": "fceux-([\\d.]+)"
-    },
-    "persist": [
-        "cheats",
-        "fcs",
-        "movies",
-        "sav",
-        "snaps",
-        "fceux.cfg"
-    ],
-    "pre_install": [
-        "if (!(Test-Path \"$persist_dir\\fceux.cfg\")) {",
-        "    New-Item \"$dir\\fceux.cfg\" -Type File | Out-Null",
-        "}"
-    ]
+    }
 }
