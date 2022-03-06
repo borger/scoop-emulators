@@ -18,6 +18,14 @@
         "regex": ".*bsnes_v(?<version>[\\d\\w.]+)-windows.zip"
     },
     "extract_dir": "bsnes_v115-windows",
-    "persist": ["Firmware", "settings.bml"],
-    "shortcuts": [["bsnes.exe", "bsnes"]]
+    "persist": [
+        "Firmware",
+        "settings.bml"
+    ],
+    "shortcuts": [
+        [
+            "bsnes.exe",
+            "bsnes"
+        ]
+    ]
 }
