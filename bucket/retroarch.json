@@ -19,7 +19,7 @@
         },
         "64bit": {
             "url": "https://buildbot.libretro.com/stable/1.10.1/windows/x86_64/RetroArch.7z",
-            "hash": "a0f4e74317c5e399c0d5bf1472d082801fd349b85950f5a6b56c6fc0dd0f5675",
+            "hash": "197c6b77220a1d14cb2ef27b401954b7010d5ceccb1eec2a140e5826c181e014",
             "extract_dir": "RetroArch-Win64"
         }
     },
