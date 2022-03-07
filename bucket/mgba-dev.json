@@ -10,10 +10,8 @@
         "if (!(Test-Path \"$persist_dir\\qt.ini\")) {",
         "   New-Item \"$dir\\qt.ini\" -ItemType \"file\" | Out-Null ",
         "}",
-        "if (!(Test-Path \"$persist_dir\\config.ini\")) {",
-        "   Set-Content \"$dir\\config.ini\" '[ports.qt]'",
-        "   'cheats', 'patch', 'savegame', 'savestate', 'screenshot' | ForEach-Object {",
-        "       Add-Content -Path \"$dir\\config.ini\" -Value $_`Path`=$persist_dir\\$_ }",
+        "if (!(Test-Path \"$persist_dir\\portable.ini\")) {",
+        "   New-Item \"$dir\\portable.ini\" -ItemType \"file\" | Out-Null ",
         "}"
     ],
     "bin": [
@@ -40,7 +38,8 @@
         "screenshot",
         "shaders",
         "qt.ini",
-        "config.ini"
+        "config.ini",
+        "portable.ini"
     ],
     "checkver": {
         "url": "https://mgba.io/builds/1/",
