@@ -8,13 +8,13 @@
     },
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\portable.ini\")) {",
-        "   New-Item \"$persist_dir\\portable.ini\" -ItemType \"file\" | Out-Null ",
+        "   New-Item \"$dir\\portable.ini\" -ItemType \"file\" | Out-Null ",
         "}",
         "if (!(Test-Path \"$persist_dir\\qt.ini\")) {",
-        "   New-Item \"$persist_dir\\qt.ini\" -ItemType \"file\" | Out-Null ",
+        "   New-Item \"$dir\\qt.ini\" -ItemType \"file\" | Out-Null ",
         "}",
         "if (!(Test-Path \"$persist_dir\\config.ini\")) {",
-        "   New-Item \"$persist_dir\\config.ini\" -ItemType \"file\" | Out-Null ",
+        "   New-Item \"$dir\\config.ini\" -ItemType \"file\" | Out-Null ",
         "}"
     ],
     "bin": [
