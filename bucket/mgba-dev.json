@@ -68,7 +68,7 @@
         "64bit": {
             "url": "https://s3.amazonaws.com/mgba/build/mGBA-build-2022-03-01-win64-7293-245a20b442d577c90221fdbfd16ea573d0046523.7z",
             "hash": "dab858a96ef342ac498f7a3cb368272879c1eb81c33e4eda3b65d35bef978fd5",
-            "extract_dir": "/mGBA-build-2022-03-01-win64-7293-245a20b442d577c90221fdbfd16ea573d0046523"
+            "extract_dir": "mGBA-build-2022-03-01-win64-7293-245a20b442d577c90221fdbfd16ea573d0046523"
         }
     }
 }
