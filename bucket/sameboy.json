@@ -11,9 +11,7 @@
         "    New-Item \"$dir\\prefs.bin\" -Type File | Out-Null",
         "}"
     ],
-    "persist": [
-        "prefs.bin"
-    ],
+    "persist": "prefs.bin",
     "checkver": {
         "github": "https://github.com/LIJI32/SameBoy",
         "regex": "SameBoy v([\\d.]+)"
