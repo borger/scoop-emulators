@@ -54,7 +54,7 @@
             "bin": [
                 [
                     "snes9x-x64.exe",
-                    "Snes9X"
+                    "snes9x"
                 ]
             ],
             "shortcuts": [
