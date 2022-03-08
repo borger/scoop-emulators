@@ -3,8 +3,8 @@
     "description": "Nintendo Game Boy Advance emulator",
     "homepage": "https://vba-m.com",
     "license": {
-        "url": "http://www.gnu.org/licenses/gpl-2.0.html",
-        "identifier": "GPL-2.0"
+        "identifier": "GPL-2.0",
+        "url": "http://www.gnu.org/licenses/gpl-2.0.html"
     },
     "architecture": {
         "32bit": {

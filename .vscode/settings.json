@@ -44,6 +44,7 @@
         "Retroarch",
         "RPCS",
         "useb",
+        "visualboyadvance",
         "yuzu"
     ],
     "sortJSON.orderOverride": [
@@ -54,6 +55,7 @@
         "notes",
         "depends",
         "suggest",
+        "identifier",
         "url",
         "hash",
         "architecture",
@@ -84,6 +86,7 @@
         "notes",
         "depends",
         "suggest",
+        "identifier",
         "url",
         "hash",
         "architecture",

@@ -3,8 +3,8 @@
     "description": "Nintendo Game Boy and Game Boy Color emulator",
     "homepage": "https://sameboy.github.io/",
     "license": {
-        "url": "https://github.com/LIJI32/SameBoy/blob/master/LICENSE",
-        "identifier": "MIT"
+        "identifier": "MIT",
+        "url": "https://github.com/LIJI32/SameBoy/blob/master/LICENSE"
     },
     "architecture": {
         "64bit": {

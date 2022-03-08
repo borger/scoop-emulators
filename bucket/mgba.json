@@ -3,8 +3,8 @@
     "description": "Nintendo Game Boy Advance emulator",
     "homepage": "https://mgba.io/",
     "license": {
-        "url": "https://github.com/mgba-emu/mgba/blob/master/LICENSE",
-        "identifier": "MPL-2.0"
+        "identifier": "MPL-2.0",
+        "url": "https://github.com/mgba-emu/mgba/blob/master/LICENSE"
     },
     "architecture": {
         "32bit": {

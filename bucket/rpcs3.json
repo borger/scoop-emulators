@@ -3,8 +3,8 @@
     "description": "Sony PlayStation 3 emulator",
     "homepage": "https://rpcs3.net/",
     "license": {
-        "url": "https://github.com/RPCS3/rpcs3/blob/master/LICENSE",
-        "identifier": "GPL-2.0"
+        "identifier": "GPL-2.0",
+        "url": "https://github.com/RPCS3/rpcs3/blob/master/LICENSE"
     },
     "notes": [
         "ATTENTION: RPCS3 requires a copy of the official PS3 firmware to function.",

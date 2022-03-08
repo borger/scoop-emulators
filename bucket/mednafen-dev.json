@@ -3,8 +3,8 @@
     "description": "Multi-system emulator",
     "homepage": "https://mednafen.github.io/",
     "license": {
-        "url": "http://www.gnu.org/licenses/gpl-2.0.html",
-        "identifier": "GPL-2.0-only"
+        "identifier": "GPL-2.0-only",
+        "url": "http://www.gnu.org/licenses/gpl-2.0.html"
     },
     "notes": [
         "ATTENTION: Mednafen requires BIOS/firmware files for Playstation 1, PC Engine, and PC FX emulation.",
