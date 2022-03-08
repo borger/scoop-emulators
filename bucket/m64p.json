@@ -30,13 +30,6 @@
         ]
     ],
     "persist": "config",
-    "uninstaller": {
-        "script": [
-            "'mupen64plus-gui.ini' | ForEach-Object {",
-            "    Copy-Item \"$dir\\$_\" \"$persist_dir\\$_.bak\" -Force",
-            "}"
-        ]
-    },
     "checkver": {
         "github": "https://github.com/m64p/m64p",
         "regex": "v([\\d\\.]+)\\/m64p-win64-(?<commit>[\\da-f]{7})\\."
