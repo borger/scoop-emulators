@@ -1,5 +1,5 @@
 {
-    "version": "2.6.2",
+    "version": "2.6.3",
     "description": "Nintendo NES and Famicom emulator",
     "homepage": "http://www.fceux.com",
     "license": {
@@ -8,8 +8,8 @@
     },
     "architecture": {
         "32bit": {
-            "url": "http://sourceforge.net/projects/fceultra/files/Binaries/2.6.2/fceux-2.6.2-win32.zip/download#/fceux.zip",
-            "hash": "fb071f2ddaa8a2576ee196fd7fde7646bad6d3c86ac4331977c811b4384664ec",
+            "url": "http://sourceforge.net/projects/fceultra/files/Binaries/2.6.3/fceux-2.6.3-win32.zip/download#/fceux.zip",
+            "hash": "bc3a3bc49cefe6ac2873a63475c77b375a1afd94f62a133b49245c70546c7acb",
             "bin": [
                 [
                     "fceux.exe",
@@ -24,8 +24,8 @@
             ]
         },
         "64bit": {
-            "url": "http://sourceforge.net/projects/fceultra/files/Binaries/2.6.2/qfceux-2.6.2-win64.zip/download#/qfceux.zip",
-            "hash": "806bed10d378cf36b0ed2f60c55c05a574c2492d687efe368f58aa4c330783b2",
+            "url": "http://sourceforge.net/projects/fceultra/files/Binaries/2.6.3/qfceux-2.6.3-win64.zip/download#/qfceux.zip",
+            "hash": "e59548f55a830fe3bedde8114fe70fb736c729ec7d2f5f9801c4a5c23b7fad3b",
             "extract_dir": "bin",
             "bin": [
                 [
