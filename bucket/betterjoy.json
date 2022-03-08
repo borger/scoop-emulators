@@ -3,8 +3,8 @@
     "description": "A remapping program for Nintendo Switch controllers",
     "homepage": "https://github.com/Davidobot/BetterJoy",
     "license": {
-        "url": "https://github.com/Davidobot/BetterJoy/blob/master/LICENSE",
-        "identifier": "MIT"
+        "identifier": "MIT",
+        "url": "https://github.com/Davidobot/BetterJoy/blob/master/LICENSE"
     },
     "notes": [
         "BetterJoy needs vigembus installed to function.",

@@ -3,8 +3,8 @@
     "description": "Nintendo Wii U emulator",
     "homepage": "https://cemu.info/",
     "license": {
-        "url": "https://cemu.info",
-        "identifier": "Freeware"
+        "identifier": "Freeware",
+        "url": "https://cemu.info"
     },
     "suggest": {
         "cemuhook": "cemuhook",

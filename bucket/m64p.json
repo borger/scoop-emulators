@@ -3,8 +3,8 @@
     "description": "Nintendo 64 emulator",
     "homepage": "https://m64p.github.io/",
     "license": {
-        "url": "https://github.com/m64p/m64p/blob/main/LICENSE",
-        "identifier": "GPL-3.0"
+        "identifier": "GPL-3.0",
+        "url": "https://github.com/m64p/m64p/blob/main/LICENSE"
     },
     "url": "https://github.com/m64p/m64p/releases/download/v2022.2.19/m64p-win64-c7ca130.zip",
     "hash": "1b9ef9c1bfc38824faaf3ef2a69d990b50220cfc363db17f42264ca4ef5af01b",

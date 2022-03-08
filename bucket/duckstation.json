@@ -3,8 +3,8 @@
     "description": "Sony PlayStation emulator",
     "homepage": "https://github.com/stenzek/duckstation/",
     "license": {
-        "url": "https://github.com/stenzek/duckstation/blob/master/LICENSE",
-        "identifier": "GPL-3.0-only"
+        "identifier": "GPL-3.0-only",
+        "url": "https://github.com/stenzek/duckstation/blob/master/LICENSE"
     },
     "notes": [
         "ATTENTION: Duckstation requires a PSX BIOS to function.",
