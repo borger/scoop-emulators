@@ -6,6 +6,12 @@
         "url": "https://github.com/yuzu-emu/yuzu-mainline/blob/master/license.txt",
         "identifier": "GPL-2.0"
     },
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/yuzu-emu/yuzu-mainline/releases/download/mainline-0-944/yuzu-windows-msvc-20220307-382773a40.7z",
+            "hash": "9add57959b283265c76904a03ef97e8835d7f3e77dea469147a8d3e10643de53"
+        }
+    },
     "extract_dir": "yuzu-windows-msvc",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
@@ -41,12 +47,6 @@
             "64bit": {
                 "url": "https://github.com/yuzu-emu/yuzu-mainline/releases/download/mainline-$version/yuzu-windows-msvc-$matchDate-$matchCommit.7z"
             }
-        }
-    },
-    "architecture": {
-        "64bit": {
-            "url": "https://github.com/yuzu-emu/yuzu-mainline/releases/download/mainline-0-944/yuzu-windows-msvc-20220307-382773a40.7z",
-            "hash": "9add57959b283265c76904a03ef97e8835d7f3e77dea469147a8d3e10643de53"
         }
     }
 }
