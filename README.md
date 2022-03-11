@@ -1,4 +1,4 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/4krqni0w1pr1yirl?svg=true)](https://ci.appveyor.com/project/borger/scoop-emulators)
+[![Tests](https://github.com/borger/scoop-emulators/actions/workflows/ci.yml/badge.svg)](https://github.com/borger/scoop-emulators/actions/workflows/ci.yml)
 [![Excavator](https://github.com/borger/scoop-emulators/actions/workflows/excavator.yml/badge.svg)](https://github.com/borger/scoop-emulators/actions/workflows/excavator.yml)
 [![Repo size](https://img.shields.io/github/repo-size/borger/scoop-emulators.svg)](https://github.com/borger/scoop-emulators)
 
