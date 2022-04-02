@@ -9,7 +9,7 @@
     "architecture": {
         "64bit": {
             "url": "https://nightly.link/TASEmulators/desmume/workflows/build_win/master/desmume-win-x64.zip",
-            "hash": "21ccdf975b4bddca74351edda1b5255472090db5e737901366b2f0475ee6a8e4",
+            "hash": "709ae53cbaf10e0261f83faa455dc6a903b8287e203ca79b24e92739c7fa8aa8",
             "bin": [
                 [
                     "DeSmuME-VS2019-x64-Release.exe",
