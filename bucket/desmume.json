@@ -39,15 +39,8 @@
         "desmume.ini"
     ],
     "checkver": {
-        "url": "https://nightly.link/TASEmulators/desmume/workflows/build_win/master/desmume-win-x64.zip",
-        "regex": "(?smi)pipelines/[\\d]+/runs/(?<run>[\\d]+)/",
-        "replace": "0.9.12-${run}",
-        "script": [
-            "$ProgressPreference = 'SilentlyContinue'",
-            "$loc = (Invoke-WebRequest $url -MaximumRedirection 0 -ErrorAction Ignore).Headers.Location",
-            "$ProgressPreference = 'Continue'",
-            "Write-Output $loc"
-        ]
+        "url": "https://github.com/TASEmulators/desmume/actions/workflows/build_win.yml?query=branch%3Amaster+is%3Asuccess",
+        "regex": "([a-f0-9]{7})<"
     },
     "autoupdate": {
         "url": "https://nightly.link/TASEmulators/desmume/workflows/build_win/master/desmume-win-x64.zip"
