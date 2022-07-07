@@ -6,7 +6,7 @@
         "identifier": "GPL-2.0",
         "url": "https://github.com/citra-emu/citra-nightly/blob/master/license.txt"
     },
-            "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-1772/citra-windows-mingw-20220703-3559332.7z",
+    "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-1772/citra-windows-mingw-20220703-3559332.7z",
     "hash": "b3295fab8f39215282e21b165be55ae3e87cb75d90c64e65e0d861efd47b057d",
     "extract_dir": "nightly-mingw",
     "pre_install": [
@@ -33,10 +33,10 @@
     "persist": "user",
     "checkver": {
         "github": "https://github.com/citra-emu/citra-nightly",
-        "regex": "download/nightly-(?<build>[\\d]+)/citra-windows-(?<env>[\\w]+)-(?<date>[\\d]+)-(?<commit>[\\da-f]{7})\\.(?<zip>7z|zip)"
+        "regex": "download/nightly-(?<build>[\\d]+)/citra-windows-(?<env>[\\w]+)-(?<date>[\\d]+)-(?<commit>[\\da-f]{7})\\.(?<zip>7z|zip)",
         "replace": "${1}-${2}"
     },
     "autoupdate": {
-                "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-$version/citra-windows-$matchEnv-$matchDate-$matchCommit.$matchZip"
+        "url": "https://github.com/citra-emu/citra-nightly/releases/download/nightly-$version/citra-windows-$matchEnv-$matchDate-$matchCommit.$matchZip"
     }
 }

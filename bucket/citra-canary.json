@@ -6,7 +6,7 @@
         "identifier": "GPL-2.0-only",
         "url": "https://github.com/citra-emu/citra-canary/blob/master/license.txt"
     },
-            "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-2195/citra-windows-mingw-20220707-a77a99d.7z",
+    "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-2195/citra-windows-mingw-20220707-a77a99d.7z",
     "hash": "6aedc75ac4d9140e0cde6a1b66f7a676913dd0c3f922b73ad8d7fda66d212257",
     "extract_dir": "canary-mingw",
     "pre_install": [
@@ -33,10 +33,10 @@
     "persist": "user",
     "checkver": {
         "github": "https://github.com/citra-emu/citra-canary",
-        "regex": "download/canary-(?<build>[\\d]+)/citra-windows-(?<env>[\\w]+)-(?<date>[\\d]{8})-(?<commit>[\\da-f]{7})\\.(?<zip>7z|zip)"
+        "regex": "download/canary-(?<build>[\\d]+)/citra-windows-(?<env>[\\w]+)-(?<date>[\\d]{8})-(?<commit>[\\da-f]{7})\\.(?<zip>7z|zip)",
         "replace": "${1}-${2}"
     },
     "autoupdate": {
-                "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-$version/citra-windows-$matchEnv-$matchDate-$matchCommit.$matchZip"
+        "url": "https://github.com/citra-emu/citra-canary/releases/download/canary-$version/citra-windows-$matchEnv-$matchDate-$matchCommit.$matchZip"
     }
 }
