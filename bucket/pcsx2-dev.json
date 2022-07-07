@@ -14,24 +14,8 @@
     "suggest": {
         "Microsoft Visual C++ Runtime 2019": "extras/vcredist2019"
     },
-    "architecture": {
-        "64bit": {
-            "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.3057/pcsx2-v1.7.3057-windows-64bit-AVX2-Qt.7z",
-            "hash": "7d7e49f2ba0a00aa44f5bfccccf71ca689f14efa01f0149a707ba7cb56ad835c",
-            "bin": [
-                [
-                    "pcsx2-qtx64-avx2.exe",
-                    "pcsx2-dev"
-                ]
-            ],
-            "shortcuts": [
-                [
-                    "pcsx2-qtx64-avx2.exe",
-                    "PCSX2 (dev)"
-                ]
-            ]
-        }
-    },
+    "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.3057/pcsx2-v1.7.3057-windows-64bit-AVX2-Qt.7z",
+    "hash": "7d7e49f2ba0a00aa44f5bfccccf71ca689f14efa01f0149a707ba7cb56ad835c",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
@@ -45,6 +29,18 @@
         "       '[AutoUpdater]', 'CheckAtStartup = false' | Set-Content \"$persist_dir\\inis\\PCSX2.ini\"",
         "   }",
         "}"
+    ],
+    "bin": [
+        [
+            "pcsx2-qtx64-avx2.exe",
+            "pcsx2-dev"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "pcsx2-qtx64-avx2.exe",
+            "PCSX2 (dev)"
+        ]
     ],
     "persist": [
         "bios",
@@ -67,10 +63,6 @@
         "replace": "${basever}.${build}"
     },
     "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "https://github.com/PCSX2/pcsx2/releases/download/v$version/pcsx2-v$version-windows-64bit-AVX2-Qt.7z"
-            }
-        }
+        "url": "https://github.com/PCSX2/pcsx2/releases/download/v$version/pcsx2-v$version-windows-64bit-AVX2-Qt.7z"
     }
 }

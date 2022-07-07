@@ -6,12 +6,8 @@
         "identifier": "BSD-3-Clause",
         "url": "https://github.com/xenia-canary/xenia-canary/blob/canary_pr/LICENSE"
     },
-    "architecture": {
-        "64bit": {
-            "url": "https://github.com/xenia-canary/xenia-canary/releases/download/6e753c6/xenia_canary.zip",
-            "hash": "b7dd6fea7b3237f17604e451d074e87ca77b4360867d10d09f02480376eae625"
-        }
-    },
+    "url": "https://github.com/xenia-canary/xenia-canary/releases/download/6e753c6/xenia_canary.zip",
+    "hash": "b7dd6fea7b3237f17604e451d074e87ca77b4360867d10d09f02480376eae625",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
@@ -38,14 +34,10 @@
         "cache"
     ],
     "checkver": {
-        "url": "https://github.com/xenia-canary/xenia-canary/releases",
-        "regex": "([a-f0-9]{6,7})_canary_experimental"
+        "github": "https://github.com/xenia-canary/xenia-canary",
+        "regex": "([a-f0-9]{7})<"
     },
     "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "https://github.com/xenia-canary/xenia-canary/releases/download/$version/xenia_canary.zip"
-            }
-        }
+        "url": "https://github.com/xenia-canary/xenia-canary/releases/download/$version/xenia_canary.zip"
     }
 }
