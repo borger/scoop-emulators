@@ -25,10 +25,29 @@
             "DeSmuME"
         ]
     ],
-    "persist": "desmume.ini",
+    "persist": [
+        "AviFiles",
+        "Battery",
+        "Cheats",
+        "Firmware",
+        "Lua",
+        "Roms",
+        "Screenshots",
+        "SramImportExport",
+        "States",
+        "StateSlots",
+        "desmume.ini"
+    ],
     "checkver": {
-        "url": "https://github.com/TASEmulators/desmume/actions/workflows/build_win.yml?query=branch%3Amaster+is%3Asuccess",
-        "regex": "([a-f0-9]{7})<"
+        "url": "https://nightly.link/TASEmulators/desmume/workflows/build_win/master/desmume-win-x64.zip",
+        "regex": "(?smi)pipelines/[\\d]+/runs/(?<run>[\\d]+)/",
+        "replace": "0.9.12-${run}",
+        "script": [
+            "$ProgressPreference = 'SilentlyContinue'",
+            "$loc = (Invoke-WebRequest $url -MaximumRedirection 0 -ErrorAction Ignore).Headers.Location",
+            "$ProgressPreference = 'Continue'",
+            "Write-Output $loc"
+        ]
     },
     "autoupdate": {
         "url": "https://nightly.link/TASEmulators/desmume/workflows/build_win/master/desmume-win-x64.zip"
