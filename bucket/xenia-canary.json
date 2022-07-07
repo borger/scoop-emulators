@@ -38,7 +38,7 @@
         "cache"
     ],
     "checkver": {
-        "github": "https://github.com/xenia-canary/xenia-canary",
+        "url": "https://github.com/xenia-canary/xenia-canary/releases",
         "regex": "([a-f0-9]{6,7})_canary_experimental"
     },
     "autoupdate": {
