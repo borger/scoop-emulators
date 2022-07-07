@@ -62,7 +62,7 @@
         ]
     },
     "checkver": {
-        "regex": "Download latest version \\(v((?<version>[\\d.]+)[\\w]*?),"
+        "regex": "Download latest stable version \\(v((?<version>[\\d.]+)[\\w]*?),"
     },
     "autoupdate": {
         "architecture": {
