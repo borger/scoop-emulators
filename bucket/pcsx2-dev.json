@@ -1,5 +1,5 @@
 {
-    "version": "1.7.2484",
+    "version": "1.7.3057",
     "description": "Sony PlayStation 2 emulator",
     "homepage": "https://pcsx2.net/",
     "license": {
@@ -15,34 +15,18 @@
         "Microsoft Visual C++ Runtime 2019": "extras/vcredist2019"
     },
     "architecture": {
-        "32bit": {
-            "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.2484/pcsx2-v1.7.2484-windows-32bit-AVX2.7z",
-            "hash": "7b3f4cdef5ac057955552a9caf6ac5b02aa66f07f17f492061ae307f2dc4819c",
-            "bin": [
-                [
-                    "pcsx2-avx2.exe",
-                    "pcsx2-dev"
-                ]
-            ],
-            "shortcuts": [
-                [
-                    "pcsx2-avx2.exe",
-                    "PCSX2 (dev)"
-                ]
-            ]
-        },
         "64bit": {
-            "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.2484/pcsx2-v1.7.2484-windows-64bit-AVX2.7z",
-            "hash": "3cf5c3f0438b302485d06f88084a62248077221b3b741080acc408513d18774d",
+            "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.3057/pcsx2-v1.7.3057-windows-64bit-AVX2-Qt.7z",
+            "hash": "7d7e49f2ba0a00aa44f5bfccccf71ca689f14efa01f0149a707ba7cb56ad835c",
             "bin": [
                 [
-                    "pcsx2x64-avx2.exe",
+                    "pcsx2-qtx64-avx2.exe",
                     "pcsx2-dev"
                 ]
             ],
             "shortcuts": [
                 [
-                    "pcsx2x64-avx2.exe",
+                    "pcsx2-qtx64-avx2.exe",
                     "PCSX2 (dev)"
                 ]
             ]
@@ -56,19 +40,26 @@
         "       Copy-Item -Path \"$env:USERPROFILE\\Documents\\PCSX2\\*\" -Destination \"$persist_dir\" -Recurse",
         "       Remove-Item -Path \"$env:USERPROFILE\\Documents\\PCSX2\" -Recurse",
         "   }",
+        "   if (!(Test-Path \"$persist_dir\\inis\\PCSX2.ini\")) {",
+        "       New-item \"$persist_dir\\inis\" -ItemType Directory | Out-Null",
+        "       '[AutoUpdater]', 'CheckAtStartup = false' | Set-Content \"$persist_dir\\inis\\PCSX2.ini\"",
+        "   }",
         "}"
     ],
     "persist": [
         "bios",
         "cheats_ws",
         "cheats",
+        "covers",
+        "gamesettings",
         "inis",
         "logs",
         "memcards",
         "portable.ini",
-        "shaders\\GSdx_FX_Settings.ini",
+        "shaders\\GS_FX_Settings.ini",
         "snaps",
-        "sstates"
+        "sstates",
+        "textures"
     ],
     "checkver": {
         "url": "https://github.com/PCSX2/pcsx2/releases.atom",
@@ -77,11 +68,8 @@
     },
     "autoupdate": {
         "architecture": {
-            "32bit": {
-                "url": "https://github.com/PCSX2/pcsx2/releases/download/v$version/pcsx2-v$version-windows-32bit-AVX2.7z"
-            },
             "64bit": {
-                "url": "https://github.com/PCSX2/pcsx2/releases/download/v$version/pcsx2-v$version-windows-64bit-AVX2.7z"
+                "url": "https://github.com/PCSX2/pcsx2/releases/download/v$version/pcsx2-v$version-windows-64bit-AVX2-Qt.7z"
             }
         }
     }
