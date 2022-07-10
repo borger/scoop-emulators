@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 2
-          path: 'scoop-emulators'
+          path: 'my_bucket'
       - name: Checkout Scoop
         uses: actions/checkout@v2
         with:
@@ -23,9 +23,9 @@ jobs:
       - name: Init and Test
         shell: powershell
         run: |
-          $env:SCOOP_HOME="$(Resolve-Path '.\scoop_core')"
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\scoop_core\test\bin\init.ps1
-          .\scoop-emulators\bin\test.ps1
+          .\my_bucket\bin\test.ps1
   test_pwsh:
     name: PowerShell
     runs-on: windows-latest
@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 2
-          path: 'scoop-emulators'
+          path: 'my_bucket'
       - name: Checkout Scoop
         uses: actions/checkout@v2
         with:
@@ -43,6 +43,6 @@ jobs:
       - name: Init and Test
         shell: pwsh
         run: |
-          $env:SCOOP_HOME="$(Resolve-Path '.\scoop_core')"
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\scoop_core\test\bin\init.ps1
-          .\scoop-emulators\bin\test.ps1
+          .\my_bucket\bin\test.ps1
