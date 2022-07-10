@@ -13,7 +13,7 @@
     ],
     "depends": "ps3-system-software",
     "suggest": {
-        "Microsoft Visual C++ Runtime 2019": "extras/vcredist2019"
+        "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
     "url": "https://github.com/rpcs3/rpcs3-binaries-win/releases/download/build-0c6df39a45a13edf2a8e2551766483e1aa3b94ef/rpcs3-v0.0.23-13875-0c6df39a_win64.7z",
     "hash": "b89e76b1f63275407286ff589c5203f63c62878d3c906838024179bb2d5303ac",
