@@ -1,13 +1,13 @@
 {
-    "version": "2022.08.1",
+    "version": "2022.08.2",
     "description": "Nintendo 64 emulator",
     "homepage": "https://m64p.github.io/",
     "license": {
         "identifier": "GPL-3.0",
         "url": "https://github.com/m64p/m64p/blob/main/LICENSE"
     },
-    "url": "https://github.com/m64p/m64p/releases/download/v2022.08.1/m64p-win64-8a0092e.zip",
-    "hash": "300e166196f3e1c6b56a0ba8f526dcb363fb007633c8fdd8ca75e02b17c99244",
+    "url": "https://github.com/m64p/m64p/releases/download/v2022.08.2/m64p-win64-c4ae109.zip",
+    "hash": "2f9c575627acf8874bc64d5ce11544ebdc59458e4a2791e7a78c1d209d6d7635",
     "extract_dir": "mupen64plus",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\mupen64plus-gui.ini\")) {",
