@@ -1,5 +1,5 @@
 {
-    "version": "a47a87a",
+    "version": "7641519",
     "description": "Sony PlayStation Vita emulator",
     "homepage": "https://vita3k.org",
     "license": {
@@ -9,7 +9,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/windows-latest.zip",
-            "hash": "115fd1abc939a37279fa5d2a43097e979ef8d72a1df5fb4948bd857cb8ea1599"
+            "hash": "e490ead59d9413c1fb2daa3e719e701a15ae8ffd5f88c204089173391b39b57a"
         }
     },
     "pre_install": [
