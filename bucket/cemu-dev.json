@@ -9,12 +9,8 @@
     "suggest": {
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
-    "architecture": {
-        "64bit": {
-            "url": "https://github.com/cemu-project/Cemu/releases/download/v2.0-16/cemu-2.0-16-windows-x64.zip",
-            "hash": "98cc89251cdc5299de671d5b317e06f8d89877596a6b7b6263db24001d796e1f"
-        }
-    },
+    "url": "https://github.com/cemu-project/Cemu/releases/download/v2.0-16/cemu-2.0-16-windows-x64.zip",
+    "hash": "98cc89251cdc5299de671d5b317e06f8d89877596a6b7b6263db24001d796e1f",
     "extract_dir": "Cemu_2.0-16",
     "pre_install": "if (!(Test-Path \"$persist_dir\\keys.txt\")) { New-Item \"$dir\\keys.txt\" -Type File | Out-Null }",
     "installer": {
@@ -64,11 +60,7 @@
         "regex": "v(\\d\\.\\d-\\d+)"
     },
     "autoupdate": {
-        "architecture": {
-            "64bit": {
-                "url": "https://github.com/cemu-project/Cemu/releases/download/v$version/cemu-$version-windows-x64.zip"
-            }
-        },
+        "url": "https://github.com/cemu-project/Cemu/releases/download/v$version/cemu-$version-windows-x64.zip",
         "extract_dir": "Cemu_$version"
     }
 }

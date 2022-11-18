@@ -12,7 +12,7 @@
     },
     "url": "https://cemu.info/releases/cemu_1.26.2.zip",
     "hash": "b0e3abf5048f78e352b42c3e1660a2c6e85d6905cd9f60d06ca2f2318fa3152c",
-    "extract_dir": "cemu_$matchVersion",
+    "extract_dir": "cemu_1.26.2f",
     "installer": {
         "script": [
             "'cemuhook.dll', 'keystone.dll' | ForEach-Object {",
@@ -61,6 +61,7 @@
         "regex": "\\(recommended\\) \\(v((?<version>[\\d.]+)[\\w]*?),"
     },
     "autoupdate": {
-        "url": "https://cemu.info/releases/cemu_$matchVersion.zip"
+        "url": "https://cemu.info/releases/cemu_$matchVersion.zip",
+        "extract_dir": "cemu_$matchVersion"
     }
 }
