@@ -6,25 +6,46 @@
         "identifier": "GPL 2.0 or later",
         "url": "https://github.com/hrydgard/ppsspp/blob/master/LICENSE.TXT"
     },
-    "url": "https://ppsspp.org/files/1_13_2/ppsspp_win.zip",
-    "hash": "e73c5d639bdf7c39edb1263830f49a84d6061bd64810cd69994911e10faaeb20",
+    "architecture": {
+        "64bit": {
+            "url": "https://ppsspp.org/files/1_13_2/ppsspp_win.zip",
+            "hash": "e73c5d639bdf7c39edb1263830f49a84d6061bd64810cd69994911e10faaeb20",
+            "bin": [
+                [
+                    "PPSSPPWindows64.exe",
+                    "ppsspp"
+                ]
+            ],
+            "shortcuts": [
+                [
+                    "PPSSPPWindows64.exe",
+                    "PPSSPP"
+                ]
+            ]
+        },
+        "arm64": {
+            "url": "https://ppsspp.org/files/1_13_2/PPSSPPWindowsARM64.zip",
+            "hash": "98b964a82464ddacc0abe1830f29ffb2094825df6b20c608426c3455f2b9eff8",
+            "bin": [
+                [
+                    "PPSSPPWindowsARM64.exe",
+                    "ppsspp"
+                ]
+            ],
+            "shortcuts": [
+                [
+                    "PPSSPPWindowsARM64.exe",
+                    "PPSSPP"
+                ]
+            ]
+        }
+    },
+    "extract_dir": "ppsspp",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
         "   New-item \"$persist_dir\\memstick\" -ItemType Directory | Out-Null",
         "}"
-    ],
-    "bin": [
-        [
-            "PPSSPPWindows64.exe",
-            "ppsspp"
-        ]
-    ],
-    "shortcuts": [
-        [
-            "PPSSPPWindows64.exe",
-            "PPSSPP"
-        ]
     ],
     "persist": [
         "assets",
@@ -33,9 +54,16 @@
     ],
     "checkver": {
         "url": "https://www.ppsspp.org/downloads.html",
-        "regex": "Download (\\d\\.\\d{1,3}\\.\\d{1,3})"
+        "regex": "Download ([\\d.]+) zip"
     },
     "autoupdate": {
-        "url": "https://ppsspp.org/files/$majorVersion_$minorVersion_$patchVersion/ppsspp_win.zip"
+        "architecture": {
+            "64bit": {
+                "url": "https://ppsspp.org/files/$underscoreVersion/ppsspp_win.zip"
+            },
+            "arm64": {
+                "url": "https://ppsspp.org/files/$underscoreVersion/PPSSPPWindowsARM64.zip"
+            }
+        }
     }
 }
