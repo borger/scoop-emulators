@@ -38,10 +38,9 @@
         "cache",
         "cheats",
         "covers",
-        "database\\chtdb.txt",
-        "database\\gamecontrollerdb.txt",
-        "database\\gamesettings.ini",
+        "database",
         "dump",
+        "gamesettings"
         "inputprofiles",
         "memcards",
         "savestates",
