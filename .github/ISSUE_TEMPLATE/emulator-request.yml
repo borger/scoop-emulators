@@ -1,0 +1,48 @@
+name: 📦 Emulator Request
+description: Open an issue about a missing emulator.
+title: "[Request]: "
+labels: ["package-request"]
+body:
+- type: checkboxes
+  attributes:
+    label: Prerequisites
+    options:
+    - label: I have searched all requests to ensure it has not already been requested.
+      required: true
+- type: checkboxes
+  attributes:
+    label: Criteria
+    description: For a emulator to be acceptable in this bucket, it should be
+    options:
+    - label: Reasonably well-known and widely used emulator
+      required: true
+    - label: English interface
+      required: true
+    - label: Emulator is actively developed and the latest release is less than 12 months old
+      required: true
+    - label: Emulator is freeware or opensource. (No shareware or trialware)
+      required: true
+- type: input
+  attributes:
+    label: Name
+    description: Name of the emulator
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: Description
+    description: What system/console does it emulate? Why add this emulator?
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: Github or homepage
+    description: URI of the emulator's homepage
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: Download url to latest release
+    description: URI(s) of the emulator's download(s)
+  validations:
+    required: false
