@@ -1,10 +1,10 @@
 {
-    "version": "2.0-16",
+    "version": "2.0",
     "description": "Nintendo Wii U emulator",
-    "homepage": "https://cemu.info/",
+    "homepage": "https://cemu.info",
     "license": {
-        "identifier": "Freeware",
-        "url": "https://cemu.info"
+        "identifier": "MPL-2.0",
+        "url": "https://github.com/cemu-project/Cemu/blob/main/LICENSE.txt"
     },
     "suggest": {
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
