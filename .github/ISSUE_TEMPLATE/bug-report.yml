@@ -7,7 +7,7 @@ body:
   attributes:
     label: Prerequisites
     options:
-    - label: I have verified that this problem still exists after running `scoop update *`
+    - label: I have ran `scoop update *` in powershell and verified the problem still exists.
       required: true
 - type: input
   attributes:
