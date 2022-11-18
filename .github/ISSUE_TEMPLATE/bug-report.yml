@@ -1,5 +1,5 @@
-name: 🐛 Package not working
-description: Open an issue when a package fails with errors on install or update.
+name: 🐛 Emulator not installing or updating
+description: Open an issue when a package fails with errors on scoop install or update.
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -7,19 +7,19 @@ body:
   attributes:
     label: Prerequisites
     options:
-    - label: I have verified that this problem still exists after running `scoop update` AND `scoop update *`
+    - label: I have verified that this problem still exists after running `scoop update *`
       required: true
 - type: input
   attributes:
-    label: Package Name
-    description: Name of package (install name) which has bug(s)
+    label: Emulator Name
+    description: Name of emulator (package name) which has bug(s)
     placeholder: e.g. duckstation
   validations:
     required: true
 - type: textarea
   attributes:
     label: Error message or description of problem
-    description: Copy the console log and paste it here.
+    description: Copy the error message and paste it here.
     render: console
     placeholder: |
       Can't shim 'duckstation-no-gui.exe': File doesn't exist.
