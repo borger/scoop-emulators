@@ -33,11 +33,14 @@
         "   }",
         "}"
     ],
-    "bin": "Cemu.exe",
+    "bin": [
+        "cemu.exe",
+        "cemu-dev"
+    ],
     "shortcuts": [
         [
             "cemu.exe",
-            "Cemu"
+            "Cemu (dev)"
         ]
     ],
     "persist": [
