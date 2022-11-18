@@ -30,8 +30,10 @@
         "}"
     ],
     "bin": [
-        "cemu.exe",
-        "cemu-dev"
+        [
+            "cemu.exe",
+            "cemu-dev"
+        ]
     ],
     "shortcuts": [
         [
