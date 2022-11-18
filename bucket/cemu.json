@@ -57,7 +57,7 @@
     "uninstaller": {
         "script": [
             "'settings.xml' | ForEach-Object {",
-            "   Copy-Item \"$dir\\$_\" \"$persist_dir\\$_.bak\" -Force",
+            "   Copy-Item \"$dir\\$_\" \"$persist_dir\\$_.bak\" -Force -ErrorAction SilentlyContinue",
             "}"
         ]
     },
