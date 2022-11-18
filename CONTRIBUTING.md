@@ -24,18 +24,5 @@ If you answered NO to either question, please gather information that will be ne
 
 ## PR Checklist
 
-You will need to complete a PR checklist and ensure your manifest meets our minimum required standards to be considered.
-
-- does it have properly named and capitalized shortcuts?
-- does it have a autoupdate entry?
-- does it have a checkver entry? [](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifest-Autoupdate)
-- does it have [persist](https://github.com/ScoopInstaller/Scoop/wiki/Persistent-data) defined with config/data/user/portable/textures/saves folder(s) specific for the app?
-- does it have a [pre_install](https://github.com/ScoopInstaller/Scoop/wiki/Pre--and-Post-install-scripts) script to auto-enable portable mode (if needed)?
-- does it have a license url?
-- does it have a description, is it in the same format as the others?
-- does it have bin entries
-  - if beta, dev, nightly, canary, etc: does bin have rewrite with variant appended.
-- does it pass `bin/checkver.ps1` and `bin/checkurls.ps1`?
-- does it have a version?
-- does it have a url to the release along with its sha256 hash?
+You will need to complete a PR checklist and ensure your manifest meets our minimum required standards to be considered. This is provided via template when creating your PR.
 
