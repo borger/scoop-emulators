@@ -1,5 +1,5 @@
 {
-    "version": "1.7.3595",
+    "version": "1.7.3597",
     "description": "Sony PlayStation 2 emulator",
     "homepage": "https://pcsx2.net/",
     "license": {
@@ -14,8 +14,8 @@
     "suggest": {
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
-    "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.3595/pcsx2-v1.7.3595-windows-64bit-AVX2-Qt.7z",
-    "hash": "d4eabd6b956d9185fcb9e9731573949a19b136d7fd3a61a5451c9a57e4fac009",
+    "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.3597/pcsx2-v1.7.3597-windows-64bit-AVX2-Qt.7z",
+    "hash": "a8d24d0af86d3e4a31c9275b77f3485bc0d20d28870f1bcbb2f83164c66a53df",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
