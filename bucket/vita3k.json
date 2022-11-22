@@ -1,5 +1,5 @@
 {
-    "version": "34712b9",
+    "version": "5b925f8",
     "description": "Sony PlayStation Vita emulator",
     "homepage": "https://vita3k.org",
     "license": {
@@ -7,7 +7,7 @@
         "url": "https://github.com/Vita3K/Vita3K/blob/master/COPYING.txt"
     },
     "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/windows-latest.zip",
-    "hash": "8dc9ea246ba15edf457414eb199a409070b2ddee197548d102077dfcc804f66c",
+    "hash": "a5ab9e8ea95fda0d66ec6a072f51b04c7673cbfb63475d3034dc8b4d02382448",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
