@@ -1,5 +1,5 @@
 {
-    "version": "1.13.2-2163-gb62790fd0",
+    "version": "1.13.2-2165-gfd21a0957",
     "description": "Sony PlayStation Portable (PSP) emulator",
     "homepage": "https://www.ppsspp.org",
     "license": {
@@ -8,8 +8,8 @@
     },
     "architecture": {
         "32bit": {
-            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.13.2-2163-gb62790fd0&platform=windows-x86#/dl.zip",
-            "hash": "5c592a7863d6a0e2f8c5ed35e75b2d60fa4e858bb899ddd9d1d0b3321853f360",
+            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.13.2-2165-gfd21a0957&platform=windows-x86#/dl.zip",
+            "hash": "674c5865106870019e69c0decfc418389c7bbb1d9a456d6c86888da9bdeeedca",
             "bin": [
                 [
                     "PPSSPPWindows.exe",
@@ -24,8 +24,8 @@
             ]
         },
         "64bit": {
-            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.13.2-2163-gb62790fd0&platform=windows-amd64#/dl.zip",
-            "hash": "f5a22a845373b076da6c0419ed9f900690875ea3218b0000bb4ea4e816edee4a",
+            "url": "https://buildbot.orphis.net/ppsspp/index.php?m=dl&rev=v1.13.2-2165-gfd21a0957&platform=windows-amd64#/dl.zip",
+            "hash": "e5ef4dce90d914f83746355a6671d58f8d279d088233b969e19c43f2591e4d75",
             "bin": [
                 [
                     "PPSSPPWindows64.exe",
