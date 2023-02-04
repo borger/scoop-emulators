@@ -1,5 +1,5 @@
 {
-    "version": "0.0.26-14666",
+    "version": "0.0.26-14667",
     "description": "Sony PlayStation 3 emulator",
     "homepage": "https://rpcs3.net/",
     "license": {
@@ -15,8 +15,8 @@
     "suggest": {
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
-    "url": "https://github.com/rpcs3/rpcs3-binaries-win/releases/download/build-37b46df7385deb1f8cd720fe466330ad13a53ee1/rpcs3-v0.0.26-14666-37b46df7_win64.7z",
-    "hash": "2b6012f5001644d461ce5f6971b44395c443ef41ccc057dbc52cd9285b3aaaa4",
+    "url": "https://github.com/rpcs3/rpcs3-binaries-win/releases/download/build-00237160535a4be8cd4d1dd5961db6a5cfd24a80/rpcs3-v0.0.26-14667-00237160_win64.7z",
+    "hash": "63ea099a32f9af58ef915418a04b5ccd4c871e4de4c52626da9434e7845fdfcf",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-Item \"$persist_dir\" -ItemType Directory | Out-Null",
