@@ -114,5 +114,6 @@
     "editor.defaultFormatter": "richie5um2.vscode-sort-json",
     "editor.formatOnSave": true,
     "prettier.enable": false,
-    "html.format.enable": false
+    "html.format.enable": false,
+    "files.insertFinalNewline": true
 }
