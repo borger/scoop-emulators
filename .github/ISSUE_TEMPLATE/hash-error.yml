@@ -6,9 +6,9 @@ body:
   attributes:
     label: Prerequisites
     options:
-    - label: I have used the predefined issue title (do not edit the issue title please). (e.g. "xxx@xxx&#58; hash check failed")
+    - label: I have used the predefined issue title. (e.g. "xxx@xxx&#58; hash check failed")
       required: true
-    - label: I have verified that I am using the latest version of Scoop and updated this bucket.
+    - label: I have verified that I am using the latest version of Scoop and corresponding bucket.
       required: true
 - type: input
   attributes:
