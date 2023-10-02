@@ -1,5 +1,5 @@
 {
-    "version": "2.0-54",
+    "version": "2.0-55",
     "description": "Nintendo Wii U emulator",
     "homepage": "https://cemu.info",
     "license": {
@@ -9,9 +9,9 @@
     "suggest": {
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
-    "url": "https://github.com/cemu-project/Cemu/releases/download/v2.0-54/cemu-2.0-54-windows-x64.zip",
-    "hash": "aa1d0d6cde1d7294ee99c032d46aa28c256bdc3e872de7a8cd7a4b5f646222ff",
-    "extract_dir": "Cemu_2.0-54",
+    "url": "https://github.com/cemu-project/Cemu/releases/download/v2.0-55/cemu-2.0-55-windows-x64.zip",
+    "hash": "e2b8d76b298c37ee25dc7cce66070bc4ef95214d0fdf4471de3c5d76b761317e",
+    "extract_dir": "Cemu_2.0-55",
     "pre_install": "if (!(Test-Path \"$persist_dir\\keys.txt\")) { New-Item \"$dir\\keys.txt\" -Type File | Out-Null }",
     "installer": {
         "script": [
