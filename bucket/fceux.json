@@ -29,13 +29,13 @@
             "extract_dir": "bin",
             "bin": [
                 [
-                    "fceux64.exe",
+                    "qfceux.exe",
                     "fceux"
                 ]
             ],
             "shortcuts": [
                 [
-                    "fceux64.exe",
+                    "qfceux.exe",
                     "FCEUX"
                 ]
             ]
