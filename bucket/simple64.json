@@ -1,13 +1,13 @@
 {
-    "version": "2023.11.01",
+    "version": "2023.11.02",
     "description": "Nintendo 64 emulator",
     "homepage": "https://m64p.github.io/",
     "license": {
         "identifier": "GPL-3.0",
         "url": "https://github.com/simple64/simple64/blob/main/LICENSE"
     },
-    "url": "https://github.com/simple64/simple64/releases/download/v2023.11.01/simple64-win64-1f7054b.zip",
-    "hash": "f49bfb0e64c58aacb6123ca09cef6cae99364471c92f22215fafbe8397c09519",
+    "url": "https://github.com/simple64/simple64/releases/download/v2023.11.02/simple64-win64-72b0a75.zip",
+    "hash": "e58ad28a96aa5b8f336bf433496fc65dbcd0f0e485cb2363bb3473fa6e7f5b77",
     "extract_dir": "simple64",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\simple64-gui.ini\")) {",
