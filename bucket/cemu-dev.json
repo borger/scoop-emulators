@@ -13,7 +13,7 @@
     "hash": "625d88a6999d7a99e19df1f9104442ddea60779f54a500669028d5f1165716a7",
     "extract_dir": "Cemu_2.0-61",
     "pre_install": "if (!(Test-Path \"$persist_dir\\keys.txt\")) { New-Item \"$dir\\keys.txt\" -Type File | Out-Null }",
-    "installer": {
+      "installer": {
         "script": [
             "if (!(Test-Path \"$persist_dir\\keys.txt\")) {",
             "    New-Item \"$dir\\keys.txt\" -Type File | Out-Null",
@@ -53,7 +53,7 @@
     "uninstaller": {
         "script": [
             "'settings.xml' | ForEach-Object {",
-            "   Copy-Item \"$dir\\$_\" \"$persist_dir\\$_.bak\" -Force -ErrorAction SilentlyContinue",
+            "   Copy-Item \"$dir\\$_\" \"$persist_dir\\$_.bak\" -Force",
             "}"
         ]
     },
