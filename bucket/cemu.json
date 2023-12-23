@@ -21,7 +21,7 @@
             "   }",
             "}",
             "if (!(Test-Path \"$persist_dir\\keys.txt\")) {",
-            "    New-Item \"$dir\\keys.txt\" -Type File | Out-Null",
+            "    New-Item \"$persist_dir\\keys.txt\" -Type File | Out-Null",
             "}"
         ]
     },
