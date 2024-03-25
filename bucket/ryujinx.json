@@ -32,6 +32,10 @@
         [
             "Ryujinx.exe",
             "Nintendo Switch [nsw][ryujinx]"
+        ],
+                [
+            "Ryujinx.Ava..exe",
+            "Nintendo Switch [nsw][ryujinx-ava]"
         ]
     ],
     "persist": "portable",
