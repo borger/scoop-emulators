@@ -27,14 +27,17 @@
         "   }",
         "}"
     ],
-    "bin": "Ryujinx.exe",
+    "bin": [
+        "Ryujinx.exe",    
+        "Ryujinx.Ava.exe"
+    ],
     "shortcuts": [
         [
             "Ryujinx.exe",
             "Nintendo Switch [nsw][ryujinx]"
         ],
-                [
-            "Ryujinx.Ava..exe",
+        [
+            "Ryujinx.Ava.exe",
             "Nintendo Switch [nsw][ryujinx-ava]"
         ]
     ],
