@@ -49,13 +49,13 @@
     },
     "checkver": {
         "github": "https://github.com/HarbourMasters/Shipwright/",
-        "regex": "(?<buildName>(\\w+\\s\\w+))\\s(?<version>([\\d\\.]+))",
+        "regex": "(?<majorName>(\\w+))\\s(?<minorName>(\\w+))\\s(?<version>([\\d\\.]+))",
         "replace": "${version}"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/HarbourMasters/Shipwright/releases/download/$version/SoH-$matchBuildName-Win64.zip"
+                "url": "https://github.com/HarbourMasters/Shipwright/releases/download/$version/SoH-$matchMajorname-$matchMinorname-Win64.zip"
             }
         }
     }
