@@ -2,6 +2,7 @@
     "version": "8.0.5",
     "description": "A PC port of Legend of Zelda: Ocarina of Time",
     "homepage": "https://www.shipofharkinian.com",
+    "license": "Unlicense",
     "notes": [
         "ATTENTION: Ship Of Harkinian requires specific n64 rom(s) of OoT to function.",
         "Place the rom(s) in $persist_dir.",
@@ -47,12 +48,14 @@
         ]
     },
     "checkver": {
-        "github": "https://github.com/HarbourMasters/Shipwright/"
+        "github": "https://github.com/HarbourMasters/Shipwright/",
+        "regex": "(?<buildName>(\\w+\\s\\w+))\\s(?<version>([\\d\\.]+))",
+        "replace": "${version}"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/HarbourMasters/Shipwright/releases/download/$version/SoH-*-Win64.zip"
+                "url": "https://github.com/HarbourMasters/Shipwright/releases/download/$version/SoH-$matchBuildName-Win64.zip"
             }
         }
     }
