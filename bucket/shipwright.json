@@ -28,6 +28,7 @@
         "}",
         ""
     ],
+    "bin": "soh.exe",
     "shortcuts": [
         [
             "soh.exe",
