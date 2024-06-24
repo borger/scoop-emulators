@@ -1,5 +1,5 @@
 {
-    "version": "1.7.5927",
+    "version": "1.7.5928",
     "description": "Sony PlayStation 2 emulator",
     "homepage": "https://pcsx2.net/",
     "license": {
@@ -16,8 +16,8 @@
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.5927/pcsx2-v1.7.5927-windows-x64-Qt.7z",
-            "hash": "7cd85594f888c24cda6dcc9d45e42aeb201aa21a2172467d0923d6777a561999"
+            "url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.5928/pcsx2-v1.7.5928-windows-x64-Qt.7z",
+            "hash": "d92c1ba146f62bd491c1ff57db03aab0b96dc73b69d8c466bcd92a5315f0f6fd"
         }
     },
     "pre_install": [
