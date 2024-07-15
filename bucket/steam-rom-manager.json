@@ -1,13 +1,13 @@
 {
-    "version": "2.5.18",
+    "version": "2.5.19",
     "description": "Steam ROM Manager adds non-Steam games to steam in bulk and manages their artwork assets",
     "homepage": "https://steamgriddb.github.io/steam-rom-manager/",
     "license": {
         "url": "https://github.com/SteamGridDB/steam-rom-manager/blob/master/LICENSE",
         "identifier": "GPL-3.0"
     },
-    "url": "https://github.com/SteamGridDB/steam-rom-manager/releases/download/v2.5.18/steam-rom-manager-portable-2.5.18.exe",
-    "hash": "8fe04e5ed5079fa1b799409d594d9d4522fdadf6c383810d14d987ae4a78d46a",
+    "url": "https://github.com/SteamGridDB/steam-rom-manager/releases/download/v2.5.19/steam-rom-manager-portable-2.5.19.exe",
+    "hash": "5de86241d7963c9398b5b640002b4f30339c2ffd27ee2afccc3045dfbe52587c",
     "installer": {
         "script": "Rename-Item \"$dir\\steam-rom-manager-portable-$version.exe\" 'steam-rom-manager.exe' -Force"
     },
