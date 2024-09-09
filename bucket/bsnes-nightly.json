@@ -1,0 +1,31 @@
+{
+    "version": "nightly",
+    "description": "Nintendo SNES (Super Nintendo Entertainment System) emulator",
+    "homepage": "https://github.com/bsnes-emu/bsnes",
+    "license": {
+        "identifier": "GPL-3.0",
+        "url": "https://github.com/bsnes-emu/bsnes/blob/master/LICENSE.txt"
+    },
+    "url": "https://github.com/bsnes-emu/bsnes/releases/download/nightly/bsnes-windows.zip",
+    "hash": "ed31b3d8295067629fb3202bf0bd3ae57d2e11954e249786f438b22c675108c5",
+    "extract_dir": "bsnes-nightly",
+    "bin": "bsnes.exe",
+    "shortcuts": [
+        [
+            "bsnes.exe",
+            "Super Nintendo Entertainment System [snes][bsnes]"
+        ]
+    ],
+    "persist": [
+        "Firmware",
+        "settings.bml"
+    ],
+    "checkver": {
+        "url": "https://github.com/bsnes-emu/bsnes/releases",
+        "regex": "nightly (\\d{4}\\-\\d{2}\\-\\d{2})"
+    },
+    "autoupdate": {
+        "url": "https://github.com/bsnes-emu/bsnes/releases/download/nightly/bsnes-windows.zip",
+        "extract_dir": "bsnes-nightly"
+    }
+}
