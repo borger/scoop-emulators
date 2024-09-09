@@ -35,12 +35,6 @@
         "}"
     ],
     "post_install": "Set-Content -Value $null -Path \"$dir\\portable.ini\"",
-    "bin": [
-        [
-            "pcsx2-qt.exe",
-            "pcsx2-dev"
-        ]
-    ],
     "shortcuts": [
         [
             "pcsx2-qt.exe",
