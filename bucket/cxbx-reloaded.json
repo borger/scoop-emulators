@@ -25,6 +25,6 @@
         "regex": "CI-([a-f\\d]+)."
     },
     "autoupdate": {
-        "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$version/CxbxReloaded-Release-VS2022.zip"
+        "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$version/CxbxReloaded-Release-VS2019.zip"
     }
 }

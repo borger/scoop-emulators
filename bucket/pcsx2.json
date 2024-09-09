@@ -27,6 +27,9 @@
         "   }",
         "}"
     ],
+    "post_install": [
+        "if (-not (Test-Path \"$dir\\portable.ini\")) { New-Item -ItemType File -Path \"$dir\\portable.ini\" }"
+    ],
     "bin": "pcsx2.exe",
     "shortcuts": [
         [
