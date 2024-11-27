@@ -12,8 +12,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/GreemDev/Ryujinx/releases/download/1.2.76/sdl2-ryujinx-headless-1.2.76-win_x64.zip",
-            "hash": "9a09e39b5c202c638b9e9f27ba0d7f11a43fa7b24b50d1bb3ee572b0873dbf2f"
+            "url": "https://github.com/GreemDev/Ryujinx/releases/download/1.2.76/ryujinx-1.2.76-win_x64.zip",
+            "hash": "d94be8369f739252f33e4271cd9af05c7a59d52de5d8f407d066bbef8780f8b0"
         }
     },
     "extract_dir": "publish",
@@ -41,7 +41,7 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/GreemDev/Ryujinx/releases/download/$version/sdl2-ryujinx-headless-1.2.76-win_x64.zip"
+                "url": "https://github.com/GreemDev/Ryujinx/releases/download/$version/ryujinx-1.2.76-win_x64.zip"
             }
         }
     }
