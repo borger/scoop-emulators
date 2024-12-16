@@ -4,11 +4,11 @@
     "homepage": "https://github.com/GreemDev/Ryujinx-Canary",
     "license": {
         "identifier": "MIT",
-        "url": "https://github.com/GreemDev/Ryujinx-Canary/blob/master/LICENSE.txt"
+        "url": "https://github.com/GreemDev/Ryujinx/blob/master/LICENSE.txt"
     },
     "notes": [
         "ATTENTION: Ryujinx requires Nintendo Switch firmware and a prod.keys file to function.",
-        "Learn more at https://github.com/GreemDev/Ryujinx-Canary/wiki/FAQ-and-Troubleshooting"
+        "Learn more at https://github.com/GreemDev/Ryujinx/wiki/FAQ-and-Troubleshooting"
     ],
     "architecture": {
         "64bit": {
