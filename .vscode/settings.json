@@ -75,7 +75,10 @@
         "persist",
         "uninstaller",
         "checkver",
-        "autoupdate"
+        "autoupdate",
+        "64bit",
+        "32bit",
+        "arm64",
     ],
     "editor.codeActionsOnSave": {
         "source.fixAll": "explicit",
