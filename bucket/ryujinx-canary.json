@@ -41,7 +41,7 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/GreemDev/Ryujinx-Canary/releases/download/$version/ryujinx-canary-1.2.95-win_x64.zip"
+                "url": "https://github.com/GreemDev/Ryujinx-Canary/releases/download/$version/ryujinx-canary-$version-win_x64.zip"
             }
         }
     }
