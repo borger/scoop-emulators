@@ -65,13 +65,13 @@
     "autoupdate": {
         "architecture": {
             "32bit": {
-                "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/ppsspp_win.zip"
+                "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/ppsspp_win_v$matchVersion-$matchBuild-g$matchCommit.zip"
             },
             "64bit": {
-                "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/ppsspp_win.zip"
+                "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/ppsspp_win_v$matchVersion-$matchBuild-g$matchCommit.zip"
             },
             "arm64": {
-                "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/PPSSPPWindowsARM64.zip"
+                "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/PPSSPPWindowsARM64_v$matchVersion-$matchBuild-g$matchCommit.zip"
             }
         }
     }
