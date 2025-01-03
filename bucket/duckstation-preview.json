@@ -8,8 +8,7 @@
     },
     "notes": [
         "ATTENTION: Duckstation requires a PSX BIOS to function.",
-        "Place the BIOS file in $persist_dir\\bios",
-        "Learn more at: https://www.duckstation.org/wiki/BIOS"
+        "Place the BIOS file in $persist_dir\\bios"
     ],
     "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip",
     "hash": "3d74611639ddabbba4683bb04b52de2d3c9a534f602bda19da0967e1a9dafeb5",
@@ -21,6 +20,13 @@
             "}"
         ]
     },
+    "post_install": [
+        "echo \"update bin/shortcuts\"",
+        "$shell = New-Object -COM WScript.Shell",
+        "$shortcut = $shell.CreateShortCut(\"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Scoop Apps\\DuckStation (preview).lnk\")",
+        "$shortcut.TargetPath = \"$original_dir\\duckstation-qt-x64-ReleaseLTCG.exe\"",
+        "$shortcut.Save()"
+    ],
     "shortcuts": [
         [
             "duckstation-qt-x64-ReleaseLTCG.exe",
@@ -52,5 +58,9 @@
     },
     "autoupdate": {
         "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip"
-    }
+    },
+    "post_uninstall": [
+        "echo \"update bin/shortcuts\"",
+        "Remove-Item \"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Scoop Apps\\DuckStation (preview).lnk\""
+    ]
 }

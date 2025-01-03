@@ -21,6 +21,13 @@
             "}"
         ]
     },
+    "post_install": [
+        "echo \"update bin/shortcuts\"",
+        "$shell = New-Object -COM WScript.Shell",
+        "$shortcut = $shell.CreateShortCut(\"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Scoop Apps\\DuckStation.lnk\")",
+        "$shortcut.TargetPath = \"$original_dir\\duckstation-qt-x64-ReleaseLTCG.exe\"",
+        "$shortcut.Save()"
+    ],
     "shortcuts": [
         [
             "duckstation-qt-x64-ReleaseLTCG.exe",
@@ -52,5 +59,9 @@
     },
     "autoupdate": {
         "url": "https://github.com/stenzek/duckstation/releases/download/latest/duckstation-windows-x64-release.zip"
-    }
+    },
+    "post_uninstall": [
+        "echo \"update bin/shortcuts\"",
+        "Remove-Item \"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Scoop Apps\\DuckStation.lnk\""
+    ]
 }
