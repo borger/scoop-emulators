@@ -4,23 +4,23 @@
     "homepage": "https://www.ppsspp.org",
     "license": "GPL-2.0-or-later",
     "architecture": {
-        "32bit": {
-            "url": "https://builds.ppsspp.org/builds/v1.18.1-600-g3c1693224f/ppsspp_win_v1.18.1-600-g3c1693224f.zip",
-            "hash": "28ddd77b66d9421aef61aef47f30cf9b5d3987df1ecb6b7f0eb1d2adb2f0536a",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows.exe",
-                    "PPSSPP [psp][ppsspp] (dev)"
-                ]
-            ]
-        },
         "64bit": {
             "url": "https://builds.ppsspp.org/builds/v1.18.1-600-g3c1693224f/ppsspp_win_v1.18.1-600-g3c1693224f.zip",
             "hash": "28ddd77b66d9421aef61aef47f30cf9b5d3987df1ecb6b7f0eb1d2adb2f0536a",
             "shortcuts": [
                 [
                     "PPSSPPWindows64.exe",
-                    "PPSSPP [psp][ppsspp] (dev)"
+                    "Sony PlayStation Portable [psp][ppsspp] (dev)"
+                ]
+            ]
+        },
+        "32bit": {
+            "url": "https://builds.ppsspp.org/builds/v1.18.1-600-g3c1693224f/ppsspp_win_v1.18.1-600-g3c1693224f.zip",
+            "hash": "28ddd77b66d9421aef61aef47f30cf9b5d3987df1ecb6b7f0eb1d2adb2f0536a",
+            "shortcuts": [
+                [
+                    "PPSSPPWindows.exe",
+                    "Sony PlayStation Portable [psp][ppsspp] (dev)"
                 ]
             ]
         },
@@ -30,7 +30,7 @@
             "shortcuts": [
                 [
                     "PPSSPPWindowsARM64.exe",
-                    "PPSSPP [psp][ppsspp] (dev)"
+                    "Sony PlayStation Portable [psp][ppsspp] (dev)"
                 ]
             ]
         }
@@ -64,10 +64,10 @@
     },
     "autoupdate": {
         "architecture": {
-            "32bit": {
+            "64bit": {
                 "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/ppsspp_win_v$matchVersion-$matchBuild-g$matchCommit.zip"
             },
-            "64bit": {
+            "32bit": {
                 "url": "https://builds.ppsspp.org/builds/v$matchVersion-$matchBuild-g$matchCommit/ppsspp_win_v$matchVersion-$matchBuild-g$matchCommit.zip"
             },
             "arm64": {
