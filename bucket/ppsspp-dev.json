@@ -10,7 +10,7 @@
             "shortcuts": [
                 [
                     "PPSSPPWindows.exe",
-                    "PPSSPP (Development)"
+                    "PPSSPP [psp][ppsspp] (dev)"
                 ]
             ]
         },
@@ -20,7 +20,7 @@
             "shortcuts": [
                 [
                     "PPSSPPWindows64.exe",
-                    "PPSSPP (Development)"
+                    "PPSSPP [psp][ppsspp] (dev)"
                 ]
             ]
         },
@@ -30,7 +30,7 @@
             "shortcuts": [
                 [
                     "PPSSPPWindowsARM64.exe",
-                    "PPSSPP (Development)"
+                    "PPSSPP [psp][ppsspp] (dev)"
                 ]
             ]
         }
