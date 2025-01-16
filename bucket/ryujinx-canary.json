@@ -1,5 +1,5 @@
 {
-    "version": "1.2.243",
+    "version": "1.2.244",
     "description": "Nintendo Switch emulator",
     "homepage": "https://github.com/GreemDev/Ryujinx-Canary",
     "license": {
@@ -12,8 +12,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/GreemDev/Ryujinx-Canary/releases/download/1.2.243/ryujinx-canary-1.2.243-win_x64.zip",
-            "hash": "e608ca947234ca08ed209b00b5f5e0aa8fadf4862de0b2680db533698a893147"
+            "url": "https://github.com/GreemDev/Ryujinx-Canary/releases/download/1.2.244/ryujinx-canary-1.2.244-win_x64.zip",
+            "hash": "91f56ba47aa4bc301416dab9fd8ac8bd7e642a22e51caba8fbab63a6cb3f109d"
         }
     },
     "extract_dir": "publish",
