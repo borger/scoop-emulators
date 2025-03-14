@@ -1,5 +1,5 @@
 {
-    "version": "20250314-g9c97182",
+    "version": "20250314-g1189f53",
     "description": "Sony PlayStation 1 emulator",
     "homepage": "https://github.com/stenzek/duckstation/",
     "license": {
@@ -11,7 +11,7 @@
         "Place the BIOS file in $persist_dir\\bios"
     ],
     "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip",
-    "hash": "8c5356d0caaeb7596c5c1569861dc2c6fd42fabd9e287d71266a663c1c61b757",
+    "hash": "6ef9ca9e4f9ddc4a6e52393fc852c99ca8ffc419099be8f74e87191b5c7c1da3",
     "installer": {
         "script": [
             "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
