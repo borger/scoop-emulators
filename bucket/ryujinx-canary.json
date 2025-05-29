@@ -1,5 +1,5 @@
 {
-    "version": "1.3.56",
+    "version": "1.3.58",
     "description": "Nintendo Switch emulator",
     "homepage": "https://github.com/Ryubing/Canary-Releases",
     "license": {
@@ -12,8 +12,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/Ryubing/Canary-Releases/releases/download/1.3.56/ryujinx-canary-1.3.56-win_x64.zip",
-            "hash": "83e142946ef0238ebab5f72fa4ba9e9d66155e3624c921443cf107c463af0eb5"
+            "url": "https://github.com/Ryubing/Canary-Releases/releases/download/1.3.58/ryujinx-canary-1.3.58-win_x64.zip",
+            "hash": "322d2521343e5ba2da8b0b825cea45e6048166a3aad649419ec74007cf1495cb"
         }
     },
     "extract_dir": "publish",
