@@ -1,5 +1,5 @@
 {
-    "version": "1.3.109",
+    "version": "1.3.110",
     "description": "Nintendo Switch emulator",
     "homepage": "https://ryujinx.app",
     "license": {
@@ -9,8 +9,8 @@
     "notes": "ATTENTION: Ryujinx requires Nintendo Switch firmware and a prod.keys file to function.",
     "architecture": {
         "64bit": {
-            "url": "https://git.ryujinx.app/api/v4/projects/68/packages/generic/Ryubing-Canary/1.3.109/ryujinx-canary-1.3.109-win_x64.zip",
-            "hash": "97741cafe0a61b49fbe3523abef8eec99ae5d1e582bcf2bada6e7674edb1fcdc"
+            "url": "https://git.ryujinx.app/api/v4/projects/68/packages/generic/Ryubing-Canary/1.3.110/ryujinx-canary-1.3.110-win_x64.zip",
+            "hash": "8670be3d32eb0556a3414275f9e7195210135e5e6aff2e9d2ad1e90b6c3df166"
         }
     },
     "extract_dir": "publish",
