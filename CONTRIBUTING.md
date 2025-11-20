@@ -2,6 +2,23 @@
 
 You may propose new features or improvements by filing an issue. If you propose a new emulator, you will need to create the manifest file and complete the checklist provided in the template.
 
+## Manifest Validation Requirements
+
+**IMPORTANT:** Anytime a manifest is added or modified, it MUST be validated using the following scripts in the `./bin` directory:
+
+```powershell
+# Check for version updates
+.\bin\checkver.ps1 <app-name>
+
+# Check for broken URLs
+.\bin\checkurls.ps1 <app-name>
+
+# Check for hash mismatches
+.\bin\checkhashes.ps1 <app-name>
+```
+
+All three scripts must run without errors before a manifest can be considered valid and ready for submission.
+
 ## Requirements for adding a new emulator to the bucket
 
 - Active development - Is there recent commit activity in the past 2 years?

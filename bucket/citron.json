@@ -1,0 +1,31 @@
+{
+    "version": "665d8acd",
+    "description": "Citron CI — Continuous build of the Citron emulator front-end",
+    "homepage": "https://github.com/Zephyron-Dev/Citron-CI",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/Zephyron-Dev/Citron-CI/releases/download/nightly-windows/Citron-windows-nightly-fd5923753-x64.zip",
+            "hash": "sha256:c56ee953b7e14caf0b1d2bb87dbe286b43361196c1e4f08e5b789e51e6ffa04c"
+        }
+    },
+    "installer": {
+        "script": [
+            "Expand-7zip \"$dir\\Citron-windows-nightly-$version-x64.zip\" \"$dir\"",
+            "Remove-Item \"$dir\\Citron-windows-nightly-$version-x64.zip\" -ErrorAction SilentlyContinue"
+        ]
+    },
+    "bin": "citron.exe",
+    "checkver": {
+        "url": "https://api.github.com/repos/Zephyron-Dev/Citron-CI/releases/tags/nightly-windows",
+        "jsonpath": "$.name",
+        "regex": "Windows Nightly.*?:\\s+([\\da-f]+)"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/Zephyron-Dev/Citron-CI/releases/download/nightly-windows/Citron-windows-nightly-$version-x64.zip"
+            }
+        }
+    }
+}

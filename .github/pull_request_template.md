@@ -18,6 +18,11 @@
 - [ ] [autoupdate and checkver](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifest-Autoupdate)
 - [ ] [persist](https://github.com/ScoopInstaller/Scoop/wiki/Persistent-data)
 
+## Manifest Validation
+- [ ] I have run `.\bin\checkver.ps1 <app-name>` and it passes without errors
+- [ ] I have run `.\bin\checkurls.ps1 <app-name>` and it passes without errors
+- [ ] I have run `.\bin\checkhashes.ps1 <app-name>` and it passes without errors
+
 ## Checklist
 - [ ] Is this emulator is portable by default (without a file / setting change needed)?
   - [ ] Yes
