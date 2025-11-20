@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 param(
     [string]$ManifestPath,
     [string]$BucketPath = (Split-Path -Parent (Split-Path -Parent $ManifestPath)),

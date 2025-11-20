@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 param(
     [string]$App = $null,
     [string]$Dir = $null
