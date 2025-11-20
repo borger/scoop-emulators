@@ -1,0 +1,108 @@
+on:
+  schedule:
+    # Run twice daily to fix broken manifests
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
+  # Trigger on push to bucket if manifests change
+  push:
+    paths:
+      - 'bucket/*.json'
+  # Trigger when excavator completes (especially on failure)
+  workflow_run:
+    workflows: [Excavator]
+    types: [completed]
+
+name: Auto-Fix Manifests
+
+jobs:
+  autofix:
+    name: Fix Broken Manifests
+    runs-on: windows-latest
+    # Only run on schedule/push/manual trigger, or when excavator fails
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Log trigger reason
+        shell: pwsh
+        run: |
+          $triggerEvent = "${{ github.event_name }}"
+          Write-Host "=== Auto-Fix Workflow Triggered ===" -ForegroundColor Cyan
+          Write-Host "Trigger: $triggerEvent" -ForegroundColor Gray
+
+          if ($triggerEvent -eq "workflow_run") {
+            $status = "${{ github.event.workflow_run.conclusion }}"
+            Write-Host "Excavator status: $status" -ForegroundColor $(if ($status -eq "failure") { "Red" } else { "Yellow" })
+          }
+
+      - name: Setup Scoop environment
+        shell: pwsh
+        run: |
+          # Ensure Scoop environment is set up
+          if ($env:SCOOP -eq $null) {
+            $env:SCOOP = "$env:USERPROFILE\scoop"
+          }
+          if ($env:SCOOP_HOME -eq $null) {
+            $env:SCOOP_HOME = "$env:SCOOP\apps\scoop\current"
+          }
+
+          # Ensure scoop is in PATH if not already
+          if ($env:PATH -notlike "*scoop*") {
+            $env:PATH = "$env:SCOOP\shims;$env:PATH"
+          }
+
+          # Set environment variables for subsequent steps
+          "SCOOP=$env:SCOOP" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Auto-fix broken manifests
+        shell: pwsh
+        run: |
+          $bucketPath = "${{ github.workspace }}/bucket"
+          $scriptsPath = "${{ github.workspace }}/bin"
+
+          Write-Host "Starting auto-fix process..." -ForegroundColor Cyan
+          Write-Host "SCOOP_HOME: $env:SCOOP_HOME" -ForegroundColor Gray
+          Write-Host "SCOOP: $env:SCOOP" -ForegroundColor Gray
+
+          # Get all manifests (exclude nightly/dev)
+          $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' }
+
+          Write-Host "Found $($manifests.Count) manifests to check"
+
+          $fixedCount = 0
+          foreach ($manifest in $manifests) {
+            Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Processing $($manifest.BaseName)..."
+
+            # Run auto-fix script
+            $result = & "$scriptsPath\autofix-manifest.ps1" -ManifestPath $manifest.FullName -BucketPath $bucketPath
+
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -eq 0) {
+              Write-Host "✓ Fixed: $($manifest.BaseName)" -ForegroundColor Green
+              $fixedCount++
+            }
+          }
+
+          Write-Host "`n=== Auto-fix process complete ===" -ForegroundColor Cyan
+          Write-Host "Fixed: $fixedCount manifest(s)" -ForegroundColor Cyan
+
+      - name: Commit and push changes
+        shell: pwsh
+        run: |
+          git config user.name "Scoop Auto-Updater"
+          git config user.email "auto-updater@scoop.sh"
+          git add bucket/
+
+          $status = git status --porcelain
+          if ($status) {
+            Write-Host "Found changes to commit:" -ForegroundColor Green
+            Write-Host $status
+            git commit -m "chore: Auto-fix broken manifests"
+            git push
+            Write-Host "✓ Changes pushed" -ForegroundColor Green
+          } else {
+            Write-Host "No manifest changes to commit" -ForegroundColor Gray
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

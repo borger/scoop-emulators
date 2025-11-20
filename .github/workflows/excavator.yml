@@ -1,62 +1,31 @@
 on:
-  workflow_dispatch:
   schedule:
-    # run every hour
+    # Run every hour to check for new versions
     - cron: '0 * * * *'
+  workflow_dispatch:
+
 name: Excavator
+
 jobs:
   excavate:
-    name: Excavate
+    name: Check for Updates
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@main
-    - name: Excavate
-      uses: ScoopInstaller/GithubActions@main
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SKIP_UPDATED: '1'
-    - name: Auto-fix broken manifests
-      shell: pwsh
-      run: |
-        $bucketPath = "${{ github.workspace }}/bucket"
-        $scriptsPath = "${{ github.workspace }}/bin"
+      - uses: actions/checkout@main
+      - name: Check for new versions
+        uses: ScoopInstaller/GithubActions@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_UPDATED: '1'
 
-        Write-Host "Starting auto-fix process..." -ForegroundColor Cyan
-
-        # Get all manifests (exclude nightly/dev)
-        $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' }
-
-        Write-Host "Found $($manifests.Count) manifests to check"
-
-        foreach ($manifest in $manifests) {
-          Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Processing $($manifest.BaseName)..."
-
-          # Run auto-fix script
-          $result = & "$scriptsPath\autofix-manifest.ps1" -ManifestPath $manifest.FullName -BucketPath $bucketPath
-
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -eq 0) {
-            Write-Host "✓ Fixed: $($manifest.BaseName)" -ForegroundColor Green
+      - name: Check excavator results
+        shell: pwsh
+        run: |
+          # Check if any errors occurred during excavation
+          $prFiles = Get-ChildItem -Path "${{ github.workspace }}/.git/PRs" -ErrorAction SilentlyContinue
+          if ($null -eq $prFiles) {
+            Write-Host "✓ Excavator completed successfully" -ForegroundColor Green
+          } else {
+            Write-Host "⚠ Excavator created PRs - review in Actions" -ForegroundColor Yellow
           }
-        }
 
-        Write-Host "`n=== Auto-fix process complete ===" -ForegroundColor Cyan
-    - name: Commit and push changes
-      shell: pwsh
-      run: |
-        git config user.name "Scoop Auto-Updater"
-        git config user.email "auto-updater@scoop.sh"
-        git add bucket/
-
-        $status = git status --porcelain
-        if ($status) {
-          Write-Host "Found changes to commit:"
-          Write-Host $status
-          git commit -m "chore: Auto-fix broken manifests"
-          git push
-          Write-Host "✓ Changes pushed" -ForegroundColor Green
-        } else {
-          Write-Host "No manifest changes to commit"
-        }
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

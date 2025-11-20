@@ -1,14 +1,44 @@
 on:
   pull_request_target:
-    types: [ opened ]
-name: Pull Requests
+    types: [opened]
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+name: Review and Verify
+
 jobs:
-  pullRequestHandler:
-    name: PullRequestHandler
+  handle_pr:
+    name: Handle Pull Request
     runs-on: windows-latest
+    if: github.event_name == 'pull_request_target'
     steps:
-    - uses: actions/checkout@main
-    - name: PullRequestHandler
-      uses: ScoopInstaller/GithubActions@main
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@main
+      - name: PR Handler
+        uses: ScoopInstaller/GithubActions@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  handle_issue:
+    name: Handle Issue
+    runs-on: windows-latest
+    if: github.event_name == 'issues' && (github.event.action == 'opened' || (github.event.action == 'labeled' && contains(github.event.issue.labels.*.name, 'verify')))
+    steps:
+      - uses: actions/checkout@main
+      - name: Issue Handler
+        uses: ScoopInstaller/GithubActions@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  handle_comment:
+    name: Handle Issue Comment
+    runs-on: windows-latest
+    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/verify')
+    steps:
+      - uses: actions/checkout@main
+      - name: Comment Handler
+        uses: ScoopInstaller/GithubActions@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
