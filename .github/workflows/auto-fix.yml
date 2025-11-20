@@ -18,8 +18,7 @@ jobs:
   autofix:
     name: Fix Broken Manifests
     runs-on: windows-latest
-    # Only run on schedule/push/manual trigger, or when excavator fails
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure'
+    # Run on all triggers
     steps:
       - uses: actions/checkout@main
 
