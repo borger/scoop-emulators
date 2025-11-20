@@ -1,0 +1,56 @@
+name: 🔧 Manifest Error
+description: Report issues with manifest validation or auto-fix failures
+title: "[Manifest]: "
+labels: ["bug", "auto-fix"]
+body:
+- type: textarea
+  attributes:
+    label: Description
+    description: What is the issue with the manifest?
+    placeholder: |
+      Example: The checkver pattern no longer matches the latest release format.
+      The download URL returns 404. The hash doesn't match the downloaded file.
+  validations:
+    required: true
+
+- type: input
+  attributes:
+    label: Emulator Name
+    description: Name of the emulator/package with the manifest error
+    placeholder: e.g. duckstation
+  validations:
+    required: true
+
+- type: dropdown
+  attributes:
+    label: Issue Type
+    description: What type of manifest error is this?
+    options:
+      - Checkver pattern failure (version detection broken)
+      - Download URL error (404 or broken link)
+      - Hash mismatch (SHA256 doesn't match)
+      - Autoupdate configuration issue
+      - Portable mode or installation problem
+      - Other
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Error Details
+    description: Any error messages or logs from validation scripts
+    render: console
+    placeholder: |
+      Paste output from:
+      .\bin\checkver.ps1 <app-name>
+      .\bin\check-autoupdate.ps1 bucket/<app-name>.json
+      .\bin\check-manifest-install.ps1 bucket/<app-name>.json
+
+- type: checkboxes
+  attributes:
+    label: Checklist
+    options:
+    - label: I have verified the latest release information from the upstream project
+      required: false
+    - label: I understand this will trigger automated repair attempts
+      required: false

@@ -1,19 +1,64 @@
-name: 🔢 Hash Error
-description: Open an issue about a package's hash is incorrect.
-labels: ["bug"]
+name: 🔢 Hash Check Failed
+description: Report SHA256 hash mismatches or checksum validation failures
+title: "[Hash]: "
+labels: ["bug", "auto-fix"]
 body:
 - type: checkboxes
   attributes:
     label: Prerequisites
+    description: Before reporting, please verify
     options:
-    - label: I have used the predefined issue title. (e.g. "xxx@xxx&#58; hash check failed")
+    - label: I have verified the error by running `scoop install <app-name>` recently
       required: true
-    - label: I have verified that I am using the latest version of Scoop and corresponding bucket.
+    - label: I have run `scoop update` and still get the hash error
       required: true
+
 - type: input
   attributes:
     label: Package Name and Version
-    description: Name and version of package (install name) which has incorrect hash.
-    placeholder: e.g. 7zip@21.00 (not '7-Zip')
+    description: Format as packname@version (use package name, not display name)
+    placeholder: e.g. duckstation@20251115 (not DuckStation)
   validations:
     required: true
+
+- type: textarea
+  attributes:
+    label: Error Message
+    description: Copy the exact hash error message from Scoop
+    render: console
+    placeholder: |
+      Hash check failed!
+      Expected: abc123...
+      Got: def456...
+  validations:
+    required: true
+
+- type: dropdown
+  attributes:
+    label: Installation Method
+    description: How did you install the package?
+    options:
+      - Fresh install (`scoop install <app>`)
+      - Update (`scoop update <app>`)
+      - Update all (`scoop update *`)
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Additional Context
+    description: Any other information
+    placeholder: |
+      - Windows version: Windows 11 22H2
+      - Antivirus software: None
+      - Network: Direct connection / VPN / Proxy
+  required: false
+
+- type: markdown
+  attributes:
+    value: |
+      **Note:** Hash mismatches are automatically detected and fixed by our system within 1 hour.
+      If the error persists after that time, check GitHub Actions logs or file a new issue.
+      
+      See [Manifest Error](./manifest-error.yml) template for other manifest-related issues.
+

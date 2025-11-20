@@ -1,27 +1,68 @@
-name: 🐛 Emulator not installing or updating
-description: Open an issue when a package fails with errors on scoop install or update.
+name: 🐛 Installation or Update Error
+description: Report issues when an emulator fails to install or update via Scoop
 title: "[Bug]: "
 labels: ["bug"]
 body:
 - type: checkboxes
   attributes:
     label: Prerequisites
+    description: Please verify before reporting
     options:
-    - label: I have ran `scoop update *` in powershell and verified the problem still exists.
+    - label: I have run `scoop update` and verified the problem still exists
       required: true
+    - label: I have checked that this is not a manifest validation issue (use the Manifest Error template for those)
+      required: false
+
 - type: input
   attributes:
     label: Emulator Name
-    description: Name of emulator (package name) which has bug(s)
+    description: Name of the emulator package
     placeholder: e.g. duckstation
   validations:
     required: true
-- type: textarea
+
+- type: input
   attributes:
-    label: Error message or description of problem
-    description: Copy the error message and paste it here.
-    render: console
-    placeholder: |
-      Can't shim 'duckstation-no-gui.exe': File doesn't exist.
+    label: Windows Version
+    description: Your Windows version
+    placeholder: e.g. Windows 11 22H2, Windows 10 21H2
   validations:
     required: false
+
+- type: textarea
+  attributes:
+    label: Error Message
+    description: Complete error output from Scoop
+    render: console
+    placeholder: |
+      Paste the full error message from:
+      scoop install <app-name>
+      or
+      scoop update <app-name>
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Additional Context
+    description: Any other information that might help debug the issue
+    placeholder: Steps taken, what you were trying to do, etc.
+    required: false
+
+- type: checkboxes
+  attributes:
+    label: Troubleshooting
+    options:
+    - label: I have run the validation scripts locally to test the manifest
+      required: false
+    - label: I have checked for known issues with this emulator's upstream project
+      required: false
+
+- type: markdown
+  attributes:
+    value: |
+      **Helpful Links:**
+      - [Validation Scripts](../CONTRIBUTING.md#automated-validation--merge-workflow)
+      - [Manifest Error Reporting](./manifest-error.yml)
+      - [Contributing Guide](../CONTRIBUTING.md)
+

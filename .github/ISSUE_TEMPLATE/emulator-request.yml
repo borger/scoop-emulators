@@ -1,48 +1,85 @@
 name: 📦 Emulator Request
-description: Open an issue about a missing emulator.
+description: Request a new emulator to be added to this bucket
 title: "[Request]: "
 labels: ["package-request"]
 body:
 - type: checkboxes
   attributes:
     label: Prerequisites
+    description: Please review before submitting
     options:
-    - label: I have searched all requests to ensure it has not already been requested.
+    - label: I have searched existing issues/requests to ensure this hasn't been requested before
       required: true
+    - label: I have reviewed the [bucket criteria](../CONTRIBUTING.md#requirements-for-adding-a-new-emulator)
+      required: true
+
 - type: checkboxes
   attributes:
-    label: Criteria
-    description: For a emulator to be acceptable in this bucket, it should be
+    label: Bucket Criteria
+    description: This emulator must meet all criteria to be accepted
     options:
     - label: Reasonably well-known and widely used emulator
       required: true
     - label: English interface
       required: true
-    - label: Emulator is actively developed and the latest release is less than 12 months old
+    - label: Actively developed with latest release less than 12 months old
       required: true
-    - label: Emulator is freeware or opensource. (No shareware or trialware)
+    - label: Freeware or open source (no shareware/trialware)
       required: true
+
 - type: input
   attributes:
-    label: Name
-    description: Name of the emulator
+    label: Emulator Name
+    description: Official name of the emulator
+    placeholder: e.g. RetroArch, Dolphin, PCSX2
   validations:
     required: true
-- type: input
+
+- type: textarea
   attributes:
     label: Description
-    description: What system/console does it emulate? Why add this emulator?
+    description: What systems/consoles does it emulate? Why should it be in this bucket?
+    placeholder: |
+      Example: Emulates Nintendo GameCube and Wii. Active development with monthly releases.
+      Strong community and widely used for both casual and competitive gaming.
   validations:
     required: true
+
 - type: input
   attributes:
-    label: Github or homepage
-    description: URI of the emulator's homepage
+    label: Homepage / Repository
+    description: Official website or source repository
+    placeholder: https://github.com/dolphin-emu/dolphin
   validations:
     required: true
+
 - type: input
   attributes:
-    label: Download url to latest release
-    description: URI(s) of the emulator's download(s)
+    label: Latest Release URL
+    description: Link to the latest stable release download
+    placeholder: https://github.com/dolphin-emu/dolphin/releases/download/2509/dolphin-2509-x64.7z
   validations:
     required: false
+
+- type: input
+  attributes:
+    label: Release Page
+    description: Link to releases page (helps identify download URL patterns)
+    placeholder: https://github.com/dolphin-emu/dolphin/releases
+    required: false
+
+- type: textarea
+  attributes:
+    label: Additional Information
+    description: Any other details that would help review this request
+    placeholder: Links to documentation, portable mode info, configuration details, etc.
+    required: false
+
+- type: markdown
+  attributes:
+    value: |
+      **Next Steps:**
+      - Maintainers will review the request within 1-2 weeks
+      - If approved, you may be asked to create the manifest (see [Contributing Guide](../CONTRIBUTING.md))
+      - If manifest is complex, maintainers can create it and you can submit a PR with improvements
+

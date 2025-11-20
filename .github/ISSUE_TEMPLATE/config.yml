@@ -1,5 +1,6 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Scoop Community Support
     url: https://github.com/ScoopInstaller/Scoop/discussions
-    about: Please ask Scoop related questions here.
+    about: Ask Scoop-related questions in the community discussions
+
