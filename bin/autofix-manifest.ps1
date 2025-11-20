@@ -52,7 +52,7 @@ GitHub repository (owner/repo format) for issue creation (uses GITHUB_REPOSITORY
 Automatically create GitHub issues for unfixable problems with Copilot and escalation tags.
 
 .RETURNS
-0 if fixed, -1 if unable to fix, 1 if already valid, 2 if manual review needed, 3 if issue created
+0 = manifest valid/no changes needed, 1 = errors (missing script/invalid input), 2 = issues found but unfixable, -1 = critical error
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -383,17 +383,17 @@ try {
         }
     }
 
-    # Skip if no autoupdate
+    # Skip if no autoupdate (not an error, manifest is valid as-is)
     if (!$manifest.autoupdate) {
-        Write-Host "No autoupdate section, skipping"
-        exit 1
+        Write-Host "[OK] No autoupdate section needed, manifest is valid"
+        exit 0
     }
 
     # Try to get latest version from checkver
     $checkverScript = "$PSScriptRoot/checkver.ps1"
 
     if (!(Test-Path $checkverScript)) {
-        Write-Host "checkver script not found, skipping"
+        Write-Host "[WARN] checkver script not found, cannot validate updates"
         exit 1
     }
 
@@ -457,9 +457,11 @@ try {
     }
 
     if ($latestVersion) {
-        $currentVersion = $manifest.version        if ($latestVersion -eq $currentVersion) {
+        $currentVersion = $manifest.version
+
+        if ($latestVersion -eq $currentVersion) {
             Write-Host "[OK] Manifest already up-to-date (v$currentVersion)"
-            exit 1
+            exit 0
         }
 
         Write-Host "Found update: v$currentVersion -> v$latestVersion" -ForegroundColor Yellow
@@ -632,7 +634,7 @@ try {
                                 $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
                             }
                             # Last resort: largest archive (likely 64-bit)
-         -                   if (!$asset) {
+                            if (!$asset) {
                                 $asset = $archiveAssets | Sort-Object { $_.size } -Descending | Select-Object -First 1
                             }
                         } elseif ($arch -eq "32bit") {
@@ -863,7 +865,7 @@ try {
 
         exit 0
     } else {
-        Write-Host "Could not parse checkver output"
+        Write-Host "[FAIL] Could not parse checkver output"
         Add-Issue -Title "Checkver Parse Failed" -Description "Could not extract version from checkver output for $appName" -Severity "error"
 
         if ($issues.Count -gt 0 -and $NotifyOnIssues -and $IssueLog) {
