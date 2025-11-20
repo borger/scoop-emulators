@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)]
     [string]$ManifestPath
 )
@@ -46,7 +46,7 @@ try {
     $architectures = @()
 
     if ($manifest.autoupdate.'64bit' -or $manifest.autoupdate.'32bit') {
-        # Architecture-specific URLs
+        # Architecture-specific URLs (direct)
         if ($manifest.autoupdate.'64bit') {
             $architectures += '64bit'
             $urls += @{ arch = '64bit'; url = $manifest.autoupdate.'64bit'.url }
@@ -54,6 +54,17 @@ try {
         if ($manifest.autoupdate.'32bit') {
             $architectures += '32bit'
             $urls += @{ arch = '32bit'; url = $manifest.autoupdate.'32bit'.url }
+        }
+    }
+    elseif ($manifest.autoupdate.architecture.'64bit' -or $manifest.autoupdate.architecture.'32bit') {
+        # Architecture-specific URLs (nested under architecture)
+        if ($manifest.autoupdate.architecture.'64bit') {
+            $architectures += '64bit'
+            $urls += @{ arch = '64bit'; url = $manifest.autoupdate.architecture.'64bit'.url }
+        }
+        if ($manifest.autoupdate.architecture.'32bit') {
+            $architectures += '32bit'
+            $urls += @{ arch = '32bit'; url = $manifest.autoupdate.architecture.'32bit'.url }
         }
     }
     elseif ($manifest.autoupdate.url) {

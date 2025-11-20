@@ -1,4 +1,4 @@
-# Contributing
+﻿# Contributing
 
 You may propose new features or improvements by filing an issue. If you propose a new emulator, you will need to create the manifest file and complete the checklist provided in the template.
 

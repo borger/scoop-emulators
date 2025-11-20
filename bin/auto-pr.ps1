@@ -1,4 +1,4 @@
-param(
+﻿param(
     # overwrite upstream param
     [String]$upstream = "borger/scoop-emulators:master"
 )

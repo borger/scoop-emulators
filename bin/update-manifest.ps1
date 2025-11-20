@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)]
     [string]$ManifestPath,
 
@@ -73,19 +73,15 @@ try {
     # Use Scoop's checkver to find the latest version
     Write-Verbose "Checking for latest version..."
 
-    if (!$env:SCOOP_HOME) {
-        $env:SCOOP_HOME = Convert-Path (scoop prefix scoop)
-    }
-
-    $checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
+    $checkverScript = "$PSScriptRoot/checkver.ps1"
 
     if (!(Test-Path $checkverScript)) {
-        Write-Error "Scoop checkver script not found at $checkverScript"
+        Write-Error "checkver script not found at $checkverScript"
         exit -1
     }
 
-    # Capture checkver output using pwsh directly to ensure Write-Host is captured
-    $checkverOutput = pwsh -NoProfile -Command "& '$checkverScript' -App '$AppName' -Dir '$(Split-Path $ManifestPath)' 2>&1"
+    # Capture checkver output using our wrapper which handles Write-Host properly
+    $checkverOutput = & $checkverScript -App $AppName -Dir (Split-Path $ManifestPath) 2>&1 | Out-String
 
     Write-Verbose "Checkver output: '$checkverOutput'"
 
@@ -116,8 +112,94 @@ try {
         $manifestContent = Get-Content -Path $ManifestPath -Raw
         $manifestJson = ConvertFrom-Json $manifestContent
 
+        # Store old version for reporting
+        $oldVersion = $manifestJson.version
+
         # Update version
         $manifestJson.version = $latestVersion
+
+        # Process autoupdate to update URLs with the new version
+        if ($manifestJson.autoupdate.architecture.'64bit'.url) {
+            Write-Verbose "Updating 64bit URL..."
+            $manifestJson.architecture.'64bit'.url = $manifestJson.autoupdate.architecture.'64bit'.url -replace '\$version', $latestVersion
+        }
+
+        if ($manifestJson.autoupdate.architecture.'32bit'.url) {
+            Write-Verbose "Updating 32bit URL..."
+            $manifestJson.architecture.'32bit'.url = $manifestJson.autoupdate.architecture.'32bit'.url -replace '\$version', $latestVersion
+        }
+
+        if ($manifestJson.autoupdate.'64bit'.url) {
+            Write-Verbose "Updating 64bit URL (direct)..."
+            $manifestJson.architecture.'64bit'.url = $manifestJson.autoupdate.'64bit'.url -replace '\$version', $latestVersion
+        }
+
+        if ($manifestJson.autoupdate.'32bit'.url) {
+            Write-Verbose "Updating 32bit URL (direct)..."
+            $manifestJson.architecture.'32bit'.url = $manifestJson.autoupdate.'32bit'.url -replace '\$version', $latestVersion
+        }
+
+        if ($manifestJson.autoupdate.url) {
+            Write-Verbose "Updating generic URL..."
+            $manifestJson.url = $manifestJson.autoupdate.url -replace '\$version', $latestVersion
+        }
+
+        # Now we need to get the hashes for the updated URLs
+        Write-Verbose "Calculating hashes for updated URLs..."
+
+        # Function to download and hash a file
+        function Get-RemoteFileHash {
+            param([string]$Url, [string]$Algorithm = "SHA256")
+
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            try {
+                Write-Verbose "Downloading: $Url"
+                $ProgressPreference = 'SilentlyContinue'
+                Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
+
+                $hash = (Get-FileHash -Path $tempFile -Algorithm $Algorithm).Hash
+                return $hash
+            }
+            catch {
+                Write-Warning "Failed to download/hash $Url : $($_.Exception.Message)"
+                return $null
+            }
+            finally {
+                if (Test-Path $tempFile) {
+                    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        if ($manifestJson.architecture.'64bit'.url) {
+            $url64 = $manifestJson.architecture.'64bit'.url
+            Write-Verbose "Getting hash for 64bit: $url64"
+            $hash64 = Get-RemoteFileHash -Url $url64
+            if ($hash64) {
+                $manifestJson.architecture.'64bit'.hash = $hash64
+                Write-Verbose "✓ 64bit hash updated: $hash64"
+            }
+        }
+
+        if ($manifestJson.architecture.'32bit'.url) {
+            $url32 = $manifestJson.architecture.'32bit'.url
+            Write-Verbose "Getting hash for 32bit: $url32"
+            $hash32 = Get-RemoteFileHash -Url $url32
+            if ($hash32) {
+                $manifestJson.architecture.'32bit'.hash = $hash32
+                Write-Verbose "✓ 32bit hash updated: $hash32"
+            }
+        }
+
+        if ($manifestJson.url) {
+            $urlGeneric = $manifestJson.url
+            Write-Verbose "Getting hash for generic URL: $urlGeneric"
+            $hashGeneric = Get-RemoteFileHash -Url $urlGeneric
+            if ($hashGeneric) {
+                $manifestJson.hash = $hashGeneric
+                Write-Verbose "✓ Generic hash updated: $hashGeneric"
+            }
+        }
 
         # Convert back to JSON and save with proper formatting
         $updatedJson = $manifestJson | ConvertTo-Json -Depth 10
@@ -125,8 +207,8 @@ try {
         # Write JSON with UTF8 encoding
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
 
-        Write-Host "✓ Manifest version updated from $currentVersion to $latestVersion"
-        Write-Host "ℹ Note: Run 'scoop checkver -Update $AppName' in the bucket directory to calculate hashes."
+        Write-Host "✓ Manifest version updated from $oldVersion to $latestVersion"
+        Write-Host "✓ Architecture URLs and hashes updated"
 
         exit 0
     }
