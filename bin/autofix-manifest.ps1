@@ -106,13 +106,13 @@ Manifest: bucket/$appName.json
 "@
 
         $headers = @{
-            Authorization = "token $Token"
+            Authorization  = "token $Token"
             "Content-Type" = "application/json"
         }
 
         $payload = @{
-            title = $Title
-            body = $body
+            title  = $Title
+            body   = $body
             labels = $labels
         } | ConvertTo-Json
 
@@ -123,8 +123,7 @@ Manifest: bucket/$appName.json
         Write-Host "✓ GitHub issue #$issueNumber created" -ForegroundColor Green
         Write-Host "  Tags: $($labels -join ', ')" -ForegroundColor Green
         return $issueNumber
-    }
-    catch {
+    } catch {
         Write-Host "⚠ Failed to create GitHub issue: $_" -ForegroundColor Yellow
         return $false
     }
@@ -159,8 +158,7 @@ function Repair-CheckverPattern {
             # Suggest pattern based on detected format
             if ($tagName -match '^v\d') {
                 return '(?<version>v\d+[\.\d]*)'
-            }
-            elseif ($tagName -match '^\d') {
+            } elseif ($tagName -match '^\d') {
                 return '(?<version>\d+[\.\d]*)'
             }
         }
@@ -180,13 +178,11 @@ function Get-ReleaseAssets {
             $apiUrl = "https://api.github.com/repos/$repo/releases/tags/$Version"
             $release = Invoke-WebRequest -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing | ConvertFrom-Json
             return $release.assets
-        }
-        catch {
+        } catch {
             Write-Host "  ⚠ GitHub API error: $_" -ForegroundColor Yellow
             $errorMsg = $_
         }
-    }
-    elseif ($Platform -eq "gitlab") {
+    } elseif ($Platform -eq "gitlab") {
         try {
             $projectId = [Uri]::EscapeDataString($repo)
             $apiUrl = "https://gitlab.com/api/v4/projects/$projectId/releases/$Version"
@@ -197,12 +193,10 @@ function Get-ReleaseAssets {
                 @{ name = $_.filename; browser_download_url = $_.url }
             }
             return $assets
-        }
-        catch {
+        } catch {
             Write-Host "  ⚠ GitLab API error: $_" -ForegroundColor Yellow
         }
-    }
-    elseif ($Platform -eq "gitea") {
+    } elseif ($Platform -eq "gitea") {
         try {
             $apiUrl = "https://$repo/api/v1/repos/$repo/releases/tags/$Version"
             $release = Invoke-WebRequest -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing | ConvertFrom-Json
@@ -212,8 +206,7 @@ function Get-ReleaseAssets {
                 @{ name = $_.name; browser_download_url = $_.browser_download_url }
             }
             return $assets
-        }
-        catch {
+        } catch {
             Write-Host "  ⚠ Gitea API error: $_" -ForegroundColor Yellow
         }
     }
@@ -239,12 +232,10 @@ function Test-HashMismatch {
         }
 
         return @{ Mismatch = $false; ActualHash = $actualHash }
-    }
-    catch {
+    } catch {
         Write-Host "    ⚠ Hash verification failed: $_" -ForegroundColor Yellow
         return $null
-    }
-    finally {
+    } finally {
         if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
     }
 }
@@ -344,8 +335,7 @@ try {
                                 Write-Host "    ✓ Auto-fixing hash mismatch" -ForegroundColor Green
                                 if ($arch -eq "generic") {
                                     $manifest.hash = $hashResult.ActualHash
-                                }
-                                else {
+                                } else {
                                     $manifest.architecture.$arch.hash = $hashResult.ActualHash
                                 }
                             }
@@ -353,8 +343,7 @@ try {
                     }
                     continue
                 }
-            }
-            catch {
+            } catch {
                 Write-Host "  ✗ Current URL returned error"
             }
 
@@ -367,18 +356,15 @@ try {
                     # Update manifest with new URL
                     if ($arch -eq "generic") {
                         $manifest.url = $newUrl
-                    }
-                    elseif ($arch -eq "64bit") {
+                    } elseif ($arch -eq "64bit") {
                         $manifest.architecture.'64bit'.url = $newUrl
-                    }
-                    elseif ($arch -eq "32bit") {
+                    } elseif ($arch -eq "32bit") {
                         $manifest.architecture.'32bit'.url = $newUrl
                     }
 
                     continue
                 }
-            }
-            catch {
+            } catch {
                 # New URL also failed, try to find via repository API
             }
 
@@ -391,14 +377,12 @@ try {
                 if ($manifest.checkver.github -match 'github\.com/([^/]+/[^/]+)') {
                     $repoPath = $matches[1]
                 }
-            }
-            elseif ($manifest.checkver.gitlab) {
+            } elseif ($manifest.checkver.gitlab) {
                 $repoPlatform = "gitlab"
                 if ($manifest.checkver.gitlab -match 'gitlab\.com/([^/]+/[^/]+)') {
                     $repoPath = $matches[1]
                 }
-            }
-            elseif ($manifest.checkver.gitea) {
+            } elseif ($manifest.checkver.gitea) {
                 $repoPlatform = "gitea"
                 if ($manifest.checkver.gitea -match '(https?://[^/]+)/([^/]+/[^/]+)') {
                     $repoPath = $matches[2]
@@ -416,11 +400,9 @@ try {
                         $asset = $null
                         if ($arch -eq "64bit") {
                             $asset = $assets | Where-Object { $_.name -match "x86.?64|win64|windows.x64|64.?bit|amd64" } | Select-Object -First 1
-                        }
-                        elseif ($arch -eq "32bit") {
+                        } elseif ($arch -eq "32bit") {
                             $asset = $assets | Where-Object { $_.name -match "x86.?32|win32|windows.x86|32.?bit|386" } | Select-Object -First 1
-                        }
-                        else {
+                        } else {
                             $asset = $assets | Select-Object -First 1
                         }
 
@@ -430,17 +412,14 @@ try {
 
                             if ($arch -eq "generic") {
                                 $manifest.url = $fixedUrl
-                            }
-                            elseif ($arch -eq "64bit") {
+                            } elseif ($arch -eq "64bit") {
                                 $manifest.architecture.'64bit'.url = $fixedUrl
-                            }
-                            elseif ($arch -eq "32bit") {
+                            } elseif ($arch -eq "32bit") {
                                 $manifest.architecture.'32bit'.url = $fixedUrl
                             }
                         }
                     }
-                }
-                catch {
+                } catch {
                     Write-Host "  ⚠ API lookup failed: $_"
                     Add-Issue -Title "URL Resolution Failed" -Description "Could not resolve download URL for $appName $arch" -Severity "warning"
                 }
@@ -462,12 +441,10 @@ try {
                 Invoke-WebRequest -Uri $Url -OutFile $tempFile -ProgressAction SilentlyContinue -ErrorAction Stop | Out-Null
                 $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
                 return $hash
-            }
-            catch {
+            } catch {
                 Write-Warning "Failed to download $Url : $_"
                 return $null
-            }
-            finally {
+            } finally {
                 if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
             }
         }
@@ -535,8 +512,7 @@ try {
         }
 
         exit 0
-    }
-    else {
+    } else {
         Write-Host "Could not parse checkver output"
         Add-Issue -Title "Checkver Parse Failed" -Description "Could not extract version from checkver output for $appName" -Severity "error"
 
@@ -561,8 +537,7 @@ try {
 
         exit -1
     }
-}
-catch {
+} catch {
     Write-Error "Error in auto-fix: $($_.Exception.Message)"
     exit -1
 }

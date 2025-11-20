@@ -1,5 +1,5 @@
 ﻿param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$ManifestPath
 )
 
@@ -55,8 +55,7 @@ try {
             $architectures += '32bit'
             $urls += @{ arch = '32bit'; url = $manifest.autoupdate.'32bit'.url }
         }
-    }
-    elseif ($manifest.autoupdate.architecture.'64bit' -or $manifest.autoupdate.architecture.'32bit') {
+    } elseif ($manifest.autoupdate.architecture.'64bit' -or $manifest.autoupdate.architecture.'32bit') {
         # Architecture-specific URLs (nested under architecture)
         if ($manifest.autoupdate.architecture.'64bit') {
             $architectures += '64bit'
@@ -66,12 +65,10 @@ try {
             $architectures += '32bit'
             $urls += @{ arch = '32bit'; url = $manifest.autoupdate.architecture.'32bit'.url }
         }
-    }
-    elseif ($manifest.autoupdate.url) {
+    } elseif ($manifest.autoupdate.url) {
         # Generic URL (applies to all architectures)
         $urls += @{ arch = 'generic'; url = $manifest.autoupdate.url }
-    }
-    else {
+    } else {
         Write-Error "Autoupdate section does not contain any 'url' fields"
         exit -1
     }
@@ -103,8 +100,7 @@ try {
             }
 
             Write-Verbose "✓ $arch URL is accessible (HTTP $($response.StatusCode))"
-        }
-        catch {
+        } catch {
             Write-Error "Autoupdate.$arch URL is not accessible: $url`nError: $($_.Exception.Message)"
             exit -1
         }
@@ -112,8 +108,7 @@ try {
 
     Write-Verbose "✓ All autoupdate URLs are valid and accessible"
     exit 0
-}
-catch {
+} catch {
     Write-Error "Error validating autoupdate: $($_.Exception.Message)"
     exit -1
 }

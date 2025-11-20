@@ -519,6 +519,133 @@ All scripts:
 - Support `-Verbose` flag for detailed debugging
 - Handle network timeouts gracefully (10 second default)
 
+## File Formatting Standards
+
+**ALL files in this repository MUST follow these standards to pass Scoop bucket validation:**
+
+### PowerShell Files (.ps1)
+- **Encoding**: UTF-8 with BOM (Byte Order Mark) - **REQUIRED by Scoop**
+- **Line Endings**: CRLF (Windows)
+- **Trailing Newline**: Must end with newline character
+- **Whitespace**: No trailing whitespace on any line
+- **Indentation**: Spaces only (2 or 4 spaces, no tabs)
+
+### Markdown Files (.md)
+- **Encoding**: UTF-8 (standard, no BOM needed)
+- **Line Endings**: CRLF (Windows)
+- **Trailing Newline**: Must end with newline character
+- **Whitespace**: No trailing whitespace on any line
+- **Code Fences**: Never wrap entire file in markdown code fence (e.g., ````markdown...````)
+- **Indentation**: Spaces only
+
+### YAML Files (.yml, .yaml)
+- **Encoding**: UTF-8 (standard, no BOM needed)
+- **Line Endings**: CRLF (Windows)
+- **Trailing Newline**: Must end with newline character
+- **Whitespace**: No trailing whitespace on any line
+- **Indentation**: Spaces only (2 spaces per Scoop conventions)
+
+### JSON Files (.json)
+- **Encoding**: UTF-8 (standard)
+- **Line Endings**: CRLF (Windows)
+- **Trailing Newline**: Must end with newline character
+- **Whitespace**: No trailing whitespace
+- **Formatting**: Use formatjson.ps1 to validate/reformat
+
+### File-by-File Standards
+
+#### PowerShell Scripts (bin/*.ps1 + Scoop-Bucket.Tests.ps1)
+Checked by Scoop test suite:
+- checkver.ps1
+- check-autoupdate.ps1
+- check-manifest-install.ps1
+- validate-and-merge.ps1
+- handle-issue.ps1
+- autofix-manifest.ps1
+- update-manifest.ps1
+- test.ps1
+- checkurls.ps1
+- checkhashes.ps1
+- missing-checkver.ps1
+- formatjson.ps1
+- auto-pr.ps1
+- Scoop-Bucket.Tests.ps1
+
+**All MUST have UTF-8 with BOM encoding. Validate with:**
+```powershell
+$file = Get-Content -Path "script.ps1" -Encoding Byte -ReadCount 0
+if ($file[0] -eq 0xEF -and $file[1] -eq 0xBB -and $file[2] -eq 0xBF) {
+  Write-Host "✓ Has UTF-8 BOM"
+} else {
+  Write-Host "✗ Missing UTF-8 BOM"
+}
+```
+
+#### Documentation Files
+- README.md - UTF-8, trailing newline, no code fence wrapper
+- CONTRIBUTING.md - UTF-8, trailing newline
+- AUTOFIX_EXCAVATOR.md - UTF-8, trailing newline
+- AI_INSTRUCTIONS.md - UTF-8, trailing newline (this file)
+- .github/pull_request_template.md - UTF-8, trailing newline, **NO markdown wrapper**
+- .github/ISSUE_TEMPLATE/*.yml - UTF-8, trailing newline
+
+#### Manifest Files
+- bucket/*.json - UTF-8, formatted with formatjson.ps1, trailing newline
+
+### Validation Commands
+
+**Check for UTF-8 BOM in PowerShell files:**
+```powershell
+Get-ChildItem -Path "bin\*.ps1" | ForEach-Object {
+  $bytes = Get-Content -Path $_.FullName -Encoding Byte -ReadCount 3
+  if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "✓ $($_.Name) has UTF-8 BOM"
+  } else {
+    Write-Host "✗ $($_.Name) missing UTF-8 BOM"
+  }
+}
+```
+
+**Check for trailing newlines:**
+```powershell
+Get-ChildItem -Path "*.ps1", "*.md", "*.json", "*.yml" -Recurse | ForEach-Object {
+  $content = [System.IO.File]::ReadAllBytes($_.FullName)
+  if ($content.Length -gt 0) {
+    if ($content[-1] -ne 0x0A) {
+      Write-Host "✗ $($_.Name) missing trailing newline"
+    } else {
+      Write-Host "✓ $($_.Name) has trailing newline"
+    }
+  }
+}
+```
+
+**Run Scoop bucket test suite:**
+```powershell
+.\Scoop-Bucket.Tests.ps1 -Verbose
+```
+
+### Common Mistakes to Avoid
+
+1. **UTF-8 BOM Missing on PowerShell Files**: Use `Set-Content -Encoding UTF8` - but this gives UTF-8 without BOM. Use proper encoding:
+   ```powershell
+   $utf8BOM = New-Object System.Text.UTF8Encoding($true)
+   [System.IO.File]::WriteAllText($file, $content, $utf8BOM)
+   ```
+
+2. **PR Template Wrapped in Code Fence**: ❌ Do NOT wrap entire template in ````markdown...````
+   - This breaks GitHub template parsing
+   - Only use code fences for code blocks within the template
+
+3. **Missing Trailing Newlines**: Every file must end with a newline character
+   - Use terminal: `Add-Content -Path file.txt -Value ""` or ensure editor adds newline on save
+
+4. **Trailing Whitespace**: No spaces/tabs at end of lines
+   - Many editors have "trim trailing whitespace" option (enable it)
+
+5. **Inconsistent Line Endings**: Keep CRLF throughout (Windows standard)
+   - Git can auto-convert with `core.autocrlf = true` if needed
+
 ## Implementation Summary
 
 ### Automation Framework Deployed

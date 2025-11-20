@@ -26,8 +26,7 @@ try {
             Write-Output $fileContent
         }
     }
-}
-finally {
+} finally {
     if (Test-Path $tempOutput) {
         Remove-Item $tempOutput -Force -ErrorAction SilentlyContinue
     }

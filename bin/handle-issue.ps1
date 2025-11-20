@@ -45,14 +45,13 @@ function Get-IssueDetails {
     try {
         $headers = @{
             Authorization = "token $Token"
-            "Accept" = "application/vnd.github.v3+json"
+            "Accept"      = "application/vnd.github.v3+json"
         }
 
         $apiUrl = "https://api.github.com/repos/$Repo/issues/$IssueNum"
         $response = Invoke-WebRequest -Uri $apiUrl -Headers $headers -ErrorAction Stop
         return $response.Content | ConvertFrom-Json
-    }
-    catch {
+    } catch {
         Write-Host "✗ Failed to get issue details: $_" -ForegroundColor Red
         return $null
     }
@@ -64,7 +63,7 @@ function Add-IssueComment {
 
     try {
         $headers = @{
-            Authorization = "token $Token"
+            Authorization  = "token $Token"
             "Content-Type" = "application/json"
         }
 
@@ -73,8 +72,7 @@ function Add-IssueComment {
 
         $null = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return $true
-    }
-    catch {
+    } catch {
         Write-Host "⚠ Failed to post comment: $_" -ForegroundColor Yellow
         return $false
     }
@@ -93,22 +91,21 @@ function New-PullRequest {
 
     try {
         $headers = @{
-            Authorization = "token $Token"
+            Authorization  = "token $Token"
             "Content-Type" = "application/json"
         }
 
         $payload = @{
             title = $Title
-            body = $Body
-            head = $HeadBranch
-            base = $BaseBranch
+            body  = $Body
+            head  = $HeadBranch
+            base  = $BaseBranch
         } | ConvertTo-Json
 
         $apiUrl = "https://api.github.com/repos/$Repo/pulls"
         $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return ($response.Content | ConvertFrom-Json).number
-    }
-    catch {
+    } catch {
         Write-Host "⚠ Failed to create PR: $_" -ForegroundColor Yellow
         return $null
     }
@@ -132,8 +129,7 @@ $manifestsToFix = @()
 foreach ($match in $manifestMatches.Matches) {
     if ($match.Groups[1].Value) {
         $manifestsToFix += $match.Groups[1].Value
-    }
-    elseif ($match.Groups[2].Value) {
+    } elseif ($match.Groups[2].Value) {
         $manifestsToFix += $match.Groups[2].Value
     }
 }
@@ -168,8 +164,7 @@ foreach ($manifest in $manifestsToFix) {
         & $autofixScript -ManifestPath $manifestPath -NotifyOnIssues | Out-Null
         $autoFixResults[$manifest] = "SUCCESS"
         Write-Host "  ✓ Auto-fix succeeded for $manifest" -ForegroundColor Green
-    }
-    catch {
+    } catch {
         $autoFixResults[$manifest] = "FAILED"
         Write-Host "  ✗ Auto-fix failed for $manifest``: $_" -ForegroundColor Red
     }
@@ -228,8 +223,7 @@ cc: @beyondmeat
 
         Add-IssueComment -IssueNum $IssueNumber -Body $issueComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
     }
-}
-else {
+} else {
     # All auto-fixes failed - request Copilot
     Write-Host "`n❌ Auto-fix failed for all manifests. Requesting Copilot assistance..." -ForegroundColor Red
 

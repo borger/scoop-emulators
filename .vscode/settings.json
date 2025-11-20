@@ -1,7 +1,8 @@
 // Configure PSScriptAnalyzer settings
 {
     "[powershell]": {
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-vscode.powershell"
     },
     "powershell.scriptAnalysis.settingsPath": "PSScriptAnalyzerSettings.psd1",
     "powershell.codeFormatting.preset": "OTBS",

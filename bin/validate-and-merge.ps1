@@ -62,10 +62,10 @@ Write-Host "=== Validating PR #$PullRequestNumber for $appName ===" -ForegroundC
 
 # Test all validation scripts
 $validationResults = @{
-    CheckVer = $null
+    CheckVer        = $null
     CheckAutoupdate = $null
-    CheckInstall = $null
-    AllPassed = $false
+    CheckInstall    = $null
+    AllPassed       = $false
 }
 
 # Run checkver
@@ -74,8 +74,7 @@ try {
     & $checkVerScript -App $appName -Dir $BucketPath | Out-Null
     $validationResults.CheckVer = "✓ PASS"
     Write-Host "  ✓ Checkver passed" -ForegroundColor Green
-}
-catch {
+} catch {
     $validationResults.CheckVer = "✗ FAIL: $_"
     Write-Host "  ✗ Checkver failed: $_" -ForegroundColor Red
 }
@@ -86,8 +85,7 @@ try {
     & $checkAutoupdateScript -ManifestPath $ManifestPath -ErrorAction SilentlyContinue | Out-Null
     $validationResults.CheckAutoupdate = "✓ PASS"
     Write-Host "  ✓ Autoupdate config valid" -ForegroundColor Green
-}
-catch {
+} catch {
     $validationResults.CheckAutoupdate = "✗ FAIL: $_"
     Write-Host "  ✗ Autoupdate validation failed: $_" -ForegroundColor Red
 }
@@ -98,16 +96,15 @@ try {
     & $checkInstallScript -ManifestPath $ManifestPath | Out-Null
     $validationResults.CheckInstall = "✓ PASS"
     Write-Host "  ✓ Installation test passed" -ForegroundColor Green
-}
-catch {
+} catch {
     $validationResults.CheckInstall = "✗ FAIL: $_"
     Write-Host "  ✗ Installation test failed: $_" -ForegroundColor Red
 }
 
 # Check if all passed
 $allPassed = $validationResults.CheckVer -like "*PASS*" -and `
-            $validationResults.CheckAutoupdate -like "*PASS*" -and `
-            $validationResults.CheckInstall -like "*PASS*"
+    $validationResults.CheckAutoupdate -like "*PASS*" -and `
+    $validationResults.CheckInstall -like "*PASS*"
 
 $validationResults.AllPassed = $allPassed
 
@@ -119,7 +116,7 @@ function Publish-PRComment {
 
     try {
         $headers = @{
-            Authorization = "token $Token"
+            Authorization  = "token $Token"
             "Content-Type" = "application/json"
         }
 
@@ -128,8 +125,7 @@ function Publish-PRComment {
 
         Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop | Out-Null
         return $true
-    }
-    catch {
+    } catch {
         Write-Host "⚠ Failed to post PR comment: $_" -ForegroundColor Yellow
         return $false
     }
@@ -180,21 +176,20 @@ cc: @beyondmeat
 
         Publish-PRComment -Body $mergeRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
         exit 0
-    }
-    else {
+    } else {
         # Copilot PR: Auto-merge
         Write-Host "  → Auto-merging (Copilot PR)..." -ForegroundColor Green
 
         try {
             $headers = @{
-                Authorization = "token $GitHubToken"
+                Authorization  = "token $GitHubToken"
                 "Content-Type" = "application/json"
             }
 
             $payload = @{
-                commit_title = "fix(bucket): $appName auto-fix validation passed"
+                commit_title   = "fix(bucket): $appName auto-fix validation passed"
                 commit_message = "Auto-fixed manifest with all validation checks passing."
-                merge_method = "squash"
+                merge_method   = "squash"
             } | ConvertTo-Json
 
             $apiUrl = "https://api.github.com/repos/$GitHubRepo/pulls/$PullRequestNumber/merge"
@@ -207,14 +202,12 @@ cc: @beyondmeat
             Publish-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
             exit 0
-        }
-        catch {
+        } catch {
             Write-Host "⚠ Failed to auto-merge PR: $_" -ForegroundColor Yellow
             exit 1
         }
     }
-}
-else {
+} else {
     # Validation failed - request Copilot to fix
     Write-Host "`n❌ Validation failed. Requesting Copilot to fix issues..." -ForegroundColor Red
 

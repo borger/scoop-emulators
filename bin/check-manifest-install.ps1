@@ -1,5 +1,5 @@
 ﻿param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$ManifestPath,
 
     [string]$AppName = $null
@@ -50,8 +50,7 @@ try {
     try {
         $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
         Write-Verbose "✓ Manifest JSON is valid"
-    }
-    catch {
+    } catch {
         Write-Error "Invalid manifest JSON in $ManifestPath : $($_.Exception.Message)"
         exit -1
     }
@@ -93,13 +92,11 @@ try {
         scoop uninstall $AppName 2>&1 | Out-Null
 
         exit 0
-    }
-    else {
+    } else {
         Write-Error "Installation verification failed: $AppName not found in installed apps list"
         exit -1
     }
-}
-catch {
+} catch {
     Write-Error "Error during installation test: $($_.Exception.Message)"
     exit -1
 }

@@ -1,5 +1,5 @@
 ﻿param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$ManifestPath,
 
     [switch]$Update = $false,
@@ -91,8 +91,7 @@ try {
     # - "shadps4: 0.12.5" (already up to date)
     if ($checkverOutput -match ':\s+([\d\.]+)(\s+\(scoop version)?') {
         $latestVersion = $matches[1]
-    }
-    else {
+    } else {
         Write-Error "Could not parse version from checkver output: $checkverOutput"
         exit -1
     }
@@ -159,12 +158,10 @@ try {
 
                 $hash = (Get-FileHash -Path $tempFile -Algorithm $Algorithm).Hash
                 return $hash
-            }
-            catch {
+            } catch {
                 Write-Warning "Failed to download/hash $Url : $($_.Exception.Message)"
                 return $null
-            }
-            finally {
+            } finally {
                 if (Test-Path $tempFile) {
                     Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
                 }
@@ -211,13 +208,11 @@ try {
         Write-Host "✓ Architecture URLs and hashes updated"
 
         exit 0
-    }
-    else {
+    } else {
         Write-Host "ℹ Run with -Update switch to apply the update"
         exit 0
     }
-}
-catch {
+} catch {
     Write-Error "Error checking manifest version: $($_.Exception.Message)"
     exit -1
 }
