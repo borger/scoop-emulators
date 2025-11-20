@@ -125,12 +125,29 @@ jobs:
             // Get the current run ID
             const runId = context.runId;
 
-            // Fetch the logs for this workflow run
+            // First, list jobs for this workflow run to get the job ID
+            const jobsResponse = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId
+            });
+
+            // Find the job with name 'excavate'
+            const excavateJob = jobsResponse.data.jobs.find(job => job.name === 'excavate');
+            if (!excavateJob) {
+              console.log('Could not find excavate job in workflow run');
+              core.setOutput('log-errors', '');
+              return;
+            }
+
+            const jobId = excavateJob.id;
+            console.log(`Found excavate job ID: ${jobId}`);
+
+            // Fetch the logs for this job
             const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              run_id: runId,
-              job_id: context.job
+              job_id: jobId
             });
 
             // Parse the logs to find error messages
