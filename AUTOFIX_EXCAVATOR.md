@@ -1,4 +1,4 @@
-﻿# Excavator Auto-Fix Enhancement
+# Excavator Auto-Fix Enhancement
 
 ## Overview
 

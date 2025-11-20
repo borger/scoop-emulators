@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$ManifestPath,
     [string]$BucketPath = (Split-Path -Parent (Split-Path -Parent $ManifestPath)),
     [string]$IssueLog = "",
@@ -475,9 +475,8 @@ try {
 
         # Save updated manifest
         $updatedJson = $manifest | ConvertTo-Json -Depth 10
-        # Use UTF-8 with BOM (Scoop requirement)
-        $utf8BOM = New-Object System.Text.UTF8Encoding($true)
-        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8BOM)
+        # Use UTF-8 without BOM (standard JSON)
+        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
 
         Write-Host "✓ Manifest auto-fixed and saved" -ForegroundColor Green
 

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
 Validates manifest changes and auto-merges PR if all checks pass.

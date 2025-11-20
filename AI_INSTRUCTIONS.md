@@ -1,4 +1,4 @@
-﻿# Scoop Emulators Bucket - AI Assistant Instructions
+# Scoop Emulators Bucket - AI Assistant Instructions
 
 ## Overview
 This is a Scoop bucket containing manifests for various emulators (MAME, Dolphin, RetroArch, shadps4, visualboyadvance-m, etc.). The bucket includes custom PowerShell scripts for validation and maintenance with advanced GitHub Copilot integration for automated fixes.
@@ -513,42 +513,38 @@ Issues requiring manual review are tracked with:
 
 ## File Encoding in Scripts
 
-**File Encoding Requirements:**
-- **PowerShell scripts (.ps1)**: UTF-8 with BOM (Scoop requirement)
-- **JSON manifests (.json)**: UTF-8 without BOM (standard JSON)
-- **Markdown (.md), YAML (.yml)**: UTF-8 without BOM (standard text)
+**File Encoding Requirements - NO BOM ANYWHERE:**
+- **All files**: UTF-8 without BOM (standard, universal format)
+- PowerShell scripts, JSON, Markdown, YAML all use standard UTF-8
 
-### When Writing Manifest Files (JSON)
+### Correct Way (UTF-8 without BOM)
 ```powershell
-# CORRECT - UTF-8 without BOM for manifest files
-[System.IO.File]::WriteAllText($ManifestPath, $content + "`n", [System.Text.Encoding]::UTF8)
-```
-
-### When Writing PowerShell Files (if needed)
-```powershell
-# CORRECT - UTF-8 with BOM for PowerShell scripts
-$utf8BOM = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($file.ps1, $content, $utf8BOM)
+# For writing ANY file (manifests, configs, etc.)
+[System.IO.File]::WriteAllText($filePath, $content + "`n", [System.Text.Encoding]::UTF8)
 ```
 
 ### Incorrect Ways ❌
 ```powershell
-# WRONG - Uses system default encoding
-$content | Set-Content -Path $ManifestPath
+# WRONG - Adds BOM to the file
+$utf8BOM = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($filePath, $content, $utf8BOM)
 
 # WRONG - Uses system default encoding
-$content | Out-File -Path $ManifestPath
+$content | Set-Content -Path $filePath
+
+# WRONG - Uses system default encoding
+$content | Out-File -Path $filePath
 ```
 
 **Scripts That Modify Manifests:**
-- `update-manifest.ps1` - ✅ Uses UTF-8 without BOM for JSON files
-- `autofix-manifest.ps1` - ✅ Uses UTF-8 without BOM for JSON files
+- `update-manifest.ps1` - ✅ Uses UTF-8 without BOM
+- `autofix-manifest.ps1` - ✅ Uses UTF-8 without BOM
 
 **Why This Matters:**
-- JSON files must NOT have BOM (BOM breaks JSON parsing)
-- PowerShell scripts MUST have BOM per Scoop standards
-- Always verify file encoding after automated modifications
-- Use proper encoding constructors, never rely on system defaults
+- UTF-8 without BOM is the universal standard for text files
+- BOM can break JSON parsing and cause encoding issues
+- Always use `[System.Text.Encoding]::UTF8` directly, never wrap with `UTF8Encoding($true)`
+- Never rely on system default encoding (it varies by locale)
 
 ## Error Handling
 
@@ -563,14 +559,14 @@ All scripts:
 **ALL files in this repository MUST follow these standards to pass Scoop bucket validation:**
 
 ### PowerShell Files (.ps1)
-- **Encoding**: UTF-8 with BOM (Byte Order Mark) - **REQUIRED by Scoop**
+- **Encoding**: UTF-8 without BOM
 - **Line Endings**: CRLF (Windows)
 - **Trailing Newline**: Must end with newline character
 - **Whitespace**: No trailing whitespace on any line
 - **Indentation**: Spaces only (2 or 4 spaces, no tabs)
 
 ### Markdown Files (.md)
-- **Encoding**: UTF-8 (standard, no BOM needed)
+- **Encoding**: UTF-8 without BOM
 - **Line Endings**: CRLF (Windows)
 - **Trailing Newline**: Must end with newline character
 - **Whitespace**: No trailing whitespace on any line
@@ -578,14 +574,14 @@ All scripts:
 - **Indentation**: Spaces only
 
 ### YAML Files (.yml, .yaml)
-- **Encoding**: UTF-8 (standard, no BOM needed)
+- **Encoding**: UTF-8 without BOM
 - **Line Endings**: CRLF (Windows)
 - **Trailing Newline**: Must end with newline character
 - **Whitespace**: No trailing whitespace on any line
 - **Indentation**: Spaces only (2 spaces per Scoop conventions)
 
 ### JSON Files (.json)
-- **Encoding**: UTF-8 (standard)
+- **Encoding**: UTF-8 without BOM
 - **Line Endings**: CRLF (Windows)
 - **Trailing Newline**: Must end with newline character
 - **Whitespace**: No trailing whitespace
@@ -610,13 +606,13 @@ Checked by Scoop test suite:
 - auto-pr.ps1
 - Scoop-Bucket.Tests.ps1
 
-**All MUST have UTF-8 with BOM encoding. Validate with:**
+**All MUST use UTF-8 without BOM encoding. Validate with:**
 ```powershell
 $file = Get-Content -Path "script.ps1" -Encoding Byte -ReadCount 0
 if ($file[0] -eq 0xEF -and $file[1] -eq 0xBB -and $file[2] -eq 0xBF) {
-  Write-Host "✓ Has UTF-8 BOM"
+  Write-Host "✗ Has BOM (should not have it)"
 } else {
-  Write-Host "✗ Missing UTF-8 BOM"
+  Write-Host "✓ No BOM (correct)"
 }
 ```
 
@@ -711,8 +707,8 @@ This bucket now has a complete automation and validation framework:
 ### Validation Checklist
 - [x] All manifests structurally valid
 - [x] All manifests pass autoupdate validation
-- [x] All scripts have UTF-8 BOM
-- [x] All markdown files have UTF-8 BOM
+- [x] All scripts have proper encoding (UTF-8 no BOM)
+- [x] All markdown files have proper encoding
 - [x] GitHub Actions style checks passing
 - [x] Scripts tested with real manifests
 - [x] Installation tests verified
@@ -838,24 +834,23 @@ Get-Verb | Select-Object Verb, AliasPrefix | Format-Table
 
 ## Common Troubleshooting
 
-### UTF-8 BOM Validation
-If test fails: "files do not contain leading UTF-8 BOM"
+### Verify File Encoding
+All files should be UTF-8 **without BOM**.
 
-Check which files are missing BOM:
+Check if a file has BOM:
 ```powershell
-Get-ChildItem -Path "bin\*.ps1", ".github\**\*.yml" -File | ForEach-Object {
-    $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
-    if (-not ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)) {
-        Write-Host "Missing BOM: $($_.FullName)" -ForegroundColor Red
-    }
+$bytes = [System.IO.File]::ReadAllBytes($filePath)
+if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "File has BOM (remove it)"
+} else {
+    Write-Host "File has no BOM (correct)"
 }
 ```
 
-Fix encoding for a file:
+Remove BOM if present:
 ```powershell
 $content = [System.IO.File]::ReadAllText($filePath)
-$utf8BOM = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($filePath, $content, $utf8BOM)
+[System.IO.File]::WriteAllText($filePath, $content, [System.Text.Encoding]::UTF8)
 ```
 
 ### Trailing Newline Issues
