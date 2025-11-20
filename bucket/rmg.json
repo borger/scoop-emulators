@@ -1,5 +1,5 @@
-{
-    "version": "0.8.8",
+﻿{
+    "version": "2",
     "description": "Nintendo 64 emulator",
     "homepage": "https://github.com/Rosalie241/RMG",
     "license": {
@@ -13,7 +13,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/Rosalie241/RMG/releases/download/v0.8.8/RMG-Portable-Windows64-v0.8.8.zip",
-            "hash": "c37d583321cb5e976ba267fdae417bb9b5d797806b132dceabc6cffdc25fe037"
+            "hash": "C37D583321CB5E976BA267FDAE417BB9B5D797806B132DCEABC6CFFDC25FE037"
         }
     },
     "shortcuts": [
