@@ -73,7 +73,7 @@ function New-GitHubIssue {
     )
 
     if (!$Repository -or !$Token) {
-        Write-Host "⚠ GitHub credentials not available, skipping issue creation" -ForegroundColor Yellow
+        Write-Host "[WARN] GitHub credentials not available, skipping issue creation" -ForegroundColor Yellow
         return $false
     }
 
@@ -122,11 +122,11 @@ Manifest: bucket/$appName.json
         $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         $issueNumber = ($response.Content | ConvertFrom-Json).number
 
-        Write-Host "✓ GitHub issue #$issueNumber created" -ForegroundColor Green
+        Write-Host "[OK] GitHub issue #$issueNumber created" -ForegroundColor Green
         Write-Host "  Tags: $($labels -join ', ')" -ForegroundColor Green
         return $issueNumber
     } catch {
-        Write-Host "⚠ Failed to create GitHub issue: $_" -ForegroundColor Yellow
+        Write-Host "[WARN] Failed to create GitHub issue: $_" -ForegroundColor Yellow
         return $false
     }
 }
@@ -181,7 +181,7 @@ function Get-ReleaseAssets {
             $release = Invoke-WebRequest -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing | ConvertFrom-Json
             return $release.assets
         } catch {
-            Write-Host "  ⚠ GitHub API error: $_" -ForegroundColor Yellow
+            Write-Host "  [WARN] GitHub API error: $_" -ForegroundColor Yellow
             $errorMsg = $_
         }
     } elseif ($Platform -eq "gitlab") {
@@ -196,7 +196,7 @@ function Get-ReleaseAssets {
             }
             return $assets
         } catch {
-            Write-Host "  ⚠ GitLab API error: $_" -ForegroundColor Yellow
+            Write-Host "  [WARN] GitLab API error: $_" -ForegroundColor Yellow
         }
     } elseif ($Platform -eq "gitea") {
         try {
@@ -209,7 +209,7 @@ function Get-ReleaseAssets {
             }
             return $assets
         } catch {
-            Write-Host "  ⚠ Gitea API error: $_" -ForegroundColor Yellow
+            Write-Host "  [WARN] Gitea API error: $_" -ForegroundColor Yellow
         }
     }
 
@@ -228,7 +228,7 @@ function Test-HashMismatch {
         $actualHash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
 
         if ($actualHash -ne $StoredHash) {
-            Write-Host "    ⚠ Hash mismatch detected!" -ForegroundColor Yellow
+            Write-Host "    [WARN] Hash mismatch detected!" -ForegroundColor Yellow
             Write-Host "      Expected: $StoredHash" -ForegroundColor Yellow
             Write-Host "      Actual:   $actualHash" -ForegroundColor Yellow
             return @{ Mismatch = $true; ActualHash = $actualHash }
@@ -236,7 +236,7 @@ function Test-HashMismatch {
 
         return @{ Mismatch = $false; ActualHash = $actualHash }
     } catch {
-        Write-Host "    ⚠ Hash verification failed: $_" -ForegroundColor Yellow
+        Write-Host "    [WARN] Hash verification failed: $_" -ForegroundColor Yellow
         return $null
     } finally {
         if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
@@ -262,7 +262,7 @@ try {
     if ($structureErrors) {
         Write-Host "Manifest structure issues detected:" -ForegroundColor Yellow
         foreach ($errorMsg in $structureErrors) {
-            Write-Host "  ⚠ $errorMsg" -ForegroundColor Yellow
+            Write-Host "  [WARN] $errorMsg" -ForegroundColor Yellow
             Add-Issue -Title "Structure Error" -Description $errorMsg -Severity "error"
         }
     }
@@ -290,7 +290,7 @@ try {
         $currentVersion = $manifest.version
 
         if ($latestVersion -eq $currentVersion) {
-            Write-Host "✓ Manifest already up-to-date (v$currentVersion)"
+            Write-Host "[OK] Manifest already up-to-date (v$currentVersion)"
             exit 1
         }
 
@@ -326,7 +326,7 @@ try {
             try {
                 $response = Invoke-WebRequest -Uri $oldUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
                 if ($response.StatusCode -eq 200) {
-                    Write-Host "  ✓ Current URL still valid"
+                    Write-Host "  [OK] Current URL still valid"
 
                     # Verify hash if it exists
                     $hashField = if ($arch -eq "generic") { "hash" } else { "hash" }
@@ -335,7 +335,7 @@ try {
                         if ($currentHash) {
                             $hashResult = Test-HashMismatch -Url $oldUrl -StoredHash $currentHash
                             if ($hashResult -and $hashResult.Mismatch) {
-                                Write-Host "    ✓ Auto-fixing hash mismatch" -ForegroundColor Green
+                                Write-Host "    [OK] Auto-fixing hash mismatch" -ForegroundColor Green
                                 if ($arch -eq "generic") {
                                     $manifest.hash = $hashResult.ActualHash
                                 } else {
@@ -347,14 +347,14 @@ try {
                     continue
                 }
             } catch {
-                Write-Host "  ✗ Current URL returned error"
+                Write-Host "  [FAIL] Current URL returned error"
             }
 
             # Try new URL with version substitution
             try {
                 $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
                 if ($response.StatusCode -eq 200) {
-                    Write-Host "  ✓ Fixed URL found: $newUrl" -ForegroundColor Green
+                    Write-Host "  [OK] Fixed URL found: $newUrl" -ForegroundColor Green
 
                     # Update manifest with new URL
                     if ($arch -eq "generic") {
@@ -411,7 +411,7 @@ try {
 
                         if ($asset) {
                             $fixedUrl = $asset.browser_download_url
-                            Write-Host "  ✓ API found asset: $($asset.name)" -ForegroundColor Green
+                            Write-Host "  [OK] API found asset: $($asset.name)" -ForegroundColor Green
 
                             if ($arch -eq "generic") {
                                 $manifest.url = $fixedUrl
@@ -423,7 +423,7 @@ try {
                         }
                     }
                 } catch {
-                    Write-Host "  ⚠ API lookup failed: $_"
+                    Write-Host "  [WARN] API lookup failed: $_"
                     Add-Issue -Title "URL Resolution Failed" -Description "Could not resolve download URL for $appName $arch" -Severity "warning"
                 }
             }
@@ -441,7 +441,8 @@ try {
 
             $tempFile = [System.IO.Path]::GetTempFileName()
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $tempFile -ProgressAction SilentlyContinue -ErrorAction Stop | Out-Null
+                $ProgressPreference = 'SilentlyContinue'
+                Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
                 $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
                 return $hash
             } catch {
@@ -456,7 +457,7 @@ try {
             $hash = Get-RemoteFileHash -Url $manifest.url
             if ($hash) {
                 $manifest.hash = $hash
-                Write-Host "  ✓ Generic hash updated"
+                Write-Host "  [OK] Generic hash updated"
             }
         }
 
@@ -464,7 +465,7 @@ try {
             $hash = Get-RemoteFileHash -Url $manifest.architecture.'64bit'.url
             if ($hash) {
                 $manifest.architecture.'64bit'.hash = $hash
-                Write-Host "  ✓ 64bit hash updated"
+                Write-Host "  [OK] 64bit hash updated"
             }
         }
 
@@ -472,7 +473,7 @@ try {
             $hash = Get-RemoteFileHash -Url $manifest.architecture.'32bit'.url
             if ($hash) {
                 $manifest.architecture.'32bit'.hash = $hash
-                Write-Host "  ✓ 32bit hash updated"
+                Write-Host "  [OK] 32bit hash updated"
             }
         }
 
@@ -481,12 +482,10 @@ try {
         # Use UTF-8 without BOM (standard JSON)
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
 
-        Write-Host "✓ Manifest auto-fixed and saved" -ForegroundColor Green
-
-        # Log any issues for manual review
+        Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green        # Log any issues for manual review
         if ($issues.Count -gt 0 -and $NotifyOnIssues -and $IssueLog) {
             $issues | ConvertTo-Json | Add-Content -Path $IssueLog
-            Write-Host "⚠ Issues logged for manual review" -ForegroundColor Yellow
+            Write-Host "[WARN] Issues logged for manual review" -ForegroundColor Yellow
 
             # Create GitHub issue with Copilot tag
             if ($AutoCreateIssues) {
@@ -501,7 +500,7 @@ try {
                     -TagCopilot
 
                 if (!$issueNum) {
-                    Write-Host "⚠ Could not create Copilot issue, escalating to manual review" -ForegroundColor Yellow
+                    Write-Host "[WARN] Could not create Copilot issue, escalating to manual review" -ForegroundColor Yellow
                     # Create escalation issue
                     $issueNum = New-GitHubIssue `
                         -Title "ESCALATION: Manual fix needed for $appName" `

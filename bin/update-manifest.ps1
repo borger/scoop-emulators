@@ -67,7 +67,7 @@ try {
         exit -1
     }
 
-    Write-Verbose "✓ Manifest has both 'checkver' and 'autoupdate' sections"
+    Write-Verbose "[OK] Manifest has both 'checkver' and 'autoupdate' sections"
 
     $currentVersion = $manifest.version
     Write-Verbose "Current version: $currentVersion"
@@ -102,7 +102,7 @@ try {
     Write-Host "Found version: $latestVersion (current: $currentVersion)"
 
     if ($latestVersion -eq $currentVersion -and !$Force) {
-        Write-Host "✓ Manifest is already up to date"
+        Write-Host "[OK] Manifest is already up to date"
         exit 0
     }
 
@@ -176,7 +176,7 @@ try {
             $hash64 = Get-RemoteFileHash -Url $url64
             if ($hash64) {
                 $manifestJson.architecture.'64bit'.hash = $hash64
-                Write-Verbose "✓ 64bit hash updated: $hash64"
+                Write-Verbose "[OK] 64bit hash updated: $hash64"
             }
         }
 
@@ -186,7 +186,7 @@ try {
             $hash32 = Get-RemoteFileHash -Url $url32
             if ($hash32) {
                 $manifestJson.architecture.'32bit'.hash = $hash32
-                Write-Verbose "✓ 32bit hash updated: $hash32"
+                Write-Verbose "[OK] 32bit hash updated: $hash32"
             }
         }
 
@@ -196,7 +196,7 @@ try {
             $hashGeneric = Get-RemoteFileHash -Url $urlGeneric
             if ($hashGeneric) {
                 $manifestJson.hash = $hashGeneric
-                Write-Verbose "✓ Generic hash updated: $hashGeneric"
+                Write-Verbose "[OK] Generic hash updated: $hashGeneric"
             }
         }
 
@@ -206,12 +206,12 @@ try {
         # Write JSON with UTF-8 encoding (no BOM)
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
 
-        Write-Host "✓ Manifest version updated from $oldVersion to $latestVersion"
-        Write-Host "✓ Architecture URLs and hashes updated"
+        Write-Host "[OK] Manifest version updated from $oldVersion to $latestVersion"
+        Write-Host "[OK] Architecture URLs and hashes updated"
 
         exit 0
     } else {
-        Write-Host "ℹ Run with -Update switch to apply the update"
+        Write-Host "[INFO] Run with -Update switch to apply the update"
         exit 0
     }
 } catch {

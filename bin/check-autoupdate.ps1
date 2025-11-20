@@ -86,7 +86,7 @@ try {
 
         # Check for placeholder variables in the URL
         if ($url -match '\$\w+') {
-            Write-Verbose "⚠ $arch URL contains placeholder variables (e.g., \$version, \$match1) - skipping accessibility check"
+            Write-Verbose "[SKIP] $arch URL contains placeholder variables (e.g., \$version, \$match1) - skipping accessibility check"
             continue
         }
 
@@ -101,14 +101,14 @@ try {
                 exit -1
             }
 
-            Write-Verbose "✓ $arch URL is accessible (HTTP $($response.StatusCode))"
+            Write-Verbose "[OK] $arch URL is accessible (HTTP $($response.StatusCode))"
         } catch {
             Write-Error "Autoupdate.$arch URL is not accessible: $url`nError: $($_.Exception.Message)"
             exit -1
         }
     }
 
-    Write-Verbose "✓ All autoupdate URLs are valid and accessible"
+    Write-Verbose "[OK] All autoupdate URLs are valid and accessible"
     exit 0
 } catch {
     Write-Error "Error validating autoupdate: $($_.Exception.Message)"

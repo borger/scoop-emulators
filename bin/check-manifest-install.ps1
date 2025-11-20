@@ -51,7 +51,7 @@ try {
     # Validate manifest JSON structure
     try {
         $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
-        Write-Verbose "✓ Manifest JSON is valid"
+        Write-Verbose "[OK] Manifest JSON is valid"
     } catch {
         Write-Error "Invalid manifest JSON in $ManifestPath : $($_.Exception.Message)"
         exit -1
@@ -87,7 +87,7 @@ try {
     # Verify installation was successful
     $installedApps = scoop list 2>&1
     if ($installedApps -match $AppName) {
-        Write-Verbose "✓ Installation successful: $AppName"
+        Write-Verbose "[OK] Installation successful: $AppName"
 
         # Clean up - uninstall after successful test
         Write-Verbose "Cleaning up: uninstalling $AppName"

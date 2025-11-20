@@ -72,33 +72,33 @@ $validationResults = @{
 Write-Host "`n[1/3] Running checkver validation..." -ForegroundColor Yellow
 try {
     & $checkVerScript -App $appName -Dir $BucketPath | Out-Null
-    $validationResults.CheckVer = "✓ PASS"
-    Write-Host "  ✓ Checkver passed" -ForegroundColor Green
+    $validationResults.CheckVer = "[OK] PASS"
+    Write-Host "  [OK] Checkver passed" -ForegroundColor Green
 } catch {
-    $validationResults.CheckVer = "✗ FAIL: $_"
-    Write-Host "  ✗ Checkver failed: $_" -ForegroundColor Red
+    $validationResults.CheckVer = "[FAIL] FAIL: $_"
+    Write-Host "  [FAIL] Checkver failed: $_" -ForegroundColor Red
 }
 
 # Run check-autoupdate
 Write-Host "[2/3] Running autoupdate validation..." -ForegroundColor Yellow
 try {
     & $checkAutoupdateScript -ManifestPath $ManifestPath -ErrorAction SilentlyContinue | Out-Null
-    $validationResults.CheckAutoupdate = "✓ PASS"
-    Write-Host "  ✓ Autoupdate config valid" -ForegroundColor Green
+    $validationResults.CheckAutoupdate = "[OK] PASS"
+    Write-Host "  [OK] Autoupdate config valid" -ForegroundColor Green
 } catch {
-    $validationResults.CheckAutoupdate = "✗ FAIL: $_"
-    Write-Host "  ✗ Autoupdate validation failed: $_" -ForegroundColor Red
+    $validationResults.CheckAutoupdate = "[FAIL] FAIL: $_"
+    Write-Host "  [FAIL] Autoupdate validation failed: $_" -ForegroundColor Red
 }
 
 # Run check-manifest-install
 Write-Host "[3/3] Running installation test..." -ForegroundColor Yellow
 try {
     & $checkInstallScript -ManifestPath $ManifestPath | Out-Null
-    $validationResults.CheckInstall = "✓ PASS"
-    Write-Host "  ✓ Installation test passed" -ForegroundColor Green
+    $validationResults.CheckInstall = "[OK] PASS"
+    Write-Host "  [OK] Installation test passed" -ForegroundColor Green
 } catch {
-    $validationResults.CheckInstall = "✗ FAIL: $_"
-    Write-Host "  ✗ Installation test failed: $_" -ForegroundColor Red
+    $validationResults.CheckInstall = "[FAIL] FAIL: $_"
+    Write-Host "  [FAIL] Installation test failed: $_" -ForegroundColor Red
 }
 
 # Check if all passed
@@ -126,14 +126,14 @@ function Publish-PRComment {
         Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop | Out-Null
         return $true
     } catch {
-        Write-Host "⚠ Failed to post PR comment: $_" -ForegroundColor Yellow
+        Write-Host "[WARN] Failed to post PR comment: $_" -ForegroundColor Yellow
         return $false
     }
 }
 
 # Build validation report
 $report = @"
-## ✅ Validation Report
+## [OK] Validation Report
 
 **Manifest**: \`$appName\`
 
@@ -143,7 +143,7 @@ $report = @"
 - Installation Test: $($validationResults.CheckInstall)
 
 ### Status
-$(if ($allPassed) { "✅ **All validations passed!** Ready to merge." } else { "❌ **Validation failed.** Requesting Copilot fix..." })
+$(if ($allPassed) { "[OK] All validations passed! Ready to merge." } else { "[FAIL] Validation failed. Requesting Copilot fix..." })
 
 **Timestamp**: $([DateTime]::UtcNow.ToString('o'))
 "@
@@ -155,19 +155,19 @@ Write-Host $report
 Publish-PRComment -Body $report -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
 if ($allPassed) {
-    Write-Host "`n✓ All validations passed!" -ForegroundColor Green
+    Write-Host "`n[OK] All validations passed!" -ForegroundColor Green
 
     if ($IsUserPR) {
         # User PR: Tag @beyondmeat for manual merge review
         Write-Host "  → Tagging @beyondmeat for merge review (user PR)" -ForegroundColor Cyan
 
         $mergeRequest = @"
-## ✅ Validation Passed - Ready for Merge
+## [OK] Validation Passed - Ready for Merge
 
 All validation checks have passed successfully:
-- ✓ Checkver validation
-- ✓ Autoupdate configuration
-- ✓ Installation test
+- [OK] Checkver validation
+- [OK] Autoupdate configuration
+- [OK] Installation test
 
 This PR is ready to be merged by a maintainer.
 
@@ -195,30 +195,30 @@ cc: @beyondmeat
             $apiUrl = "https://api.github.com/repos/$GitHubRepo/pulls/$PullRequestNumber/merge"
             $null = Invoke-WebRequest -Uri $apiUrl -Method PUT -Headers $headers -Body $payload -ErrorAction Stop
 
-            Write-Host "✓ PR #$PullRequestNumber merged successfully" -ForegroundColor Green
+            Write-Host "[OK] PR #$PullRequestNumber merged successfully" -ForegroundColor Green
 
             # Post merge comment
-            $mergeComment = "✅ All validations passed. PR auto-merged by validation script."
+            $mergeComment = "[OK] All validations passed. PR auto-merged by validation script."
             Publish-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
             exit 0
         } catch {
-            Write-Host "⚠ Failed to auto-merge PR: $_" -ForegroundColor Yellow
+            Write-Host "[WARN] Failed to auto-merge PR: $_" -ForegroundColor Yellow
             exit 1
         }
     }
 } else {
     # Validation failed - request Copilot to fix
-    Write-Host "`n❌ Validation failed. Requesting Copilot to fix issues..." -ForegroundColor Red
+    Write-Host "`n[FAIL] Validation failed. Requesting Copilot to fix issues..." -ForegroundColor Red
 
     $fixRequest = @"
-## ❌ Validation Failed - Requesting Fix
+## [FAIL] Validation Failed - Requesting Fix
 
 Validation tests failed. Please fix the following issues:
 
-$(if ($validationResults.CheckVer -notlike "*PASS*") { "- ⚠ **Checkver**: $($validationResults.CheckVer)`n" })
-$(if ($validationResults.CheckAutoupdate -notlike "*PASS*") { "- ⚠ **Autoupdate Config**: $($validationResults.CheckAutoupdate)`n" })
-$(if ($validationResults.CheckInstall -notlike "*PASS*") { "- ⚠ **Installation Test**: $($validationResults.CheckInstall)`n" })
+$(if ($validationResults.CheckVer -notlike "*PASS*") { "- [WARN] **Checkver**: $($validationResults.CheckVer)`n" })
+$(if ($validationResults.CheckAutoupdate -notlike "*PASS*") { "- [WARN] **Autoupdate Config**: $($validationResults.CheckAutoupdate)`n" })
+$(if ($validationResults.CheckInstall -notlike "*PASS*") { "- [WARN] **Installation Test**: $($validationResults.CheckInstall)`n" })"@
 
 Please analyze the manifest and fix all issues. Validation will run again automatically.
 

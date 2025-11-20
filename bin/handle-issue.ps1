@@ -52,7 +52,7 @@ function Get-IssueDetails {
         $response = Invoke-WebRequest -Uri $apiUrl -Headers $headers -ErrorAction Stop
         return $response.Content | ConvertFrom-Json
     } catch {
-        Write-Host "✗ Failed to get issue details: $_" -ForegroundColor Red
+        Write-Host "[FAIL] Failed to get issue details: $_" -ForegroundColor Red
         return $null
     }
 }
@@ -73,7 +73,7 @@ function Add-IssueComment {
         $null = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return $true
     } catch {
-        Write-Host "⚠ Failed to post comment: $_" -ForegroundColor Yellow
+        Write-Host "[WARN] Failed to post comment: $_" -ForegroundColor Yellow
         return $false
     }
 }
@@ -106,7 +106,7 @@ function New-PullRequest {
         $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return ($response.Content | ConvertFrom-Json).number
     } catch {
-        Write-Host "⚠ Failed to create PR: $_" -ForegroundColor Yellow
+        Write-Host "[WARN] Failed to create PR: $_" -ForegroundColor Yellow
         return $null
     }
 }
@@ -115,7 +115,7 @@ function New-PullRequest {
 $issue = Get-IssueDetails -IssueNum $IssueNumber -Repo $GitHubRepo -Token $GitHubToken
 
 if (!$issue) {
-    Write-Host "✗ Could not retrieve issue details" -ForegroundColor Red
+    Write-Host "[FAIL] Could not retrieve issue details" -ForegroundColor Red
     exit -1
 }
 
@@ -137,9 +137,9 @@ foreach ($match in $manifestMatches.Matches) {
 $manifestsToFix = $manifestsToFix | Select-Object -Unique
 
 if ($manifestsToFix.Count -eq 0) {
-    $comment = "⚠ Could not identify manifest names from issue. Please mention manifest names explicitly (e.g., 'app-name.json' or 'Fix app-name')."
+    $comment = "[WARN] Could not identify manifest names from issue. Please mention manifest names explicitly (e.g., 'app-name.json' or 'Fix app-name')."
     Add-IssueComment -IssueNum $IssueNumber -Body $comment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
-    Write-Host "⚠ No manifests identified" -ForegroundColor Yellow
+    Write-Host "[WARN] No manifests identified" -ForegroundColor Yellow
     exit -1
 }
 
@@ -153,7 +153,7 @@ foreach ($manifest in $manifestsToFix) {
     $manifestPath = "$BucketPath/$manifest.json"
 
     if (!(Test-Path $manifestPath)) {
-        Write-Host "⚠ Manifest not found: $manifestPath" -ForegroundColor Yellow
+        Write-Host "[WARN] Manifest not found: $manifestPath" -ForegroundColor Yellow
         $autoFixResults[$manifest] = "NOT_FOUND"
         continue
     }
@@ -163,10 +163,10 @@ foreach ($manifest in $manifestsToFix) {
     try {
         & $autofixScript -ManifestPath $manifestPath -NotifyOnIssues | Out-Null
         $autoFixResults[$manifest] = "SUCCESS"
-        Write-Host "  ✓ Auto-fix succeeded for $manifest" -ForegroundColor Green
+        Write-Host "  [OK] Auto-fix succeeded for $manifest" -ForegroundColor Green
     } catch {
         $autoFixResults[$manifest] = "FAILED"
-        Write-Host "  ✗ Auto-fix failed for $manifest``: $_" -ForegroundColor Red
+        Write-Host "  [FAIL] Auto-fix failed for $manifest``: $_" -ForegroundColor Red
     }
 }
 
@@ -175,7 +175,7 @@ $anySucceeded = $autoFixResults.Values -contains "SUCCESS"
 
 if ($anySucceeded) {
     # Create commit and PR for successful auto-fixes
-    Write-Host "`n✓ Some manifests were auto-fixed. Creating PR..." -ForegroundColor Green
+    Write-Host "`n[OK] Some manifests were auto-fixed. Creating PR..." -ForegroundColor Green
 
     $successList = ($autoFixResults.GetEnumerator() | Where-Object { $_.Value -eq "SUCCESS" } | ForEach-Object { $_.Key }) -join ", "
     $branchName = "issue-$IssueNumber-autofix-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
@@ -187,10 +187,10 @@ if ($anySucceeded) {
 This PR addresses the following manifests from issue #${IssueNumber}:
 
 **Successfully auto-fixed:**
-$($autoFixResults.GetEnumerator() | Where-Object { $_.Value -eq "SUCCESS" } | ForEach-Object { "- ✓ $($_.Key)" })
+$($autoFixResults.GetEnumerator() | Where-Object { $_.Value -eq "SUCCESS" } | ForEach-Object { "- [OK] $($_.Key)" })
 
 **Requires manual attention:**
-$($autoFixResults.GetEnumerator() | Where-Object { $_.Value -ne "SUCCESS" } | ForEach-Object { "- ⚠ $($_.Key) ($($_.Value))" })
+$($autoFixResults.GetEnumerator() | Where-Object { $_.Value -ne "SUCCESS" } | ForEach-Object { "- [WARN] $($_.Key) ($($_.Value))" })
 
 All auto-fixed manifests have passed validation. Please review and merge.
 
@@ -200,7 +200,7 @@ Closes #${IssueNumber}
     $prNumber = New-PullRequest -Title $prTitle -Body $prBody -HeadBranch $branchName -BaseBranch "master" -Repo $GitHubRepo -Token $GitHubToken
 
     if ($prNumber) {
-        Write-Host "✓ PR #$prNumber created for auto-fixed manifests" -ForegroundColor Green
+        Write-Host "[OK] PR #$prNumber created for auto-fixed manifests" -ForegroundColor Green
 
         # Post comment to issue
         $issueComment = @"
@@ -210,9 +210,9 @@ I've attempted to auto-fix the reported issues:
 
 $($autoFixResults.GetEnumerator() | ForEach-Object {
     if ($_.Value -eq "SUCCESS") {
-        "- ✓ $($_.Key): Auto-fix successful (PR #$prNumber)"
+        "- [OK] $($_.Key): Auto-fix successful (PR #$prNumber)"
     } else {
-        "- ⚠ $($_.Key): $($_.Value) - Requesting Copilot assistance"
+        "- [WARN] $($_.Key): $($_.Value) - Requesting Copilot assistance"
     }
 })
 
@@ -225,14 +225,14 @@ cc: @beyondmeat
     }
 } else {
     # All auto-fixes failed - request Copilot
-    Write-Host "`n❌ Auto-fix failed for all manifests. Requesting Copilot assistance..." -ForegroundColor Red
+    Write-Host "`n[FAIL] Auto-fix failed for all manifests. Requesting Copilot assistance..." -ForegroundColor Red
 
     $copilotComment = @"
 ## Copilot Assistance Required
 
 Auto-fix attempts failed for the following manifests:
 
-$($autoFixResults.GetEnumerator() | ForEach-Object { "- ⚠ $($_.Key)" })
+$($autoFixResults.GetEnumerator() | ForEach-Object { "- [WARN] $($_.Key)" })
 
 **Issue Details:**
 $($issue.body | Select-Object -First 500)
@@ -245,5 +245,5 @@ cc: @copilot
     Add-IssueComment -IssueNum $IssueNumber -Body $copilotComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
 }
 
-Write-Host "`n✓ Issue #$IssueNumber has been processed" -ForegroundColor Green
+Write-Host "`n[OK] Issue #$IssueNumber has been processed" -ForegroundColor Green
 exit 0
