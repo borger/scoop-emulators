@@ -29,8 +29,7 @@ scoop search               # View available apps
 ## 3. Installing Emulators
 
 ```powershell
-scoop install retroarch
-scoop install citra-canary yuzu mesen
+scoop install mame scummvm ares
 ```
 
 Apps install to `~/scoop/apps/<app-name>/current`. Config and shortcuts are auto-managed by Scoop.
