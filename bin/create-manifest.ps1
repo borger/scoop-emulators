@@ -300,25 +300,53 @@ function Get-RepositoryMetadata {
 function Find-WindowsExecutable {
     param([object[]]$Assets)
 
-    $exeAsset = $null
+    # Filter for Windows assets
+    $windowsAssets = @($Assets | Where-Object { $_.name -match 'windows|win|x64|x86_64|amd64' })
 
-    # Prefer .exe files
-    $exeAssets = @($Assets | Where-Object { $_.name -match '\.exe$' -and $_.name -match 'windows|win|x64|x86_64' })
-    if ($exeAssets.Count -gt 0) {
-        $exeAsset = $exeAssets[0]
-        Write-Host "[OK] Found Windows executable: $($exeAsset.name)" -ForegroundColor Green
-        return $exeAsset
+    if ($windowsAssets.Count -eq 0) {
+        throw "No Windows assets found in release"
     }
 
-    # Fall back to .zip files for Windows
-    $zipAssets = @($Assets | Where-Object { $_.name -match '\.zip$' -and $_.name -match 'windows|win|x64|x86_64' })
-    if ($zipAssets.Count -gt 0) {
-        $zipAsset = $zipAssets[0]
-        Write-Host "[OK] Found Windows ZIP archive: $($zipAsset.name)" -ForegroundColor Green
-        return $zipAsset
+    # Scoring system for asset selection
+    $scored = @()
+    foreach ($asset in $windowsAssets) {
+        $score = 0
+        $name = $asset.name.ToLower()
+
+        # File type preferences (archives are better than installers)
+        if ($name -match '\.zip$') { $score += 100 }
+        elseif ($name -match '\.7z$') { $score += 90 }
+        elseif ($name -match '\.tar\.gz$' -or $name -match '\.tgz$') { $score += 80 }
+        elseif ($name -match '\.exe$') { $score += 0 }
+        else { continue }  # Skip other file types
+
+        # Build configuration preferences
+        if ($name -match 'sdl2') { $score += 50 }
+        if ($name -match 'msys2|mingw') { $score += 40 }
+        if ($name -match 'msvc') { $score -= 20 }
+
+        # Architecture preference (64-bit preferred)
+        if ($name -match 'x64|x86_64|amd64') { $score += 10 }
+
+        $scored += [PSCustomObject]@{
+            Asset = $asset
+            Score = $score
+            Name  = $name
+        }
     }
 
-    throw "No suitable Windows executable or archive found in assets"
+    if ($scored.Count -eq 0) {
+        throw "No suitable Windows assets found (unsupported file types)"
+    }
+
+    # Sort by score descending
+    $best = $scored | Sort-Object -Property Score -Descending | Select-Object -First 1
+    $asset = $best.Asset
+
+    Write-Host "[OK] Selected: $($asset.name)" -ForegroundColor Green
+    Write-Host "[INFO] Asset score: $($best.Score) (archive=$([int]($best.Name -match '\.zip|\.7z|\.tar\.gz')), sdl2=$([int]($best.Name -match 'sdl2')), msys2=$([int]($best.Name -match 'msys2|mingw')))" -ForegroundColor Cyan
+
+    return $asset
 }
 
 function Download-Asset {
@@ -328,13 +356,38 @@ function Download-Asset {
     )
 
     $ProgressPreference = 'SilentlyContinue'
+
+    # Ensure TLS 1.2 is enabled
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
     $downloadUrl = if ($Asset.browser_download_url) { $Asset.browser_download_url } else { $Asset.url }
     $fileName = $Asset.name
     $outputPath = Join-Path $OutputDir $fileName
 
+    # Create a cache directory for downloaded files
+    $cacheDir = Join-Path $env:TEMP "manifest-creator-cache"
+    if (-not (Test-Path $cacheDir)) {
+        New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+    }
+
+    $cachedFilePath = Join-Path $cacheDir $fileName
+
+    # Check if file is already cached
+    if (Test-Path $cachedFilePath) {
+        Write-Host "[INFO] Using cached file: $fileName" -ForegroundColor Cyan
+        Copy-Item -Path $cachedFilePath -Destination $outputPath -Force | Out-Null
+        Write-Host "[OK] Copied from cache to: $outputPath" -ForegroundColor Green
+        return $outputPath
+    }
+
+    # Download the file
     Write-Host "[INFO] Downloading: $fileName" -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $outputPath -ErrorAction Stop
-    Write-Host "[OK] Downloaded to: $outputPath" -ForegroundColor Green
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $cachedFilePath -ErrorAction Stop
+    Write-Host "[OK] Downloaded to cache: $cachedFilePath" -ForegroundColor Green
+
+    # Copy from cache to output directory
+    Copy-Item -Path $cachedFilePath -Destination $outputPath -Force | Out-Null
+    Write-Host "[OK] Copied to: $outputPath" -ForegroundColor Green
 
     return $outputPath
 }
@@ -355,9 +408,12 @@ function Extract-Archive {
 }
 
 function Find-ExecutableInDirectory {
-    param([string]$Directory)
+    param(
+        [string]$Directory,
+        [string]$ProjectName
+    )
 
-    $exes = @(Get-ChildItem -Path $Directory -Filter '*.exe' -Recurse | Select-Object -First 5)
+    $exes = @(Get-ChildItem -Path $Directory -Filter '*.exe' -Recurse | Select-Object -First 10)
     if ($exes.Count -eq 0) {
         throw "No executables found in extracted archive"
     }
@@ -367,6 +423,35 @@ function Find-ExecutableInDirectory {
         return $exes[0]
     }
 
+    # Smart selection: prefer executable matching project name
+    $projectNameLower = $ProjectName.ToLower()
+
+    # First, try exact project name match (e.g., "azahar.exe" for "azahar")
+    $exactMatch = @($exes | Where-Object { $_.BaseName.ToLower() -eq $projectNameLower })
+    if ($exactMatch.Count -gt 0) {
+        Write-Host "[OK] Found matching executable: $($exactMatch[0].Name)" -ForegroundColor Green
+        return $exactMatch[0]
+    }
+
+    # Second, try prefix match without -gui/-ui suffixes
+    $prefixMatches = @($exes | Where-Object {
+            $baseName = $_.BaseName.ToLower()
+            $baseName -match "^$([regex]::Escape($projectNameLower))(-gui|-ui)?$"
+        })
+
+    if ($prefixMatches.Count -gt 0) {
+        # Prefer the one without -gui/-ui if available
+        $noSuffix = @($prefixMatches | Where-Object { $_.BaseName.ToLower() -eq $projectNameLower })
+        if ($noSuffix.Count -gt 0) {
+            Write-Host "[OK] Found matching executable: $($noSuffix[0].Name)" -ForegroundColor Green
+            return $noSuffix[0]
+        }
+        # Otherwise use the first match (probably -gui or -ui)
+        Write-Host "[OK] Found matching executable: $($prefixMatches[0].Name)" -ForegroundColor Green
+        return $prefixMatches[0]
+    }
+
+    # Fallback: show all options if no smart match found
     Write-Host "[WARN] Multiple executables found. Please select one:" -ForegroundColor Yellow
     for ($i = 0; $i -lt $exes.Count; $i++) {
         Write-Host "  [$($i + 1)] $($exes[$i].Name)"
@@ -470,8 +555,31 @@ function Monitor-ExecutableCreation {
         [int]$TimeoutSeconds = 10
     )
 
+    Write-Host "[INFO] Creating portable structure..." -ForegroundColor Cyan
+
+    # Create folder structure for monitoring (will be used as fallback if no app-specific folders found)
+    $userFolder = Join-Path $WorkingDirectory "user"
+    $portableFolder = Join-Path $WorkingDirectory "portable"
+
+    New-Item -ItemType Directory -Path $userFolder -Force | Out-Null
+    New-Item -ItemType Directory -Path $portableFolder -Force | Out-Null
+
     Write-Host "[INFO] Monitoring for files/folders created during execution..." -ForegroundColor Cyan
     Write-Host "[INFO] Timeout: ${TimeoutSeconds}s (close the application to continue)" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "IMPORTANT - Persist Configuration" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "The application will now launch. Before closing it:" -ForegroundColor Cyan
+    Write-Host "  1. Change some settings in the application" -ForegroundColor Cyan
+    Write-Host "  2. Create or modify files/preferences" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "WARNING: If you don't change any settings, the persist" -ForegroundColor Yellow
+    Write-Host "folder will be empty, and your data will NOT be saved!" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "After making changes, close the application normally." -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host ""
 
     $initialSnapshot = @{}
     Get-ChildItem -Path $WorkingDirectory -Recurse -ErrorAction SilentlyContinue |
@@ -503,13 +611,37 @@ function Monitor-ExecutableCreation {
         }
     }
 
+    # Check if user and portable folders have content
+    $userFolderPath = Join-Path $WorkingDirectory "user"
+    $portableFolderPath = Join-Path $WorkingDirectory "portable"
+
     $persistItems = @()
+    $usesStandardFolders = $false
+
+    # Only persist top-level folders (user and portable)
+    # Add user folder if it has files
+    if ((Test-Path $userFolderPath) -and (Get-ChildItem $userFolderPath -Recurse -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0) {
+        $persistItems += "user"
+        $usesStandardFolders = $true
+        Write-Host "[OK] 'user' folder has content, will persist" -ForegroundColor Green
+    }
+
+    # Add portable folder if it has files
+    if ((Test-Path $portableFolderPath) -and (Get-ChildItem $portableFolderPath -Recurse -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0) {
+        $persistItems += "portable"
+        $usesStandardFolders = $true
+        Write-Host "[OK] 'portable' folder has content, will persist" -ForegroundColor Green
+    }
+
+    # Ignore other created items - only persist user/portable top-level folders
     if ($createdItems.Count -gt 0) {
-        Write-Host "[INFO] Found $($createdItems.Count) new items:" -ForegroundColor Cyan
+        Write-Host "[INFO] Detected other created items (only top-level persist folders will be used):" -ForegroundColor Cyan
         foreach ($item in $createdItems | Select-Object -First 10) {
             $relativePath = $item -replace [regex]::Escape($WorkingDirectory), '' -replace '^\\', ''
-            Write-Host "  - $relativePath"
-            $persistItems += $relativePath
+            # Skip portable.txt and user/portable folders themselves
+            if ($relativePath -and $relativePath -notmatch '^(portable\.txt|user|portable)(\\|$)') {
+                Write-Host "  - $relativePath"
+            }
         }
 
         if ($createdItems.Count -gt 10) {
@@ -517,7 +649,15 @@ function Monitor-ExecutableCreation {
         }
     }
 
-    return $persistItems
+    # Return hashtable with persist items and flags
+    # UsesStandardFolders indicates if user/portable folders are being persisted
+    $result = @{
+        Items               = $persistItems
+        HasPersist          = $persistItems.Count -gt 0
+        UsesStandardFolders = $usesStandardFolders
+    }
+
+    return $result
 }
 
 function Calculate-FileHash {
@@ -535,7 +675,8 @@ function Build-Manifest {
         [array]$PersistItems,
         [hashtable]$Metadata,
         [string]$Platform,
-        [string]$BuildType = "stable"
+        [string]$BuildType = "stable",
+        [bool]$UsesStandardFolders = $false
     )
 
     # For nightly/dev builds, use static version strings
@@ -566,12 +707,15 @@ function Build-Manifest {
         $manifest["license"] = "GPL-2.0"
     }
 
-    # Only include hash for stable releases
+    # Only include hash for stable releases with calculated/available checksums
     $hashValue = $null
-    if ($BuildType -eq "stable") {
-        $hashValue = "sha256:$($Asset.Checksum)"
+    if ($BuildType -eq "stable" -and -not $Asset.HasChecksumFile) {
+        # Only use calculated hash if there's no automated way to get it
+        # In architecture section, use just lowercase hash (no prefix)
+        $hashValue = $Asset.Checksum.ToLower()
     }
     # For nightly/dev, don't include hash (Scoop skips verification)
+    # For stable releases with checksum files, hash is retrieved programmatically
 
     $archBlock = [ordered]@{
         "url" = $Asset.browser_download_url
@@ -585,36 +729,108 @@ function Build-Manifest {
     }
     $manifest["architecture"] = $architecture
 
-    $manifest["post_install"] = @(
-        "Add-Content -Path `"`$dir\portable.txt`" -Value '' -Encoding UTF8"
-    )
-
     $manifest["bin"] = $ExecutableName
 
-    $manifest["shortcuts"] = @(
-        @($ExecutableName, (if ($Platform) { "$Platform [app]" } else { $ExecutableName }))
-    )
+    # Create shortcut label with platform and executable name
+    if ($Platform) {
+        # Map platforms to standard abbreviations
+        $platformAbbrev = @{
+            "Nintendo 64"           = "n64"
+            "Nintendo GameCube/Wii" = "gc"
+            "Nintendo Wii U"        = "wiiu"
+            "Nintendo Switch"       = "switch"
+            "Nintendo 3DS"          = "3ds"
+            "Nintendo DS"           = "ds"
+            "Super Nintendo"        = "snes"
+            "Nintendo"              = "nes"
+            "PlayStation 1"         = "ps1"
+            "PlayStation 2"         = "ps2"
+            "PlayStation 3"         = "ps3"
+            "PlayStation Portable"  = "psp"
+            "Sega Genesis"          = "genesis"
+            "Sega Dreamcast"        = "dreamcast"
+            "Game Boy"              = "gb"
+            "Arcade"                = "arcade"
+            "Multi-System"          = "multi"
+        }
 
-    $persistArray = @("portable_data")
-    if ($PersistItems.Count -gt 0) {
-        $persistArray += $PersistItems | Select-Object -Unique
+        $abbrev = $platformAbbrev[$Platform]
+        if (-not $abbrev) {
+            $abbrev = ($Platform -split '\s' | Select-Object -First 1).ToLower()
+        }
+
+        $exeName = $ExecutableName -replace '\.exe$', ''
+        $shortcutLabel = "$Platform [$abbrev][$exeName]"
+    } else {
+        # For non-emulators, use the executable name or repo name
+        $appName = $ExecutableName -replace '\.exe$', ''
+        $shortcutLabel = $appName
     }
-    $manifest["persist"] = $persistArray
+    $manifest["shortcuts"] = @(@($ExecutableName, $shortcutLabel))
+
+    # Build persist array - only include items that were actually created
+    $persistArray = @()
+    if ($PersistItems.Count -gt 0) {
+        $validItems = $PersistItems | Where-Object { $_ -and -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+        if ($validItems.Count -gt 0) {
+            $persistArray = $validItems
+        }
+    }
+
+    # Only add persist key if there are items to persist
+    if ($persistArray.Count -gt 0) {
+        $manifest["persist"] = $persistArray
+    }
+
+    # Create portable.txt marker file and ensure persist folders exist
+    # Build list of persist folders from PersistItems
+    $persistFolders = @()
+    foreach ($item in $PersistItems) {
+        # Extract top-level folder name (before first backslash if it's a path)
+        $topLevelFolder = ($item -split '\\')[0]
+        if ($topLevelFolder -and $persistFolders -notcontains $topLevelFolder) {
+            $persistFolders += $topLevelFolder
+        }
+    }
+
+    # Only create portable.txt if NOT using standard folders (user/portable)
+    # If using standard folders, assume the app handles its own portable mode
+    $portableTxtCode = ""
+    if (-not $UsesStandardFolders) {
+        $portableTxtCode = @"
+# Create portable marker file (used as fallback indicator for portable mode)
+Add-Content -Path "`$dir\portable.txt" -Value '' -Encoding UTF8
+"@
+    }
+
+    # Only add folder creation code if folders actually contain files
+    # (Don't create empty folders in preinstall; let Scoop manage folder creation)
+    $folderCreationCode = ""
+    foreach ($folder in $persistFolders) {
+        if ($folder -eq "user" -or $folder -eq "portable") {
+            $folderCreationCode += @"
+
+# Ensure $folder folder exists
+if (-not (Test-Path "`$dir\$folder")) {
+    New-Item -ItemType Directory -Path "`$dir\$folder" -Force | Out-Null
+}
+"@
+        }
+    }
 
     $preInstallScript = @"
+$portableTxtCode$folderCreationCode
 `$appDataPath = `$env:APPDATA
 `$documentsPath = [Environment]::GetFolderPath('MyDocuments')
 
 # Migrate application data from common locations
-@(
-    "`$appDataPath\$(($RepoInfo.Repo).ToLower())",
-    "`$documentsPath\$(($RepoInfo.Repo).ToLower())"
-) | ForEach-Object {
-    if (Test-Path `$_) {
-        `$items = Get-ChildItem -Path `$_ -Force
+`$appDataPath, `$documentsPath | ForEach-Object {
+    `$path = if (`$_ -eq `$appDataPath) { "`$appDataPath\$(($RepoInfo.Repo).ToLower())" } else { "`$documentsPath\$(($RepoInfo.Repo).ToLower())" }
+    if (Test-Path `$path) {
+        `$items = Get-ChildItem -Path `$path -Force
         if (`$items) {
-            Write-Host "Migrating data from `$_"
-            `$items | Copy-Item -Destination `"`$dir\portable_data`" -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Migrating data from `$path"
+            `$items | Copy-Item -Destination "`$dir\portable_data" -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -635,28 +851,30 @@ function Build-Manifest {
         $autoupdateUrl = $Asset.browser_download_url -replace [regex]::Escape($RepoInfo.Version), '$version'
     }
 
-    # Determine hash config
+    # Determine hash config for autoupdate
     $hashConfig = $null
     if ($BuildType -eq "stable") {
-        if ($Asset.HasChecksumFile) {
-            if ($RepoInfo.Platform -eq "github") {
-                $hashConfig = [ordered]@{
-                    "url"      = "https://api.github.com/repos/$($RepoInfo.Owner)/$($RepoInfo.Repo)/releases/latest"
-                    "jsonpath" = "`$.assets[?(@.name == '$(Split-Path -Leaf $Asset.browser_download_url)')].digest"
-                }
-            } else {
-                $projectPath = "$($RepoInfo.Owner)%2F$($RepoInfo.Repo)"
-                $hashConfig = [ordered]@{
-                    "url"      = "https://gitlab.com/api/v4/projects/$projectPath/releases"
-                    "jsonpath" = "`$[0].assets.sources[?(@.name == '$(Split-Path -Leaf $Asset.browser_download_url)')].digest"
-                }
+        if ($RepoInfo.Platform -eq "github") {
+            $assetName = Split-Path -Leaf $Asset.browser_download_url
+
+            # Prefer API method for now since most releases don't have Windows-specific checksums
+            # This will fetch the digest from the GitHub release API
+            $hashConfig = [ordered]@{
+                "url"      = "https://api.github.com/repos/$($RepoInfo.Owner)/$($RepoInfo.Repo)/releases/tags/`$version"
+                "jsonpath" = "$.assets[?(@.name == '$assetName')].digest"
             }
         } else {
-            $hashConfig = "sha256|$($Asset.Checksum)"
-        }
-    }
+            # GitLab support
+            $projectPath = "$($RepoInfo.Owner)%2F$($RepoInfo.Repo)"
+            $assetName = Split-Path -Leaf $Asset.browser_download_url
 
-    $autoupdateArch = [ordered]@{
+            # Use GitLab API to fetch hash from release metadata
+            $hashConfig = [ordered]@{
+                "url"      = "https://gitlab.com/api/v4/projects/$projectPath/releases/`$version"
+                "jsonpath" = "$.assets.sources[?(@.name == '$assetName')].digest"
+            }
+        }
+    }    $autoupdateArch = [ordered]@{
         "url" = $autoupdateUrl
     }
     if ($hashConfig) {
@@ -669,7 +887,52 @@ function Build-Manifest {
         }
     }
 
-    return $manifest
+    # Reorder manifest keys according to Scoop standard
+    $orderedKeys = @(
+        "version",
+        "description",
+        "homepage",
+        "license",
+        "notes",
+        "depends",
+        "suggest",
+        "identifier",
+        "url",
+        "hash",
+        "architecture",
+        "extract_dir",
+        "extract_to",
+        "pre_install",
+        "installer",
+        "post_install",
+        "env_add_path",
+        "env_set",
+        "bin",
+        "shortcuts",
+        "persist",
+        "uninstaller",
+        "checkver",
+        "autoupdate",
+        "64bit",
+        "32bit",
+        "arm64"
+    )
+
+    $orderedManifest = [ordered]@{}
+    foreach ($key in $orderedKeys) {
+        if ($manifest.Keys -contains $key) {
+            $orderedManifest[$key] = $manifest[$key]
+        }
+    }
+
+    # Add any remaining keys not in the standard order
+    foreach ($key in $manifest.Keys) {
+        if ($orderedManifest.Keys -notcontains $key) {
+            $orderedManifest[$key] = $manifest[$key]
+        }
+    }
+
+    return $orderedManifest
 }
 
 function Export-ManifestAsJson {
@@ -681,13 +944,160 @@ function Export-ManifestAsJson {
 
     $jsonPath = Join-Path $OutputDir "$RepoName.json"
 
-    $json = $Manifest | ConvertTo-Json -Depth 10
+    # Manually build JSON in correct key order
+    $lines = @("{")
+    $keyOrder = @(
+        "version",
+        "description",
+        "homepage",
+        "license",
+        "notes",
+        "depends",
+        "suggest",
+        "identifier",
+        "url",
+        "hash",
+        "architecture",
+        "extract_dir",
+        "extract_to",
+        "pre_install",
+        "installer",
+        "post_install",
+        "env_add_path",
+        "env_set",
+        "bin",
+        "shortcuts",
+        "persist",
+        "uninstaller",
+        "checkver",
+        "autoupdate",
+        "64bit",
+        "32bit",
+        "arm64"
+    )
+
+    $processedKeys = @()
+    $allKeys = $Manifest.Keys
+
+    # Process keys in order
+    foreach ($key in $keyOrder) {
+        if ($allKeys -contains $key) {
+            $processedKeys += $key
+            $value = $Manifest[$key]
+            $jsonValue = ConvertTo-JsonValue -Value $value -Indent 2
+            $lines += "  `"$key`": $jsonValue,"
+        }
+    }
+
+    # Add any remaining keys not in standard order
+    foreach ($key in $allKeys) {
+        if ($processedKeys -notcontains $key) {
+            $value = $Manifest[$key]
+            $jsonValue = ConvertTo-JsonValue -Value $value -Indent 2
+            $lines += "  `"$key`": $jsonValue,"
+        }
+    }
+
+    # Remove trailing comma from last line
+    $lines[-1] = $lines[-1] -replace ',$', ''
+    $lines += "}"
+
+    $json = $lines -join "`n"
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($jsonPath, $json + "`n", $utf8NoBom)
 
     Write-Host "[OK] Manifest saved to: $jsonPath" -ForegroundColor Green
+    Write-Host "[INFO] Run 'npx prettier --write $RepoName.json' to format the JSON" -ForegroundColor Cyan
+
     return $jsonPath
+}
+
+function ConvertTo-JsonValue {
+    param(
+        [object]$Value,
+        [int]$Indent = 0
+    )
+
+    $indentStr = " " * $Indent
+
+    if ($Value -eq $null) {
+        return "null"
+    }
+
+    if ($Value -is [string]) {
+        # Escape special characters for JSON
+        # Must do backslash first to avoid double-escaping
+        $escaped = $Value.Replace('\', '\\')
+        $escaped = $escaped.Replace('"', '\"')
+        $escaped = $escaped.Replace("`r", '\r')
+        $escaped = $escaped.Replace("`n", '\n')
+        $escaped = $escaped.Replace("`t", '\t')
+        # Note: backspace and form feed are rare in preinstall scripts, skip for now
+        return "`"$escaped`""
+    }
+
+    if ($Value -is [bool]) {
+        return if ($Value) { "true" } else { "false" }
+    }
+
+    if ($Value -is [int] -or $Value -is [long] -or $Value -is [double]) {
+        return $Value.ToString()
+    }
+
+    if ($Value -is [array]) {
+        if ($Value.Count -eq 0) {
+            return "[]"
+        }
+
+        # Check if it's a nested array (shortcuts case: array of arrays)
+        # For shortcuts specifically, we need 2 strings as inner array
+        if ($Value.Count -eq 2 -and $Value[0] -is [string] -and $Value[1] -is [string]) {
+            # This is the shortcuts array [[exe, label]]
+            $elem0 = ConvertTo-JsonValue -Value $Value[0] -Indent ($Indent + 4)
+            $elem1 = ConvertTo-JsonValue -Value $Value[1] -Indent ($Indent + 4)
+            return "[[`n    $elem0,`n    $elem1`n  ]]"
+        }
+
+        # Check if it's an array of arrays
+        if ($Value[0] -is [array]) {
+            $subItems = $Value | ForEach-Object {
+                $item = $_
+                $subIndent = " " * ($Indent + 4)
+                if ($item -is [array]) {
+                    $subElements = $item | ForEach-Object {
+                        ConvertTo-JsonValue -Value $_ -Indent ($Indent + 8)
+                    }
+                    "$subIndent[`n$subIndent  $($subElements -join ",`n$subIndent  ")`n$subIndent]"
+                } else {
+                    "$subIndent$(ConvertTo-JsonValue -Value $item -Indent ($Indent + 4))"
+                }
+            }
+            return "[`n$($subItems -join ",`n")`n$indentStr]"
+        }
+
+        # Regular array
+        $items = $Value | ForEach-Object {
+            "$indentStr  $(ConvertTo-JsonValue -Value $_ -Indent ($Indent + 2))"
+        }
+        return "[`n$($items -join ",`n")`n$indentStr]"
+    }
+
+    if ($Value -is [hashtable] -or $Value -is [System.Collections.Specialized.OrderedDictionary]) {
+        if ($Value.Count -eq 0) {
+            return "{}"
+        }
+
+        $subItems = @()
+        foreach ($k in $Value.Keys) {
+            $v = $Value[$k]
+            $jsonVal = ConvertTo-JsonValue -Value $v -Indent ($Indent + 2)
+            $subItems += "$indentStr  `"$k`": $jsonVal"
+        }
+        return "{`n$($subItems -join ",`n")`n$indentStr}"
+    }
+
+    return "`"$Value`""
 }
 
 # Main script
@@ -722,7 +1132,7 @@ try {
 
     Write-Host ""
     $stepNum = if ($issueInfo) { 1 } else { 1 }
-    $totalSteps = if ($issueInfo) { 7 } else { 6 }
+    $totalSteps = if ($issueInfo) { 8 } else { 7 }
     Write-Host "[STEP $stepNum/$totalSteps] Fetching repository information..." -ForegroundColor Magenta
 
     if ($GitHubUrl) {
@@ -759,7 +1169,7 @@ try {
     } else {
         $extractDir = Join-Path $tempDir "extracted"
         Extract-Archive -ArchivePath $downloadPath -ExtractDir $extractDir
-        $executable = Find-ExecutableInDirectory -Directory $extractDir
+        $executable = Find-ExecutableInDirectory -Directory $extractDir -ProjectName $repoInfo.Repo
         $executablePath = $executable.FullName
         $executableName = $executable.Name
     }
@@ -769,7 +1179,7 @@ try {
     Write-Host ""
     $monitorStep = if ($issueInfo) { 5 } else { 5 }
     Write-Host "[STEP $monitorStep/$totalSteps] Monitoring application execution..." -ForegroundColor Magenta
-    $persistItems = Monitor-ExecutableCreation -ExecutablePath $executablePath -WorkingDirectory (Split-Path $executablePath)
+    $persistResult = Monitor-ExecutableCreation -ExecutablePath $executablePath -WorkingDirectory (Split-Path $executablePath)
 
     Write-Host ""
     $buildStep = if ($issueInfo) { 6 } else { 6 }
@@ -795,14 +1205,51 @@ try {
         $asset | Add-Member -MemberType NoteProperty -Name 'HasChecksumFile' -Value $false -Force
     }
 
+    # Check if persist items were found and warn user if not
+    $persistItemsToUse = $persistResult.Items
+    if (-not $persistResult.HasPersist) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Yellow
+        Write-Host "WARNING - No Persist Folders Detected" -ForegroundColor Yellow
+        Write-Host "========================================" -ForegroundColor Yellow
+        Write-Host "The application was launched, but no data was saved to" -ForegroundColor Yellow
+        Write-Host "the 'user' or 'portable' folders." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "This means:" -ForegroundColor Cyan
+        Write-Host "  - Settings will NOT be preserved on updates" -ForegroundColor Yellow
+        Write-Host "  - Save files and configs will be LOST" -ForegroundColor Yellow
+        Write-Host "  - Each installation starts with default settings" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Options:" -ForegroundColor Cyan
+        Write-Host "  1) Continue without persist (data loss risk)" -ForegroundColor Yellow
+        Write-Host "  2) Re-run the application to capture configuration" -ForegroundColor Cyan
+        Write-Host ""
+        $choice = Read-Host "What would you like to do? (continue/rerun)"
+        Write-Host ""
+
+        if ($choice -eq "rerun" -or $choice -eq "2") {
+            Write-Host "[INFO] Re-running executable for persist configuration..." -ForegroundColor Cyan
+            $retryResult = Monitor-ExecutableCreation -ExecutablePath $executablePath -WorkingDirectory (Split-Path $executablePath)
+            $persistItemsToUse = $retryResult.Items
+            if ($retryResult.HasPersist) {
+                Write-Host "[OK] Persist folders detected on retry" -ForegroundColor Green
+            } else {
+                Write-Host "[WARN] Still no persist folders. Continuing without persist." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "[INFO] Continuing without persist configuration" -ForegroundColor Cyan
+        }
+    }
+
     $manifest = Build-Manifest `
         -RepoInfo $repoInfo `
         -Asset $asset `
         -ExecutableName $executableName `
-        -PersistItems $persistItems `
+        -PersistItems $persistItemsToUse `
         -Metadata $metadata `
         -Platform $platform `
-        -BuildType $repoInfo.BuildType
+        -BuildType $repoInfo.BuildType `
+        -UsesStandardFolders $usesStandardFolders
 
     $bucketDir = Join-Path (Split-Path $PSScriptRoot) "bucket"
     $manifestPath = Export-ManifestAsJson -Manifest $manifest -RepoName $repoInfo.Repo -OutputDir $bucketDir
@@ -811,9 +1258,26 @@ try {
     Write-Host "[INFO] Cleaning up temporary files..." -ForegroundColor Cyan
     Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
+    Write-Host ""
+    $validateStep = if ($issueInfo) { 7 } else { 7 }
+    Write-Host "[STEP $validateStep/$totalSteps] Validating manifest with Scoop tools..." -ForegroundColor Magenta
+    $checkInstallScript = Join-Path $PSScriptRoot "check-manifest-install.ps1"
+    if (Test-Path $checkInstallScript) {
+        Write-Host "[INFO] Running check-manifest-install test..." -ForegroundColor Cyan
+        & $checkInstallScript -ManifestPath $manifestPath
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] Manifest validation passed!" -ForegroundColor Green
+        } else {
+            Write-Host "[WARN] Manifest validation failed. Review the manifest and re-run tests." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[INFO] check-manifest-install.ps1 not found, skipping validation test" -ForegroundColor Cyan
+    }
+
     if ($issueInfo) {
         Write-Host ""
-        Write-Host "[STEP 7/$totalSteps] Updating GitHub issue..." -ForegroundColor Magenta
+        $issueStep = if ($issueInfo) { 8 } else { 8 }
+        Write-Host "[STEP $issueStep/$totalSteps] Updating GitHub issue..." -ForegroundColor Magenta
 
         $platformInfo = if ($platform) { "**Platform:** $platform" } else { "**Type:** Application" }
 
@@ -825,7 +1289,7 @@ try {
 $platformInfo
 **Manifest:** \`bucket/$($repoInfo.Repo).json\`
 
-The manifest has been automatically generated based on the latest release. Please review and run validation tests:
+The manifest has been automatically generated based on the latest release. The manifest has been validated with check-manifest-install. Please review and run validation tests:
 
 \`\`\`powershell
 .\bin\checkver.ps1 -Dir bucket -App $($repoInfo.Repo)
