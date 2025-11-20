@@ -18,14 +18,40 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: '1'
 
-      - name: Check excavator results
+      - name: Check excavator results and logs for errors
         shell: pwsh
         run: |
           # Check if any errors occurred during excavation
           $prFiles = Get-ChildItem -Path "${{ github.workspace }}/.git/PRs" -ErrorAction SilentlyContinue
-          if ($null -eq $prFiles) {
-            Write-Host "✓ Excavator completed successfully" -ForegroundColor Green
-          } else {
+          
+          # Check excavator logs for common errors
+          $hasErrors = $false
+          $logDir = "${{ github.workspace }}/.git"
+          
+          # Look for error indicators in excavator output
+          if (Test-Path "$logDir") {
+            $logFiles = Get-ChildItem -Path $logDir -File -ErrorAction SilentlyContinue
+            foreach ($file in $logFiles) {
+              $content = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
+              if ($content) {
+                # Check for common error patterns
+                if ($content -match '404|not found|error|failed|exception' -and $content -notmatch 'warning|deprecated') {
+                  Write-Host "⚠ Found error in logs: $($file.Name)" -ForegroundColor Yellow
+                  Write-Host $content | Select-String '404|not found|error|failed|exception' -Context 2
+                  $hasErrors = $true
+                }
+              }
+            }
+          }
+          
+          if ($null -eq $prFiles -and -not $hasErrors) {
+            Write-Host "✓ Excavator completed successfully with no errors" -ForegroundColor Green
+            exit 0
+          } elseif ($null -ne $prFiles) {
             Write-Host "⚠ Excavator created PRs - review in Actions" -ForegroundColor Yellow
+            exit 0
+          } else {
+            Write-Host "✗ Excavator completed with errors - auto-fix will be triggered" -ForegroundColor Red
+            exit 1
           }
 

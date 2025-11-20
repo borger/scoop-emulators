@@ -8,7 +8,13 @@ param(
 if (!$env:SCOOP_HOME) {
     # Try to get SCOOP_HOME from scoop command, but fall back to common location
     try {
-        $env:SCOOP_HOME = Convert-Path (scoop prefix scoop)
+        # Check if scoop command is available
+        $scoopCmd = Get-Command scoop -ErrorAction SilentlyContinue
+        if ($scoopCmd) {
+            $env:SCOOP_HOME = Convert-Path (scoop prefix scoop)
+        } else {
+            throw "scoop command not found"
+        }
     } catch {
         # Fall back to standard Scoop installation path
         $env:SCOOP_HOME = "$env:USERPROFILE\scoop\apps\scoop\current"
