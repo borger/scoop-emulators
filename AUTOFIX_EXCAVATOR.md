@@ -1,21 +1,31 @@
 ﻿# Excavator Auto-Fix Enhancement
 
 ## Overview
-The Excavator GitHub workflow has been enhanced to automatically detect and fix common manifest issues when they occur during version updates.
+The Excavator GitHub workflow has been enhanced to automatically detect and fix common manifest issues when they occur during version updates. When auto-fixes fail, it automatically creates GitHub issues with Copilot and escalation tags.
 
-## How It Works
+## Complete Workflow
 
 ### 1. **Excavate Step** (Scoop Official)
 - Runs the standard Scoop Excavator to check for updates
 - Uses GitHub Actions from ScoopInstaller/GithubActions
 
-### 2. **Auto-fix Step** (New)
+### 2. **Auto-fix Step** (Enhanced)
 - Runs `./bin/autofix-manifest.ps1` on all manifests (except nightly/dev)
 - Detects issues and attempts to automatically fix them
+- Creates GitHub issues if auto-fix fails:
+  - **Copilot Issues**: Tagged with `@copilot` for AI-assisted PR creation
+  - **Escalation Issues**: Tagged with `@beyondmeat` if Copilot PR fails
 
 ### 3. **Commit Step**
 - Commits any fixed manifests back to the repository
 - Uses auto-updater service account credentials
+
+### 4. **GitHub Copilot Integration** (New)
+When auto-fix encounters unfixable issues:
+1. Creates GitHub issue with `@copilot` label
+2. Copilot analyzes issue and submits PR with fix
+3. If PR fixes the issue → merged automatically
+4. If PR fails → escalates with `@beyondmeat` label for manual review
 
 ## What Can Be Auto-Fixed
 
@@ -38,36 +48,104 @@ The Excavator GitHub workflow has been enhanced to automatically detect and fix 
 ✓ 404 errors on download URLs
 ✓ Architecture-specific downloads
 
-## What Requires Manual Review
+## What Triggers Escalation
 
 ✗ Checkver pattern failures (regex doesn't match new format)
 ✗ Manifest structure changes (no autoupdate/checkver sections)
 ✗ Nightly/dev builds (intentionally skipped - no stable version)
 ✗ Projects with no GitHub releases
+✗ Copilot PR creation fails
+
+**Escalation Process:**
+1. Auto-fix detects unfixable issue
+2. Creates GitHub issue with `@copilot` label
+3. Copilot submits PR attempt
+4. If PR fails → automatic escalation to `@beyondmeat`
+5. Manual review and fix applied
 
 ## Implementation Details
 
 ### autofix-manifest.ps1
 ```powershell
-& .\bin\autofix-manifest.ps1 -ManifestPath bucket/app.json -BucketPath bucket
+& .\bin\autofix-manifest.ps1 `
+  -ManifestPath bucket/app.json `
+  -BucketPath bucket `
+  -AutoCreateIssues `
+  -GitHubToken $env:GITHUB_TOKEN `
+  -GitHubRepo "owner/repo"
 ```
+
+**Parameters:**
+- `-ManifestPath`: Path to manifest file
+- `-BucketPath`: Path to bucket directory
+- `-IssueLog`: Path to log issues to file
+- `-NotifyOnIssues`: Enable issue notifications
+- `-GitHubToken`: GitHub API token (uses `$env:GITHUB_TOKEN` if not provided)
+- `-GitHubRepo`: GitHub repository in `owner/repo` format (uses `$env:GITHUB_REPOSITORY` if not provided)
+- `-AutoCreateIssues`: Automatically create GitHub issues for unfixable problems
 
 **Features:**
 - Runs checkver to find latest version
 - Attempts 3-tier URL fixing:
   1. Simple version substitution
-  2. GitHub API release asset lookup
-  3. Manual review fallback
+  2. GitHub/GitLab/Gitea API release asset lookup
+  3. Issue creation with Copilot tag
 - Downloads and calculates SHA256 hashes
-- Updates manifest JSON
-- Returns appropriate exit codes (0=fixed, 1=valid, -1=failed)
+- Detects hash mismatches and auto-recomputes
+- Validates manifest structure
+- Creates GitHub issues with proper labels:
+  - `auto-fix`: All auto-fix issues
+  - `@copilot`: For Copilot AI-assisted fixes
+  - `needs-review`, `@beyondmeat`: For escalation
+
+**Exit Codes:**
+- `0`: Successfully fixed
+- `1`: Already valid/up-to-date
+- `2`: Issues detected, GitHub issue created
+- `3`: GitHub issue created (alternative)
+- `-1`: Fatal error
 
 ### Workflow Execution
 ```yaml
-Excavate → Auto-fix broken → Commit changes → Push
+Excavate → Auto-fix with issue creation → Copilot PR → Commit & Push
 ```
 
 Runs hourly via cron: `0 * * * *` (every hour at :00)
+
+### GitHub Issue Template
+
+When auto-fix fails, issues are created with this structure:
+
+```
+Title: Auto-fix failed for [app] - Copilot review needed
+Labels: auto-fix, @copilot
+
+## Manifest Auto-Fix Failed
+**App**: [app-name]
+
+### Issue Description
+[Technical details of what failed]
+
+### Severity
+[error|warning]
+
+### Timestamp
+[ISO 8601 timestamp]
+
+### Next Steps
+- [ ] GitHub Copilot to review and create fix PR
+- [ ] Run: `.\bin\autofix-manifest.ps1 -ManifestPath bucket/[app].json`
+- [ ] Commit and push changes
+
+### Context
+Manifest: bucket/[app].json
+```
+
+If Copilot PR fails, escalation issue is created:
+```
+Title: ESCALATION: Manual fix needed for [app]
+Labels: auto-fix, needs-review, @beyondmeat
+```
 
 ## Benefits
 
@@ -87,15 +165,6 @@ Runs hourly via cron: `0 * * * *` (every hour at :00)
 - **Before**: `Spaghettify-Alfredo-Alfa-1-Windows.zip`
 - **After**: `Spaghettify-Alfredo-Alfa-1-Windows.zip` (tag changed from name to numeric)
 - **Fix**: Version updated, URL adjusted, hash recalculated
-
-## Future Enhancements
-
-- [x] Intelligent checkver regex fixing based on release names
-- [x] Support for non-GitHub repositories (GitLab, Gitea, etc.)
-- [x] Hash mismatch detection and auto-recomputation
-- [x] Manifest structure validation and auto-repair
-- [x] Notification system for unfixable issues
-- [x] Manual review workflow for edge cases
 
 ## Enhanced Features (Implemented)
 

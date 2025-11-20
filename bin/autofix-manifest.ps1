@@ -2,7 +2,10 @@
     [string]$ManifestPath,
     [string]$BucketPath = (Split-Path -Parent (Split-Path -Parent $ManifestPath)),
     [string]$IssueLog = "",
-    [switch]$NotifyOnIssues
+    [switch]$NotifyOnIssues,
+    [string]$GitHubToken = $env:GITHUB_TOKEN,
+    [string]$GitHubRepo = $env:GITHUB_REPOSITORY,
+    [switch]$AutoCreateIssues
 )
 
 <#
@@ -18,7 +21,9 @@ This script analyzes manifest errors and attempts to auto-fix common issues:
 5. Detects hash mismatches and auto-recomputes
 6. Validates manifest structure
 7. Supports GitHub, GitLab, and Gitea repositories
-8. Logs issues for manual review if needed
+8. Attempts GitHub Copilot PR creation for unfixable issues
+9. Escalates to manual review if Copilot PR fails
+10. Logs issues for manual review if needed
 
 .PARAMETER ManifestPath
 Path to the manifest to fix.
@@ -32,8 +37,17 @@ Path to log file for unfixable issues (for notification system).
 .PARAMETER NotifyOnIssues
 Enable notifications for issues that require manual review.
 
+.PARAMETER GitHubToken
+GitHub API token for creating issues (uses GITHUB_TOKEN env var if not provided).
+
+.PARAMETER GitHubRepo
+GitHub repository (owner/repo format) for issue creation (uses GITHUB_REPOSITORY env var if not provided).
+
+.PARAMETER AutoCreateIssues
+Automatically create GitHub issues for unfixable problems with Copilot and escalation tags.
+
 .RETURNS
-0 if fixed, -1 if unable to fix, 1 if already valid, 2 if manual review needed
+0 if fixed, -1 if unable to fix, 1 if already valid, 2 if manual review needed, 3 if issue created
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +57,77 @@ $issues = @()
 function Add-Issue {
     param([string]$Title, [string]$Description, [string]$Severity = "warning")
     $issues += @{ Title = $Title; Description = $Description; Severity = $Severity; App = $appName; Timestamp = Get-Date }
+}
+
+# Create GitHub issue with Copilot and escalation tags
+function New-GitHubIssue {
+    param(
+        [string]$Title,
+        [string]$Description,
+        [string]$Repository,
+        [string]$Token,
+        [switch]$TagCopilot,
+        [switch]$TagEscalation
+    )
+
+    if (!$Repository -or !$Token) {
+        Write-Host "⚠ GitHub credentials not available, skipping issue creation" -ForegroundColor Yellow
+        return $false
+    }
+
+    try {
+        # Build labels array
+        $labels = @("auto-fix")
+        if ($TagCopilot) { $labels += "@copilot" }
+        if ($TagEscalation) { $labels += "needs-review"; $labels += "@beyondmeat" }
+
+        # Build issue body with context
+        $body = @"
+## Manifest Auto-Fix Failed
+**App**: $appName
+
+### Issue Description
+$Description
+
+### Severity
+$($issues[-1].Severity)
+
+### Timestamp
+$([DateTime]::UtcNow.ToString('o'))
+
+### Next Steps
+$(if ($TagCopilot) { "- [ ] GitHub Copilot to review and create fix PR`n" })
+$(if ($TagEscalation) { "- [ ] @beyondmeat to manually review and apply fix`n" })
+- [ ] Run: ``.\bin\autofix-manifest.ps1 -ManifestPath bucket/$appName.json``
+- [ ] Commit and push changes
+
+### Context
+Manifest: bucket/$appName.json
+"@
+
+        $headers = @{
+            Authorization = "token $Token"
+            "Content-Type" = "application/json"
+        }
+
+        $payload = @{
+            title = $Title
+            body = $body
+            labels = $labels
+        } | ConvertTo-Json
+
+        $apiUrl = "https://api.github.com/repos/$Repository/issues"
+        $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        $issueNumber = ($response.Content | ConvertFrom-Json).number
+
+        Write-Host "✓ GitHub issue #$issueNumber created" -ForegroundColor Green
+        Write-Host "  Tags: $($labels -join ', ')" -ForegroundColor Green
+        return $issueNumber
+    }
+    catch {
+        Write-Host "⚠ Failed to create GitHub issue: $_" -ForegroundColor Yellow
+        return $false
+    }
 }
 
 # Validate manifest structure
@@ -421,6 +506,31 @@ try {
         if ($issues.Count -gt 0 -and $NotifyOnIssues -and $IssueLog) {
             $issues | ConvertTo-Json | Add-Content -Path $IssueLog
             Write-Host "⚠ Issues logged for manual review" -ForegroundColor Yellow
+
+            # Create GitHub issue with Copilot tag
+            if ($AutoCreateIssues) {
+                $issueTitle = "Auto-fix failed for $appName - Copilot review needed"
+                $issueDesc = ($issues | ForEach-Object { "- **$($_.Title)**: $($_.Description)" }) -join "`n"
+
+                $issueNum = New-GitHubIssue `
+                    -Title $issueTitle `
+                    -Description $issueDesc `
+                    -Repository $GitHubRepo `
+                    -Token $GitHubToken `
+                    -TagCopilot
+
+                if (!$issueNum) {
+                    Write-Host "⚠ Could not create Copilot issue, escalating to manual review" -ForegroundColor Yellow
+                    # Create escalation issue
+                    $issueNum = New-GitHubIssue `
+                        -Title "ESCALATION: Manual fix needed for $appName" `
+                        -Description $issueDesc `
+                        -Repository $GitHubRepo `
+                        -Token $GitHubToken `
+                        -TagEscalation
+                }
+            }
+
             exit 2
         }
 
@@ -432,6 +542,20 @@ try {
 
         if ($issues.Count -gt 0 -and $NotifyOnIssues -and $IssueLog) {
             $issues | ConvertTo-Json | Add-Content -Path $IssueLog
+
+            # Create GitHub issue with escalation tag (checkver failure is serious)
+            if ($AutoCreateIssues) {
+                $issueTitle = "ESCALATION: Checkver failed for $appName"
+                $issueDesc = "Could not extract version from checkver output. This requires manual investigation and fix."
+
+                New-GitHubIssue `
+                    -Title $issueTitle `
+                    -Description $issueDesc `
+                    -Repository $GitHubRepo `
+                    -Token $GitHubToken `
+                    -TagEscalation | Out-Null
+            }
+
             exit 2
         }
 
