@@ -223,7 +223,8 @@ function Test-HashMismatch {
     $tempFile = [System.IO.Path]::GetTempFileName()
     try {
         Write-Host "    Verifying hash..." -ForegroundColor Gray
-        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ProgressAction SilentlyContinue -ErrorAction Stop | Out-Null
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
         $actualHash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
 
         if ($actualHash -ne $StoredHash) {
