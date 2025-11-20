@@ -68,6 +68,7 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
    [System.IO.File]::WriteAllText($path, $json + "`n", [System.Text.Encoding]::UTF8)
    ```
 
+6. **Windows 11 Environment** - Commands should be windows compatible
 ---
 
 ## File Standards

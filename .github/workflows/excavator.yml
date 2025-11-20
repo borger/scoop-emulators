@@ -34,36 +34,117 @@ jobs:
 
           $brokenManifests = @()
 
-          # If excavator failed, try to identify which manifests had issues
           if ($excavatorResult -eq 'failure') {
-            # Check for modified manifests (those that excavator tried to update)
+            Write-Host "Excavator step failed, attempting to identify error manifests..." -ForegroundColor Yellow
+
+            # Strategy 1: Parse console for error messages matching pattern "appname: error message"
+            # Example: "spaghettikart: The remote server returned an error: (404) Not Found."
+            $errorMessages = @()
+
+            # Try to capture from recent git log messages (excavator commits include app names)
+            # or from git status/diff which shows what manifests were being updated
+
+            # Strategy 1: Check git diff for partially modified manifests
+            # (excavator may have started updating but errored out)
             $modifiedManifests = @(git diff --name-only HEAD | Where-Object { $_ -match '^bucket/.*\.json$' })
 
+            # Strategy 2: Check git status for staged/unstaged changes
+            if ($modifiedManifests.Count -eq 0) {
+              $stagedFiles = @(git diff --cached --name-only | Where-Object { $_ -match '^bucket/.*\.json$' })
+              $unstagedFiles = @(git diff --name-only | Where-Object { $_ -match '^bucket/.*\.json$' })
+              $modifiedManifests = @($stagedFiles + $unstagedFiles | Select-Object -Unique)
+            }
+
+            # Strategy 3: Look at recent commits to see what excavator was trying to update
+            if ($modifiedManifests.Count -eq 0) {
+              try {
+                $lastCommit = git log -1 --pretty=format:%H
+                $modifiedManifests = @(git diff --name-only $lastCommit~1..$lastCommit | Where-Object { $_ -match '^bucket/.*\.json$' })
+              } catch {
+                Write-Host "Could not get recent commits: $_" -ForegroundColor Gray
+              }
+            }
+
             if ($modifiedManifests.Count -gt 0) {
-              Write-Host "Modified manifests: $($modifiedManifests.Count)" -ForegroundColor Yellow
+              Write-Host "Found $($modifiedManifests.Count) modified manifest(s)" -ForegroundColor Yellow
               $brokenManifests = $modifiedManifests | ForEach-Object { (Split-Path -LeafBase $_) }
+              $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
             } else {
-              # If no modifications found, get all base manifests to check
-              $allManifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' } | Select-Object -ExpandProperty BaseName)
-              Write-Host "No specific manifests identified, will check all: $($allManifests.Count)" -ForegroundColor Yellow
-              $brokenManifests = $allManifests
+              # If no modifications found, check all manifests
+              Write-Host "No specific manifests identified in git diff" -ForegroundColor Yellow
+              Write-Host "Will check all base manifests in auto-fix" -ForegroundColor Yellow
+              $brokenManifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' } | Select-Object -ExpandProperty BaseName)
+              Write-Host "Total manifests to check: $($brokenManifests.Count)" -ForegroundColor Gray
             }
 
             # Save broken manifests list to file for next step
             $brokenManifests | ConvertTo-Json | Out-File -FilePath "broken-manifests.json" -Encoding UTF8
-            Write-Host "Saved error manifest list to broken-manifests.json" -ForegroundColor Green
+            Write-Host "Saved $($brokenManifests.Count) manifest(s) to broken-manifests.json" -ForegroundColor Green
+
+            if ($brokenManifests.Count -gt 0) {
+              Write-Host "Error manifests identified:" -ForegroundColor Red
+              $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+            }
 
             # Output as GitHub Actions output
             "broken-manifests=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             "has-errors=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
 
-            Write-Host "Error manifests identified: $($brokenManifests -join ', ')" -ForegroundColor Red
             exit 1
           } else {
             Write-Host "[OK] Excavator completed successfully" -ForegroundColor Green
             "has-errors=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             exit 0
           }
+
+      - name: Parse excavator logs for errors
+        if: steps.capture-errors.outputs.has-errors == 'true'
+        id: parse-logs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Get the current run ID
+            const runId = context.runId;
+
+            // Fetch the logs for this workflow run
+            const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+              job_id: context.job
+            });
+
+            // Parse the logs to find error messages
+            // Pattern: "appname: error message" or "appname: The remote server returned an error: (404) Not Found"
+            const logsText = Buffer.from(logs.data).toString('utf-8');
+            const errorPatterns = [
+              /^(\w+):\s+The remote server returned an error:\s*\([0-9]+\).*$/m,
+              /^(\w+):\s+.*?(?:404|not found|error|failed).*$/mi,
+              /Error.*?(\w+).*?(?:URL|checkver).*$/mi
+            ];
+
+            const foundErrors = new Set();
+
+            // Search for each pattern
+            errorPatterns.forEach(pattern => {
+              const matches = logsText.matchAll(pattern);
+              for (const match of matches) {
+                if (match[1]) {
+                  foundErrors.add(match[1].toLowerCase());
+                }
+              }
+            });
+
+            if (foundErrors.size > 0) {
+              const errorList = Array.from(foundErrors).join(',');
+              console.log(`Found ${foundErrors.size} errors in logs: ${errorList}`);
+              core.setOutput('log-errors', errorList);
+            } else {
+              console.log('No specific errors found in logs');
+              core.setOutput('log-errors', '');
+            }
 
       - name: Upload broken manifests list
         if: steps.capture-errors.outputs.has-errors == 'true'
