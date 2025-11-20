@@ -356,11 +356,11 @@ try {
                 Write-Host "  [FAIL] URL is not accessible - attempting to fix"
             }
 
-            # If URL is not valid, try to fix it
+            # If URL is not valid, try version-substituted URL first
             try {
-                $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+                $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
                 if ($response.StatusCode -eq 200) {
-                    Write-Host "  [OK] Fixed URL found: $newUrl" -ForegroundColor Green
+                    Write-Host "  [OK] Fixed URL found with version substitution: $newUrl" -ForegroundColor Green
 
                     # Update manifest with new URL
                     if ($arch -eq "generic") {
@@ -407,17 +407,58 @@ try {
                     if ($assets) {
                         # Find matching asset based on architecture
                         $asset = $null
+
+                        # Separate Windows-specific and all archive assets
+                        $windowsAssets = $assets | Where-Object { $_.name -match "windows|win" }
+                        $archiveAssets = $assets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" }
+                        if (!$archiveAssets) {
+                            $archiveAssets = $assets
+                        }
+
                         if ($arch -eq "64bit") {
-                            $asset = $assets | Where-Object { $_.name -match "x86.?64|win64|windows.x64|64.?bit|amd64" } | Select-Object -First 1
+                            # First try: Windows assets with 64-bit patterns, prefer .zip
+                            $asset = $windowsAssets | Where-Object { $_.name -match "x86.?64|win64|x64|amd64" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            # Second try: Any asset with 64-bit patterns
+                            if (!$asset) {
+                                $asset = $archiveAssets | Where-Object { $_.name -match "x86.?64|win64|x64|amd64" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            }
+                            # Third try: Windows asset (assume 64-bit if only one version)
+                            if (!$asset) {
+                                $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            }
+                            # Last resort: largest archive (likely 64-bit)
+                            if (!$asset) {
+                                $asset = $archiveAssets | Sort-Object { $_.size } -Descending | Select-Object -First 1
+                            }
                         } elseif ($arch -eq "32bit") {
-                            $asset = $assets | Where-Object { $_.name -match "x86.?32|win32|windows.x86|32.?bit|386" } | Select-Object -First 1
+                            # First try: Windows assets with 32-bit patterns, prefer .zip
+                            $asset = $windowsAssets | Where-Object { $_.name -match "x86.?32|win32|i386|386|ia32" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            # Second try: Any asset with 32-bit patterns
+                            if (!$asset) {
+                                $asset = $archiveAssets | Where-Object { $_.name -match "x86.?32|win32|i386|386|ia32" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            }
+                            # Third try: Windows asset (assume 32-bit if smaller)
+                            if (!$asset) {
+                                $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.size } | Select-Object -First 1
+                            }
+                            # Last resort: smallest archive (likely 32-bit)
+                            if (!$asset) {
+                                $asset = $archiveAssets | Sort-Object { $_.size } | Select-Object -First 1
+                            }
                         } else {
-                            $asset = $assets | Select-Object -First 1
+                            # Generic - prefer Windows archives, then zip files
+                            $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            if (!$asset) {
+                                $asset = $archiveAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
+                            }
+                            if (!$asset) {
+                                $asset = $archiveAssets | Select-Object -First 1
+                            }
                         }
 
                         if ($asset) {
                             $fixedUrl = $asset.browser_download_url
-                            Write-Host "  [OK] API found asset: $($asset.name)" -ForegroundColor Green
+                            Write-Host "  [OK] API found asset for ${arch}: $($asset.name)" -ForegroundColor Green
 
                             if ($arch -eq "generic") {
                                 $manifest.url = $fixedUrl
@@ -426,7 +467,22 @@ try {
                             } elseif ($arch -eq "32bit") {
                                 $manifest.architecture.'32bit'.url = $fixedUrl
                             }
+
+                            # Recalculate hash for the new URL
+                            $hash = Get-RemoteFileHash -Url $fixedUrl
+                            if ($hash) {
+                                if ($arch -eq "generic") {
+                                    $manifest.hash = $hash
+                                } else {
+                                    $manifest.architecture.$arch.hash = $hash
+                                }
+                                Write-Host "  [OK] Updated hash for ${arch} asset" -ForegroundColor Green
+                            }
+                        } else {
+                            Write-Host "  [WARN] No matching Windows asset found in release for $arch" -ForegroundColor Yellow
                         }
+                    } else {
+                        Write-Host "  [WARN] Could not retrieve assets from $repoPlatform API" -ForegroundColor Yellow
                     }
                 } catch {
                     Write-Host "  [WARN] API lookup failed: $_"
