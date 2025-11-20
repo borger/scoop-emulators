@@ -97,6 +97,25 @@ jobs:
             "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           }
 
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          # Install Scoop package manager
+          Write-Host "Installing Scoop..." -ForegroundColor Cyan
+
+          # Set Scoop environment variables
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          $env:SCOOP_HOME = "$env:SCOOP\apps\scoop\current"
+
+          # Download and install Scoop
+          iex (New-Object Net.WebClient).DownloadString('https://get.scoop.sh')
+
+          # Set environment variables for subsequent steps
+          "SCOOP=$env:SCOOP" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "Scoop installed successfully" -ForegroundColor Green
+
       - name: Setup Scoop environment
         shell: pwsh
         run: |

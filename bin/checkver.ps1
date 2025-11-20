@@ -7,19 +7,8 @@ param(
 
 # Try to locate Scoop's checkver script
 $checkverScript = $null
-$possiblePaths = @(
-    "$env:SCOOP_HOME/bin/checkver.ps1",
-    "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkver.ps1",
-    "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkver.ps1",  # Alternative path
-    "C:\Users\runneradmin\scoop\apps\scoop\current\bin\checkver.ps1",  # GitHub Actions default
-    "C:\Users\runneradmin\scoop\apps\scoop\current/bin/checkver.ps1",  # Alternative slash
-    "C:\tools\scoop\apps\scoop\current\bin\checkver.ps1",
-    "/tools/scoop/apps/scoop/current/bin/checkver.ps1",
-    "C:\scoop\apps\scoop\current\bin\checkver.ps1",  # Another common location
-    "/scoop/apps/scoop/current/bin/checkver.ps1"
-)
 
-# Try explicit SCOOP_HOME first if set
+# Strategy 1: Try explicit SCOOP_HOME first if set
 if ($env:SCOOP_HOME) {
     $checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
     if (Test-Path $checkverScript) {
@@ -29,7 +18,7 @@ if ($env:SCOOP_HOME) {
     }
 }
 
-# Try to get from scoop command if not found
+# Strategy 2: Try to get from scoop command if not found
 if (!$checkverScript) {
     try {
         $scoopCmd = Get-Command scoop -ErrorAction SilentlyContinue
@@ -50,29 +39,20 @@ if (!$checkverScript) {
     }
 }
 
-# Try fallback paths
+# Strategy 3: Try fallback paths for Scoop installation
 if (!$checkverScript) {
+    $possiblePaths = @(
+        "$env:SCOOP_HOME/bin/checkver.ps1",
+        "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkver.ps1",
+        "$env:ProgramData\scoop\apps\scoop\current\bin\checkver.ps1",
+        "C:\Users\runneradmin\scoop\apps\scoop\current\bin\checkver.ps1",
+        "C:\tools\scoop\apps\scoop\current\bin\checkver.ps1",
+        "C:\scoop\apps\scoop\current\bin\checkver.ps1"
+    )
     foreach ($path in $possiblePaths) {
         if (Test-Path $path) {
             $checkverScript = $path
-            Write-Host "Found checkver at fallback path: $checkverScript" -ForegroundColor Green
-            break
-        }
-    }
-}
-
-# Try to find scoop installation by searching common locations
-if (!$checkverScript) {
-    $searchPaths = @(
-        "$env:ProgramData\scoop\apps\scoop\current\bin\checkver.ps1",
-        "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkver.ps1",
-        "C:\scoop\apps\scoop\current\bin\checkver.ps1",
-        "/opt/scoop/apps/scoop/current/bin/checkver.ps1"
-    )
-    foreach ($path in $searchPaths) {
-        if (Test-Path $path) {
-            $checkverScript = $path
-            Write-Host "Found checkver at search path: $checkverScript" -ForegroundColor Green
+            Write-Host "Found checkver at path: $checkverScript" -ForegroundColor Green
             break
         }
     }
@@ -80,7 +60,7 @@ if (!$checkverScript) {
 
 # If still not found, error out
 if (!$checkverScript -or !(Test-Path $checkverScript)) {
-    Write-Error "Scoop checkver script not found. Tried: $($possiblePaths -join ', ')" -ErrorAction Stop
+    Write-Error "Scoop checkver script not found. Make sure Scoop is installed and SCOOP_HOME is set correctly." -ErrorAction Stop
 }
 
 $bucketDir = if ($Dir) { $Dir } else { "$PSScriptRoot/../bucket" }
