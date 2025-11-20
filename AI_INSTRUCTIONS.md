@@ -720,3 +720,187 @@ This bucket now has a complete automation and validation framework:
 
 ### Ready for Production
 The bucket is fully configured for automated updates and validation with intelligent recovery from common issues. The excavator workflow will maintain the bucket automatically while preserving manual edits and handling edge cases through the issue tracking system.
+
+## PowerShell Best Practices & Common Issues
+
+### PSScriptAnalyzer Compliance
+
+All PowerShell scripts must pass PSScriptAnalyzer checks. Common violations and fixes:
+
+**1. Avoid Automatic Variables**
+- ❌ Do NOT use `$error` as a variable name (it's a readonly automatic variable)
+- ✅ Use alternative names: `$errorMsg`, `$errorInfo`, `$parseError`
+```powershell
+# WRONG
+catch {
+    $error = "Parse failed"  # Will fail PSScriptAnalyzer
+}
+
+# CORRECT
+catch {
+    $errorMsg = "Parse failed"  # Use different name
+}
+```
+
+**2. Use Approved Verbs**
+- ❌ Functions should NOT use unapproved verbs like `Post-`, `Manage-`, `Sync-`
+- ✅ Use approved verbs: `Publish-`, `Send-`, `New-`, `Update-`, `Set-`
+```powershell
+# WRONG
+function Post-PRComment { }  # Post is not approved
+
+# CORRECT
+function Publish-PRComment { }  # Publish is approved
+```
+
+**3. Remove Unused Variables**
+- PSScriptAnalyzer flags variables assigned but never used
+- Check for typos or variable name changes in refactoring
+```powershell
+# WRONG
+$releaseName = $ReleaseData.name  # Assigned but never used
+
+# CORRECT - Either use it or remove it
+$detectedVersion = $ReleaseData.tag_name  # Actually used in logic
+```
+
+**4. String Interpolation in Here-Strings**
+- Double colons in strings must be escaped: use `` ` `` backtick
+- Use `${VarName}` for variable disambiguation when followed by special characters
+```powershell
+# WRONG
+Write-Host "Failed for $manifest: $_"  # Colon causes parser confusion
+
+# CORRECT - Escape the colon
+Write-Host "Failed for $manifest``: $_"
+
+# WRONG in here-strings (@ " @)
+@"
+Issue #$IssueNumber
+"@
+
+# CORRECT in here-strings
+@"
+Issue #${IssueNumber}
+"@
+```
+
+Run PSScriptAnalyzer locally before committing:
+```powershell
+Invoke-ScriptAnalyzer -Path "bin\*.ps1" -Recurse
+```
+
+### Git Lock File Issues
+
+If you see: `fatal: unable to create '.git/index.lock': file exists`
+
+This means a git process crashed or is still running. **Fix:**
+```powershell
+Remove-Item -Path ".git\index.lock" -Force
+```
+
+**Why this happens:**
+- VS Code formatting or other editors may spawn git processes
+- Manual git commands interrupted (Ctrl+C)
+- PowerShell script execution interrupted
+
+**Prevention:**
+- Always complete git operations before running new ones
+- Close VS Code before running batch git operations
+- Use `finally` blocks in scripts to clean up resources
+
+### Approved PowerShell Verbs
+
+Common approved verbs for function names:
+- **CRUD Operations**: `New-`, `Get-`, `Set-`, `Update-`, `Remove-`, `Clear-`
+- **Communication**: `Send-`, `Publish-`, `Read-`, `Write-`, `Out-`
+- **Management**: `Start-`, `Stop-`, `Restart-`, `Suspend-`, `Resume-`
+- **Data**: `Export-`, `Import-`, `ConvertTo-`, `ConvertFrom-`
+
+```powershell
+# These are all approved
+function New-GitHubIssue { }
+function Publish-PRComment { }
+function Update-Manifest { }
+function Get-LatestVersion { }
+```
+
+Check the full list:
+```powershell
+Get-Verb | Select-Object Verb, AliasPrefix | Format-Table
+```
+
+## Common Troubleshooting
+
+### UTF-8 BOM Validation
+If test fails: "files do not contain leading UTF-8 BOM"
+
+Check which files are missing BOM:
+```powershell
+Get-ChildItem -Path "bin\*.ps1", ".github\**\*.yml" -File | ForEach-Object {
+    $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+    if (-not ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)) {
+        Write-Host "Missing BOM: $($_.FullName)" -ForegroundColor Red
+    }
+}
+```
+
+Fix encoding for a file:
+```powershell
+$content = [System.IO.File]::ReadAllText($filePath)
+$utf8BOM = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($filePath, $content, $utf8BOM)
+```
+
+### Trailing Newline Issues
+All files must end with a newline character (LF or CRLF).
+
+Check for missing trailing newlines:
+```powershell
+Get-ChildItem -Path "*.ps1", "*.md", "*.json" -Recurse | ForEach-Object {
+    $content = [System.IO.File]::ReadAllBytes($_.FullName)
+    if ($content.Length -gt 0 -and $content[-1] -ne 0x0A) {
+        Write-Host "No trailing newline: $($_.FullName)" -ForegroundColor Yellow
+    }
+}
+```
+
+### Line Ending Consistency
+Use CRLF (Windows) throughout the repository.
+
+Configure git to handle line endings:
+```powershell
+git config core.autocrlf true
+```
+
+Check current line endings:
+```powershell
+file bin/checkver.ps1  # On PowerShell Core with Unix tools
+```
+
+## Logging & Debugging
+
+### Enable Verbose Output
+All scripts support `-Verbose` flag:
+```powershell
+.\bin\update-manifest.ps1 -ManifestPath bucket/app.json -Verbose
+.\bin\autofix-manifest.ps1 -ManifestPath bucket/app.json -Verbose
+.\bin\validate-and-merge.ps1 -ManifestPath bucket/app.json -Verbose
+```
+
+### GitHub Actions Debugging
+When workflow fails, check:
+1. **Workflow run logs** - Full output of each step
+2. **PR comments** - Validation results posted by scripts
+3. **GitHub issue** - Created by escalation process with full context
+
+### Common Error Messages
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "PowerShell code files do not contain syntax errors" | Missing UTF-8 BOM | Add UTF-8 BOM to .ps1 files |
+| "files do not contain leading UTF-8 BOM" | Missing BOM on .yml or .ps1 | Add BOM to all files |
+| "files do not end with a newline" | File missing final newline | Add newline at end of file |
+| "Checkver Parse Failed" | Invalid checkver output format | Check checkver configuration in manifest |
+| "Autoupdate validation failed" | Invalid autoupdate section | Review autoupdate placeholders and URL format |
+| "Installation test failed" | Manifest cannot be installed | Check URLs, hashes, architecture definitions |
