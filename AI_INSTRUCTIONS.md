@@ -513,36 +513,42 @@ Issues requiring manual review are tracked with:
 
 ## File Encoding in Scripts
 
-**CRITICAL**: All scripts that modify manifest files MUST use UTF-8 with BOM encoding.
+**File Encoding Requirements:**
+- **PowerShell scripts (.ps1)**: UTF-8 with BOM (Scoop requirement)
+- **JSON manifests (.json)**: UTF-8 without BOM (standard JSON)
+- **Markdown (.md), YAML (.yml)**: UTF-8 without BOM (standard text)
 
-### Correct Way (UTF-8 with BOM)
+### When Writing Manifest Files (JSON)
 ```powershell
-# For writing manifest files
+# CORRECT - UTF-8 without BOM for manifest files
+[System.IO.File]::WriteAllText($ManifestPath, $content + "`n", [System.Text.Encoding]::UTF8)
+```
+
+### When Writing PowerShell Files (if needed)
+```powershell
+# CORRECT - UTF-8 with BOM for PowerShell scripts
 $utf8BOM = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($ManifestPath, $content + "`n", $utf8BOM)
+[System.IO.File]::WriteAllText($file.ps1, $content, $utf8BOM)
 ```
 
 ### Incorrect Ways ❌
 ```powershell
-# WRONG - UTF-8 without BOM
-[System.IO.File]::WriteAllText($ManifestPath, $content, [System.Text.Encoding]::UTF8)
-
-# WRONG - Set-Content uses system default encoding
+# WRONG - Uses system default encoding
 $content | Set-Content -Path $ManifestPath
 
-# WRONG - Out-File uses system default encoding
+# WRONG - Uses system default encoding
 $content | Out-File -Path $ManifestPath
 ```
 
 **Scripts That Modify Manifests:**
-- `update-manifest.ps1` - ✅ Uses UTF-8 BOM
-- `autofix-manifest.ps1` - ✅ Uses UTF-8 BOM
+- `update-manifest.ps1` - ✅ Uses UTF-8 without BOM for JSON files
+- `autofix-manifest.ps1` - ✅ Uses UTF-8 without BOM for JSON files
 
 **Why This Matters:**
-- Scoop bucket validation requires UTF-8 with BOM for all .ps1 and manifest-related files
-- Missing BOM causes test failures: "files do not contain leading UTF-8 BOM"
-- Git commits to files without proper encoding will lose the BOM encoding
-- Always verify encoding after automated file updates
+- JSON files must NOT have BOM (BOM breaks JSON parsing)
+- PowerShell scripts MUST have BOM per Scoop standards
+- Always verify file encoding after automated modifications
+- Use proper encoding constructors, never rely on system defaults
 
 ## Error Handling
 
@@ -615,15 +621,15 @@ if ($file[0] -eq 0xEF -and $file[1] -eq 0xBB -and $file[2] -eq 0xBF) {
 ```
 
 #### Documentation Files
-- README.md - UTF-8, trailing newline, no code fence wrapper
-- CONTRIBUTING.md - UTF-8, trailing newline
-- AUTOFIX_EXCAVATOR.md - UTF-8, trailing newline
-- AI_INSTRUCTIONS.md - UTF-8, trailing newline (this file)
-- .github/pull_request_template.md - UTF-8, trailing newline, **NO markdown wrapper**
-- .github/ISSUE_TEMPLATE/*.yml - UTF-8, trailing newline
+- README.md - UTF-8 (no BOM), trailing newline, no code fence wrapper
+- CONTRIBUTING.md - UTF-8 (no BOM), trailing newline
+- AUTOFIX_EXCAVATOR.md - UTF-8 (no BOM), trailing newline
+- AI_INSTRUCTIONS.md - UTF-8 (no BOM), trailing newline (this file)
+- .github/pull_request_template.md - UTF-8 (no BOM), trailing newline, **NO markdown wrapper**
+- .github/ISSUE_TEMPLATE/*.yml - UTF-8 (no BOM), trailing newline
 
 #### Manifest Files
-- bucket/*.json - UTF-8, formatted with formatjson.ps1, trailing newline
+- bucket/*.json - UTF-8 (no BOM), formatted with formatjson.ps1, trailing newline
 
 ### Validation Commands
 
