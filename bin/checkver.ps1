@@ -5,29 +5,54 @@ param(
     [string]$Dir = $null
 )
 
-if (!$env:SCOOP_HOME) {
-    # Try to get SCOOP_HOME from scoop command, but fall back to common location
-    try {
-        # Check if scoop command is available
-        $scoopCmd = Get-Command scoop -ErrorAction SilentlyContinue
-        if ($scoopCmd) {
-            $env:SCOOP_HOME = Convert-Path (scoop prefix scoop)
-        } else {
-            throw "scoop command not found"
-        }
-    } catch {
-        # Fall back to standard Scoop installation path
-        $env:SCOOP_HOME = "$env:USERPROFILE\scoop\apps\scoop\current"
+# Try to locate Scoop's checkver script
+$checkverScript = $null
+$possiblePaths = @(
+    "$env:SCOOP_HOME/bin/checkver.ps1",
+    "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkver.ps1",
+    "C:\tools\scoop\apps\scoop\current\bin\checkver.ps1",
+    "/tools/scoop/apps/scoop/current/bin/checkver.ps1"
+)
+
+# Try explicit SCOOP_HOME first if set
+if ($env:SCOOP_HOME) {
+    $checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
+    if (Test-Path $checkverScript) {
+        # Use this path
+    } else {
+        $checkverScript = $null
     }
 }
 
-$checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
-$bucketDir = if ($Dir) { $Dir } else { "$PSScriptRoot/../bucket" }
-
-# Verify checkver script exists
-if (!(Test-Path $checkverScript)) {
-    Write-Error "Scoop checkver script not found at: $checkverScript" -ErrorAction Stop
+# Try to get from scoop command if not found
+if (!$checkverScript) {
+    try {
+        $scoopCmd = Get-Command scoop -ErrorAction SilentlyContinue
+        if ($scoopCmd) {
+            $env:SCOOP_HOME = Convert-Path (scoop prefix scoop)
+            $checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
+        }
+    } catch {
+        # Scoop command not available
+    }
 }
+
+# Try fallback paths
+if (!$checkverScript -or !(Test-Path $checkverScript)) {
+    foreach ($path in $possiblePaths) {
+        if (Test-Path $path) {
+            $checkverScript = $path
+            break
+        }
+    }
+}
+
+# If still not found, error out
+if (!$checkverScript -or !(Test-Path $checkverScript)) {
+    Write-Error "Scoop checkver script not found. Tried: $($possiblePaths -join ', ')" -ErrorAction Stop
+}
+
+$bucketDir = if ($Dir) { $Dir } else { "$PSScriptRoot/../bucket" }
 
 # Capture output from Scoop's checkver which uses Write-Host
 # We use a temporary file to capture all output streams

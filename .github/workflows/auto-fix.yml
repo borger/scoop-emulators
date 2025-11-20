@@ -35,6 +35,69 @@ jobs:
             Write-Host "Excavator status: $status" -ForegroundColor $(if ($status -eq "failure") { "Red" } else { "Yellow" })
           }
 
+      - name: Download broken manifests list
+        id: download-errors
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            });
+
+            const matchArtifact = artifacts.data.artifacts.find(artifact =>
+              artifact.name === 'broken-manifests'
+            );
+
+            if (!matchArtifact) {
+              console.log('No broken-manifests artifact found');
+              return;
+            }
+
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: matchArtifact.id,
+              archive_format: 'zip',
+            });
+
+            fs.writeFileSync('${{ github.workspace }}/broken-manifests.zip', Buffer.from(download.data));
+            console.log('Downloaded broken-manifests artifact');
+
+      - name: Extract and parse broken manifests
+        id: parse-errors
+        shell: pwsh
+        run: |
+          $brokenManifests = @()
+
+          # Check if we have the broken manifests artifact
+          if (Test-Path "broken-manifests.zip") {
+            Write-Host "Extracting broken manifests..." -ForegroundColor Cyan
+            Expand-Archive -Path "broken-manifests.zip" -DestinationPath "." -Force
+
+            if (Test-Path "broken-manifests.json") {
+              $content = Get-Content -Path "broken-manifests.json" -Raw
+              try {
+                $brokenManifests = $content | ConvertFrom-Json
+              } catch {
+                Write-Host "Failed to parse broken-manifests.json, will process all" -ForegroundColor Yellow
+              }
+            }
+          }
+
+          if ($brokenManifests.Count -gt 0) {
+            Write-Host "Found $($brokenManifests.Count) broken manifest(s) to fix:" -ForegroundColor Yellow
+            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
+            "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+          } else {
+            Write-Host "No specific manifests identified, will process all" -ForegroundColor Gray
+            "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+          }
+
       - name: Setup Scoop environment
         shell: pwsh
         run: |
@@ -60,13 +123,23 @@ jobs:
         run: |
           $bucketPath = "${{ github.workspace }}/bucket"
           $scriptsPath = "${{ github.workspace }}/bin"
+          $manifestsToFix = "${{ steps.parse-errors.outputs.manifests-to-fix }}"
 
           Write-Host "Starting auto-fix process..." -ForegroundColor Cyan
           Write-Host "SCOOP_HOME: $env:SCOOP_HOME" -ForegroundColor Gray
           Write-Host "SCOOP: $env:SCOOP" -ForegroundColor Gray
 
-          # Get all manifests (exclude nightly/dev)
-          $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' }
+          # Determine which manifests to process
+          if ($manifestsToFix) {
+            Write-Host "Processing specific manifests from excavator errors..." -ForegroundColor Yellow
+            $appNames = $manifestsToFix -split ','
+            $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
+              Where-Object { $appNames -contains $_.BaseName -and $_.Name -notmatch '(-nightly|-dev)' }
+          } else {
+            Write-Host "Processing all manifests..." -ForegroundColor Gray
+            $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
+              Where-Object { $_.Name -notmatch '(-nightly|-dev)' }
+          }
 
           Write-Host "Found $($manifests.Count) manifests to check"
 
@@ -79,7 +152,7 @@ jobs:
 
             $exitCode = $LASTEXITCODE
             if ($exitCode -eq 0) {
-              Write-Host "✓ Fixed: $($manifest.BaseName)" -ForegroundColor Green
+              Write-Host "[OK] Fixed: $($manifest.BaseName)" -ForegroundColor Green
               $fixedCount++
             }
           }
