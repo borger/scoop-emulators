@@ -164,11 +164,37 @@ The autofix-manifest.ps1 script includes advanced features:
 - **Structure Validation**: Validates and repairs manifest JSON structure
 - **Issue Tracking**: Logs problems with severity for manual review
 
+### GitHub Copilot Integration
+When auto-fix encounters unfixable issues:
+1. **Auto-creates GitHub issue** with detailed problem description
+2. **Tags @copilot** for AI-assisted PR creation
+3. Copilot analyzes and submits a fix PR
+4. If PR succeeds → merged automatically
+5. If PR fails → **auto-escalates to @beyondmeat** for manual review
+
+**Usage:**
+```powershell
+.\bin\autofix-manifest.ps1 `
+  -ManifestPath bucket/app.json `
+  -AutoCreateIssues `
+  -GitHubToken $env:GITHUB_TOKEN `
+  -GitHubRepo $env:GITHUB_REPOSITORY
+```
+
+### Escalation Workflow
+Smart escalation process:
+- **Level 1**: Auto-fix attempts standard fixes
+- **Level 2**: Creates Copilot issue for AI-assisted fixes
+- **Level 3**: Copilot submits PR attempt
+- **Level 4**: Auto-escalates to @beyondmeat if PR fails
+- **Checkver failures** treated as critical and go straight to escalation
+
 ### Notification System
 Issues requiring manual review are tracked with:
 - Issue title and detailed description
-- Severity level (error/warning)
+- Severity level (error/warning/critical)
 - Affected app name
+- Automatic GitHub labels: `auto-fix`, `@copilot`, `needs-review`, `@beyondmeat`
 - Timestamp for audit trail
 
 ---
