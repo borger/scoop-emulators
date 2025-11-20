@@ -511,6 +511,39 @@ Issues requiring manual review are tracked with:
 - **pwsh**: Used by update-manifest.ps1 for reliable checkver output capture
 - **Internet connectivity**: For checkver lookups and file downloads
 
+## File Encoding in Scripts
+
+**CRITICAL**: All scripts that modify manifest files MUST use UTF-8 with BOM encoding.
+
+### Correct Way (UTF-8 with BOM)
+```powershell
+# For writing manifest files
+$utf8BOM = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($ManifestPath, $content + "`n", $utf8BOM)
+```
+
+### Incorrect Ways ❌
+```powershell
+# WRONG - UTF-8 without BOM
+[System.IO.File]::WriteAllText($ManifestPath, $content, [System.Text.Encoding]::UTF8)
+
+# WRONG - Set-Content uses system default encoding
+$content | Set-Content -Path $ManifestPath
+
+# WRONG - Out-File uses system default encoding
+$content | Out-File -Path $ManifestPath
+```
+
+**Scripts That Modify Manifests:**
+- `update-manifest.ps1` - ✅ Uses UTF-8 BOM
+- `autofix-manifest.ps1` - ✅ Uses UTF-8 BOM
+
+**Why This Matters:**
+- Scoop bucket validation requires UTF-8 with BOM for all .ps1 and manifest-related files
+- Missing BOM causes test failures: "files do not contain leading UTF-8 BOM"
+- Git commits to files without proper encoding will lose the BOM encoding
+- Always verify encoding after automated file updates
+
 ## Error Handling
 
 All scripts:

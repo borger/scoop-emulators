@@ -201,8 +201,9 @@ try {
         # Convert back to JSON and save with proper formatting
         $updatedJson = $manifestJson | ConvertTo-Json -Depth 10
 
-        # Write JSON with UTF8 encoding
-        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
+        # Write JSON with UTF-8 encoding with BOM (Scoop requirement)
+        $utf8BOM = New-Object System.Text.UTF8Encoding($true)
+        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8BOM)
 
         Write-Host "✓ Manifest version updated from $oldVersion to $latestVersion"
         Write-Host "✓ Architecture URLs and hashes updated"

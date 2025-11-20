@@ -475,7 +475,9 @@ try {
 
         # Save updated manifest
         $updatedJson = $manifest | ConvertTo-Json -Depth 10
-        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
+        # Use UTF-8 with BOM (Scoop requirement)
+        $utf8BOM = New-Object System.Text.UTF8Encoding($true)
+        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8BOM)
 
         Write-Host "✓ Manifest auto-fixed and saved" -ForegroundColor Green
 
