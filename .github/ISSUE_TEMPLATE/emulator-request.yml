@@ -1,4 +1,4 @@
-name: 📦 Emulator Request
+﻿name: 📦 Emulator Request
 description: Request a new emulator to be added to this bucket
 title: "[Request]: "
 labels: ["package-request"]

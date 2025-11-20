@@ -1,4 +1,4 @@
-on:
+﻿on:
   workflow_dispatch:
   schedule:
     # run every hour

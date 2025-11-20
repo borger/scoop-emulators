@@ -1,4 +1,4 @@
-name: 🔧 Manifest Error
+﻿name: 🔧 Manifest Error
 description: Report issues with manifest validation or auto-fix failures
 title: "[Manifest]: "
 labels: ["bug", "auto-fix"]
