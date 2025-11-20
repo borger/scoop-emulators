@@ -491,9 +491,6 @@ try {
             }
         }
 
-        # Update version
-        $manifest.version = $latestVersion
-
         # Calculate hashes for new URLs
         Write-Host "Calculating hashes..."
 
@@ -516,17 +513,17 @@ try {
         }
 
         if ($manifest.url) {
-            $hash = Get-RemoteFileHash -Url $manifest.url
-            if ($hash) {
-                $manifest.hash = $hash
+            $hash64 = Get-RemoteFileHash -Url $manifest.url
+            if ($hash64) {
+                $manifest.hash = $hash64
                 Write-Host "  [OK] Generic hash updated"
             }
         }
 
         if ($manifest.architecture.'64bit'.url) {
-            $hash = Get-RemoteFileHash -Url $manifest.architecture.'64bit'.url
-            if ($hash) {
-                $manifest.architecture.'64bit'.hash = $hash
+            $hash64bit = Get-RemoteFileHash -Url $manifest.architecture.'64bit'.url
+            if ($hash64bit) {
+                $manifest.architecture.'64bit'.hash = $hash64bit
                 Write-Host "  [OK] 64bit hash updated"
             } else {
                 Write-Host "  [WARN] Could not get 64bit hash"
@@ -534,34 +531,100 @@ try {
         }
 
         if ($manifest.architecture.'32bit'.url) {
-            $hash = Get-RemoteFileHash -Url $manifest.architecture.'32bit'.url
-            if ($hash) {
-                $manifest.architecture.'32bit'.hash = $hash
+            $hash32bit = Get-RemoteFileHash -Url $manifest.architecture.'32bit'.url
+            if ($hash32bit) {
+                $manifest.architecture.'32bit'.hash = $hash32bit
                 Write-Host "  [OK] 32bit hash updated"
             } else {
                 Write-Host "  [WARN] Could not get 32bit hash"
             }
         }
 
-        # Save updated manifest with proper 4-space indentation
-        $updatedJson = $manifest | ConvertTo-Json -Depth 10
-        # Convert ConvertTo-Json's 2-space indentation to 4-space
-        $jsonLines = $updatedJson -split "`n"
-        $formattedLines = @()
-        foreach ($line in $jsonLines) {
-            if ($line -match '^( +)') {
-                $spaces = $matches[1].Length
-                $newSpaces = ($spaces / 2) * 4
-                $formattedLines += (' ' * $newSpaces) + $line.TrimStart()
-            } else {
-                $formattedLines += $line
+        # Save updated manifest - preserve original formatting by doing targeted text replacements
+        $originalContent = Get-Content $ManifestPath -Raw
+        $updatedContent = $originalContent
+
+        # Build list of replacements (URL, old hash, new hash)
+        $replacements = @()
+
+        # Collect replacements for each URL pattern
+        foreach ($pattern in $urlPatterns) {
+            $arch = $pattern.type
+            $oldUrl = $pattern.url
+            $newUrl = $null
+            $newHash = $null
+
+            # Find the new URL and hash from manifest object
+            if ($arch -eq "generic") {
+                if ($manifest.url -ne $pattern.url) {
+                    $newUrl = $manifest.url
+                    $newHash = $manifest.hash
+                }
+            } elseif ($arch -eq "64bit") {
+                if ($manifest.architecture.'64bit'.url -ne $pattern.url) {
+                    $newUrl = $manifest.architecture.'64bit'.url
+                    $newHash = $manifest.architecture.'64bit'.hash
+                }
+            } elseif ($arch -eq "32bit") {
+                if ($manifest.architecture.'32bit'.url -ne $pattern.url) {
+                    $newUrl = $manifest.architecture.'32bit'.url
+                    $newHash = $manifest.architecture.'32bit'.hash
+                }
+            }
+
+            if ($newUrl -and $newHash) {
+                $replacements += @{
+                    oldUrl  = $oldUrl
+                    newUrl  = $newUrl
+                    newHash = $newHash
+                }
             }
         }
-        $updatedJson = $formattedLines -join "`n"
-        # Use UTF-8 without BOM (standard JSON)
-        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
 
-        Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green        # Log any issues for manual review
+        # Apply URL and hash replacements in order
+        foreach ($replacement in $replacements) {
+            # Find the old URL and replace with new URL and new hash
+            $oldUrl = $replacement.oldUrl
+            $newUrl = $replacement.newUrl
+            $newHash = $replacement.newHash
+
+            # Create a pattern to find the URL and its corresponding hash
+            $urlPattern = [regex]::Escape($oldUrl)
+            $hashPattern = '"hash":\s*"([a-f0-9]{64})"'
+
+            # Find the line with this URL
+            $lines = $updatedContent -split "`r`n"
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match $urlPattern) {
+                    # Replace URL on this line
+                    $lines[$i] = $lines[$i] -replace $urlPattern, $newUrl
+
+                    # Look for hash on the next few lines
+                    for ($j = $i + 1; $j -lt [Math]::Min($i + 5, $lines.Count); $j++) {
+                        if ($lines[$j] -match $hashPattern) {
+                            $oldHash = $matches[1]
+                            $lines[$j] = $lines[$j] -replace [regex]::Escape($oldHash), $newHash
+                            break
+                        }
+                    }
+                    break
+                }
+            }
+
+            $updatedContent = $lines -join "`r`n"
+        }
+
+        # Ensure file ends with newline
+        if (!$updatedContent.EndsWith("`r`n")) {
+            $updatedContent += "`r`n"
+        }
+
+        # Write back preserving original line endings
+        [System.IO.File]::WriteAllText($ManifestPath, $updatedContent, [System.Text.Encoding]::UTF8)
+
+        Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
+
+        # Log any issues for manual review
         if ($issues.Count -gt 0 -and $NotifyOnIssues -and $IssueLog) {
             $issues | ConvertTo-Json | Add-Content -Path $IssueLog
             Write-Host "[WARN] Issues logged for manual review" -ForegroundColor Yellow
