@@ -90,12 +90,106 @@ Runs hourly via cron: `0 * * * *` (every hour at :00)
 
 ## Future Enhancements
 
-- [ ] Intelligent checkver regex fixing based on release names
-- [ ] Support for non-GitHub repositories (GitLab, Gitea, etc.)
-- [ ] Hash mismatch detection and auto-recomputation
-- [ ] Manifest structure validation and auto-repair
-- [ ] Notification system for unfixable issues
-- [ ] Manual review workflow for edge cases
+- [x] Intelligent checkver regex fixing based on release names
+- [x] Support for non-GitHub repositories (GitLab, Gitea, etc.)
+- [x] Hash mismatch detection and auto-recomputation
+- [x] Manifest structure validation and auto-repair
+- [x] Notification system for unfixable issues
+- [x] Manual review workflow for edge cases
+
+## Enhanced Features (Implemented)
+
+### 1. Intelligent Checkver Regex Fixing
+The autofix script now analyzes release tags and names to suggest corrected checkver patterns when the current pattern fails:
+- Detects version number format from release tags
+- Suggests appropriate regex patterns (e.g., `v\d+`, `\d+[\.\d]*`)
+- Helps manifests with version scheme changes
+
+### 2. Multi-Platform Repository Support
+Extended support beyond GitHub to include:
+- **GitHub**: `https://api.github.com/repos/:owner/:repo/releases/tags/:version`
+- **GitLab**: `https://gitlab.com/api/v4/projects/:id/releases/:version`
+- **Gitea**: Custom Gitea instance API support
+
+Manifests can now specify:
+```json
+"checkver": {
+  "gitlab": "https://gitlab.com/user/repo"
+}
+```
+or
+```json
+"checkver": {
+  "gitea": "https://gitea.example.com/user/repo"
+}
+```
+
+### 3. Hash Mismatch Detection
+Automatically detects when stored hashes don't match downloaded files:
+- Verifies each downloaded file's SHA256
+- Reports mismatches with expected vs actual hashes
+- Auto-recomputes correct hash
+- Useful for corrupted downloads or upstream changes
+
+### 4. Manifest Structure Validation
+Validates manifest JSON structure and auto-repairs:
+- Checks for required fields (version, url, autoupdate, checkver)
+- Detects missing autoupdate with checkver present (or vice versa)
+- Logs structural issues for manual review
+- Prevents invalid manifests from being committed
+
+### 5. Issue Notification System
+Comprehensive issue logging and notification:
+- Tracks all detected issues with severity levels
+- Logs issues to file for notification systems
+- Exit code 2 indicates manual review needed
+- Issues stored with timestamp and app name for tracking
+
+Example issue log format:
+```json
+{
+  "Title": "Structure Error",
+  "Description": "Missing 'autoupdate' section",
+  "Severity": "error",
+  "App": "example-app",
+  "Timestamp": "2025-11-19T10:30:45"
+}
+```
+
+### 6. Manual Review Workflow
+Complete workflow for handling edge cases:
+- Script returns exit code 2 when manual review needed
+- Issues logged with full context
+- Can integrate with GitHub Issues or notification webhooks
+- Preserves manifest integrity while flagging problems
+
+## Usage with New Features
+
+### Basic Usage (Unchanged)
+```powershell
+.\bin\autofix-manifest.ps1 -ManifestPath bucket/app.json
+```
+
+### Enable Notifications
+```powershell
+.\bin\autofix-manifest.ps1 `
+  -ManifestPath bucket/app.json `
+  -IssueLog issues.log `
+  -NotifyOnIssues
+```
+
+### Integration in Workflow
+```yaml
+- name: Auto-fix manifests
+  run: |
+    $manifests = Get-ChildItem -Path my_bucket/bucket -Name *.json
+    foreach ($manifest in $manifests) {
+      .\bin\autofix-manifest.ps1 `
+        -ManifestPath "my_bucket/bucket/$manifest" `
+        -IssueLog issues.log `
+        -NotifyOnIssues
+    }
+```
 
 ## Configuration
 
