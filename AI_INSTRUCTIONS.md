@@ -5,31 +5,45 @@ This is a Scoop bucket containing manifests for various emulators (MAME, Dolphin
 
 ## Automated PR Validation & Auto-Merge Workflow
 
-### Complete Pipeline
+### Two PR Workflows
 
-When Copilot submits a fix PR, an automated validation pipeline runs:
-
+#### 1. User-Created PR (Manual Submissions)
 ```
-Copilot PR Created (conventional commit)
+User Creates PR (conventional commit)
          ↓
-validate-and-merge.ps1 Triggered
+validate-and-merge.ps1 -IsUserPR $true
          ↓
-Run Validation Scripts (in sequence)
-  1. checkver: Detects latest version
-  2. check-autoupdate: Validates autoupdate section
-  3. check-manifest-install: Tests Scoop installation
+Run Validation Scripts
+  1. checkver validation
+  2. autoupdate validation
+  3. installation test
          ↓
 Post Results to PR Comment
          ↓
-Decision Point
-  ├─ ✅ All 3 Pass → Auto-merge with squash
-  ├─ ❌ Any Fail → Request Copilot fix
-  │   ├─ Retry Loop (up to 3 attempts)
-  │   └─ Each attempt follows same pipeline
-  └─ After 3 Failures → Create GitHub issue with @beyondmeat escalation
+Decision
+  ├─ ✅ All 3 Pass → Tag @beyondmeat for merge review
+  └─ ❌ Any Fail → Comment with detailed error report
 ```
 
-### Validation Pipeline Details
+#### 2. Copilot-Generated PR (Auto-Fix)
+```
+Issue Created / Copilot PR Created
+         ↓
+validate-and-merge.ps1 -IsUserPR $false
+         ↓
+Run Validation Scripts (3 tests)
+         ↓
+Post Results to PR Comment
+         ↓
+Decision
+  ├─ ✅ All 3 Pass → Auto-merge with squash
+  ├─ ❌ Any Fail → Request Copilot fix
+  │   ├─ Retry Loop (up to 10 attempts)
+  │   └─ Each attempt re-runs full pipeline
+  └─ After 10 Failures → Escalate to @beyondmeat with context
+```
+
+### Validation Scripts
 
 **Script 1: checkver**
 - Detects latest version from GitHub releases or configured source
@@ -50,29 +64,34 @@ Decision Point
 
 ### Merge Behavior
 
-When all validations pass:
-1. Performs **squash merge** (combines all PR commits)
-2. Uses **conventional commit** format: `fix(bucket): <description>`
-3. Preserves original PR description in commit body
-4. Closes PR with auto-merge
+**User PRs** (when all validations pass):
+1. Posts approval comment: "✅ Validation Passed - Ready for Merge"
+2. Tags @beyondmeat for manual merge review
+3. Provides maintainer with validation status
+
+**Copilot PRs** (when all validations pass):
+1. Auto-merges using **squash merge**
+2. Commit message: `fix(bucket): app-name auto-fix validation passed`
+3. Closes PR automatically
 
 ### Copilot Fix Loop
 
-If any validation fails:
-1. Posts validation failure details to PR comment
-2. Posts @copilot fix request in PR comment
-3. Copilot attempts to fix (up to 3 times total)
+If any validation fails on Copilot PR:
+1. Posts validation failure details with specific errors
+2. Posts @copilot fix request with problem description
+3. Copilot attempts to fix (up to **10 times total**)
 4. Each fix attempt re-runs full validation pipeline
+5. Updates PR comment with attempt number
 
 ### Escalation Process
 
-After 3 failed fix attempts by Copilot:
+After 10 failed fix attempts by Copilot:
 1. Creates GitHub issue automatically
 2. Includes:
-   - Full validation failure details
+   - Full validation failure details from all 10 attempts
    - All attempted fixes and their results
-   - Link to PR
-   - Manifest content that failed
+   - Link to original PR
+   - Manifest content and structure
 3. Tags with labels: `needs-review`, `auto-fix-failed`, `@beyondmeat`
 4. Awaits manual human review and fix
 
@@ -271,13 +290,62 @@ Both patterns can coexist with generic URLs. The update script handles both.
 - Posts comment: `@copilot fix this manifest`
 - Waits for Copilot to submit fix PR
 - Re-runs validate-and-merge on the fix PR
-- Up to 3 retry attempts before escalation
+- Up to 10 retry attempts before escalation
 
 **Escalation:**
-- After 3 failed attempts, creates GitHub issue
+- After 10 failed attempts, creates GitHub issue
 - Tags with `@beyondmeat` and `needs-review`
 - Includes full validation failure logs
 - Includes all attempted fixes and results
+
+---
+
+### 5. `./bin/handle-issue.ps1` (NEW)
+**Purpose**: Automatically processes GitHub issues and coordinates auto-fix or Copilot response
+
+**Usage:**
+```powershell
+# Handle issue from GitHub Actions
+.\bin\handle-issue.ps1 `
+  -IssueNumber 42 `
+  -GitHubToken $env:GITHUB_TOKEN `
+  -GitHubRepo "username/emulators" `
+  -BucketPath bucket
+
+# Handles these scenarios:
+# 1. Auto-fix attempt on identified manifests
+# 2. Create PR for successful auto-fixes
+# 3. Request Copilot for failed auto-fixes
+```
+
+**Parameters:**
+- `IssueNumber`: GitHub issue number to process
+- `GitHubToken`: GitHub personal access token (if running in workflow)
+- `GitHubRepo`: Repository in format "owner/repo" (if running in workflow)
+- `BucketPath`: Path to bucket directory (default: "./bucket")
+
+**Features:**
+- Parses issue title and body to identify affected manifests
+- Attempts auto-fix using autofix-manifest.ps1
+- Creates PR with successful fixes and validation status
+- Posts detailed comments to issue about fix attempts
+- Requests @copilot assistance when auto-fix fails
+- Supports up to 10 Copilot fix attempts via validate-and-merge
+
+**Workflow:**
+1. Issue created → handle-issue.ps1 triggered
+2. Extract manifest names from issue content
+3. Run autofix-manifest.ps1 on each manifest
+4. If successful: Create PR with fixes, post success comment
+5. If failed: Post Copilot request comment with context
+6. Copilot submits PR → validate-and-merge runs (up to 10 attempts)
+7. All fixes validated, PR merged or escalated
+
+**Exit Codes:**
+- `0`: Issue handled (auto-fix success or Copilot request created)
+- `-1`: Error (couldn't identify manifests or API failure)
+
+---
 
 ---
 

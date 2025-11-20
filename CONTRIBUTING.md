@@ -100,9 +100,19 @@ if all pass, requests fixes if any fail, escalates to @beyondmeat.
    - `check-manifest-install`: Installation test
 4. **Results Posted**: Comments on PR with validation report
 5. **Auto-Merge or Fix Loop**:
-   - ✅ All pass → Auto-merge with `feat()` or `fix()` commit
-   - ❌ Any fail → Request Copilot to fix (up to 3 attempts)
-   - After 3 failures → Escalate to @beyondmeat with detailed context
+   - ✅ User PR + All pass → Tag @beyondmeat for manual merge review
+   - ✅ Copilot PR + All pass → Auto-merge with conventional commit
+   - ❌ Any fail → Request Copilot to fix (up to 10 attempts)
+   - After 10 failures → Escalate to @beyondmeat with detailed context
+
+### Issue-Based Copilot Workflow
+
+When issues are reported:
+1. **Issue Created**: Detected by automated monitoring
+2. **Auto-Fix Attempted**: System tries to fix with autofix-manifest.ps1
+3. **Copilot Engaged**: If auto-fix fails, creates PR with Copilot integration
+4. **Validation Loop**: PR runs validations (up to 10 fix attempts)
+5. **Escalation**: Complex issues escalated to @beyondmeat for manual review
 
 ### Validation Scripts
 
@@ -170,11 +180,12 @@ If yes to both, copy a similar manifest and customize it. If no, gather informat
 
 When issues arise, the system automatically:
 1. Creates issue with `@copilot` label
-2. Copilot submits PR with fix
-3. Validation runs automatically
-4. Auto-merges if all pass
-5. Requests fixes if validation fails
-6. Escalates to @beyondmeat after 3 failed attempts
+2. Attempts auto-fix with autofix-manifest.ps1
+3. If auto-fix fails, Copilot submits PR with fix
+4. Validation runs automatically
+5. Auto-merges if all pass (Copilot PRs)
+6. Requests fixes if validation fails (up to 10 attempts)
+7. Escalates to @beyondmeat after 10 failed attempts or for complex issues
 
 ### Smart Labels
 

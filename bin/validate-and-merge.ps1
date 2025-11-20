@@ -27,10 +27,16 @@ GitHub API token for PR operations.
 GitHub repository (owner/repo format).
 
 .PARAMETER MaxRetries
-Maximum number of Copilot fix attempts before escalation (default: 3).
+Maximum number of Copilot fix attempts before escalation (default: 10).
+
+.PARAMETER IsUserPR
+Set to $true if PR was created by user (not Copilot). User PRs tag @beyondmeat for merge.
+
+.PARAMETER FromIssue
+Set to $true if this is fixing an issue. Issues trigger Copilot auto-fix workflow.
 
 .RETURNS
-0 if validation passes and merged, 1 if validation fails, -1 on error
+0 if validation passes and merged/tagged, 1 if validation fails, -1 on error
 #>
 
 param(
@@ -39,7 +45,9 @@ param(
     [int]$PullRequestNumber,
     [string]$GitHubToken = $env:GITHUB_TOKEN,
     [string]$GitHubRepo = $env:GITHUB_REPOSITORY,
-    [int]$MaxRetries = 3
+    [int]$MaxRetries = 10,
+    [bool]$IsUserPR = $false,
+    [bool]$FromIssue = $false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -152,35 +160,59 @@ Write-Host $report
 Post-PRComment -Body $report -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
 if ($allPassed) {
-    Write-Host "`n✓ All validations passed! Auto-merging PR #$PullRequestNumber..." -ForegroundColor Green
+    Write-Host "`n✓ All validations passed!" -ForegroundColor Green
 
-    # Auto-merge the PR
-    try {
-        $headers = @{
-            Authorization = "token $GitHubToken"
-            "Content-Type" = "application/json"
-        }
+    if ($IsUserPR) {
+        # User PR: Tag @beyondmeat for manual merge review
+        Write-Host "  → Tagging @beyondmeat for merge review (user PR)" -ForegroundColor Cyan
 
-        $payload = @{
-            commit_title = "feat($appName): auto-fix and validation passed"
-            commit_message = "Auto-fixed manifest with validation passing all checks."
-            merge_method = "squash"
-        } | ConvertTo-Json
+        $mergeRequest = @"
+## ✅ Validation Passed - Ready for Merge
 
-        $apiUrl = "https://api.github.com/repos/$GitHubRepo/pulls/$PullRequestNumber/merge"
-        $response = Invoke-WebRequest -Uri $apiUrl -Method PUT -Headers $headers -Body $payload -ErrorAction Stop
+All validation checks have passed successfully:
+- ✓ Checkver validation
+- ✓ Autoupdate configuration
+- ✓ Installation test
 
-        Write-Host "✓ PR #$PullRequestNumber merged successfully" -ForegroundColor Green
+This PR is ready to be merged by a maintainer.
 
-        # Post merge comment
-        $mergeComment = "✅ All validations passed. PR auto-merged by validation script."
-        Post-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+cc: @beyondmeat
+"@
 
+        Post-PRComment -Body $mergeRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
         exit 0
     }
-    catch {
-        Write-Host "⚠ Failed to auto-merge PR: $_" -ForegroundColor Yellow
-        exit 1
+    else {
+        # Copilot PR: Auto-merge
+        Write-Host "  → Auto-merging (Copilot PR)..." -ForegroundColor Green
+
+        try {
+            $headers = @{
+                Authorization = "token $GitHubToken"
+                "Content-Type" = "application/json"
+            }
+
+            $payload = @{
+                commit_title = "fix(bucket): $appName auto-fix validation passed"
+                commit_message = "Auto-fixed manifest with all validation checks passing."
+                merge_method = "squash"
+            } | ConvertTo-Json
+
+            $apiUrl = "https://api.github.com/repos/$GitHubRepo/pulls/$PullRequestNumber/merge"
+            $null = Invoke-WebRequest -Uri $apiUrl -Method PUT -Headers $headers -Body $payload -ErrorAction Stop
+
+            Write-Host "✓ PR #$PullRequestNumber merged successfully" -ForegroundColor Green
+
+            # Post merge comment
+            $mergeComment = "✅ All validations passed. PR auto-merged by validation script."
+            Post-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+
+            exit 0
+        }
+        catch {
+            Write-Host "⚠ Failed to auto-merge PR: $_" -ForegroundColor Yellow
+            exit 1
+        }
     }
 }
 else {
@@ -197,6 +229,8 @@ $(if ($validationResults.CheckAutoupdate -notlike "*PASS*") { "- ⚠ **Autoupdat
 $(if ($validationResults.CheckInstall -notlike "*PASS*") { "- ⚠ **Installation Test**: $($validationResults.CheckInstall)`n" })
 
 Please analyze the manifest and fix all issues. Validation will run again automatically.
+
+**Attempts**: This is fix attempt (1/$MaxRetries). If all fix attempts fail, will escalate to @beyondmeat.
 
 cc: @copilot
 "@
