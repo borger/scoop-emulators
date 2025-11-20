@@ -27,52 +27,72 @@ jobs:
         id: capture-errors
         shell: pwsh
         run: |
-          # Check if excavator step failed
+          # Check excavator outcome and look for manifest errors
           $excavatorResult = "${{ steps.excavator.outcome }}"
           Write-Host "=== Excavator Results ===" -ForegroundColor Cyan
           Write-Host "Excavator outcome: $excavatorResult" -ForegroundColor Gray
 
           $brokenManifests = @()
+          $hasErrors = $false
 
-          if ($excavatorResult -eq 'failure') {
-            Write-Host "Excavator step failed, attempting to identify error manifests..." -ForegroundColor Yellow
+          # Always attempt to identify error manifests, regardless of overall outcome
+          Write-Host "Checking for manifest errors..." -ForegroundColor Yellow
 
-            # Strategy 1: Parse console for error messages matching pattern "appname: error message"
-            # Example: "spaghettikart: The remote server returned an error: (404) Not Found."
-            $errorMessages = @()
+          # Strategy 1: Check git diff for partially modified manifests
+          # (excavator may have started updating but errored out)
+          $modifiedManifests = @(git diff --name-only HEAD | Where-Object { $_ -match '^bucket/.*\.json$' })
 
-            # Try to capture from recent git log messages (excavator commits include app names)
-            # or from git status/diff which shows what manifests were being updated
+          # Strategy 2: Check git status for staged/unstaged changes
+          if ($modifiedManifests.Count -eq 0) {
+            $stagedFiles = @(git diff --cached --name-only | Where-Object { $_ -match '^bucket/.*\.json$' })
+            $unstagedFiles = @(git diff --name-only | Where-Object { $_ -match '^bucket/.*\.json$' })
+            $modifiedManifests = @($stagedFiles + $unstagedFiles | Select-Object -Unique)
+          }
 
-            # Strategy 1: Check git diff for partially modified manifests
-            # (excavator may have started updating but errored out)
-            $modifiedManifests = @(git diff --name-only HEAD | Where-Object { $_ -match '^bucket/.*\.json$' })
-
-            # Strategy 2: Check git status for staged/unstaged changes
-            if ($modifiedManifests.Count -eq 0) {
-              $stagedFiles = @(git diff --cached --name-only | Where-Object { $_ -match '^bucket/.*\.json$' })
-              $unstagedFiles = @(git diff --name-only | Where-Object { $_ -match '^bucket/.*\.json$' })
-              $modifiedManifests = @($stagedFiles + $unstagedFiles | Select-Object -Unique)
+          # Strategy 3: Look at recent commits to see what excavator was trying to update
+          if ($modifiedManifests.Count -eq 0) {
+            try {
+              $lastCommit = git log -1 --pretty=format:%H
+              $modifiedManifests = @(git diff --name-only $lastCommit~1..$lastCommit | Where-Object { $_ -match '^bucket/.*\.json$' })
+            } catch {
+              Write-Host "Could not get recent commits: $_" -ForegroundColor Gray
             }
+          }
 
-            # Strategy 3: Look at recent commits to see what excavator was trying to update
-            if ($modifiedManifests.Count -eq 0) {
-              try {
-                $lastCommit = git log -1 --pretty=format:%H
-                $modifiedManifests = @(git diff --name-only $lastCommit~1..$lastCommit | Where-Object { $_ -match '^bucket/.*\.json$' })
-              } catch {
-                Write-Host "Could not get recent commits: $_" -ForegroundColor Gray
+          if ($modifiedManifests.Count -gt 0) {
+            Write-Host "Found $($modifiedManifests.Count) modified manifest(s)" -ForegroundColor Yellow
+            $brokenManifests = $modifiedManifests | ForEach-Object { (Split-Path -LeafBase $_) }
+            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
+            $hasErrors = $true
+          } else {
+            Write-Host "No modified manifests found in git" -ForegroundColor Gray
+          }
+
+          # Strategy 4: Parse excavator output/logs for error messages
+          # Check if any manifests had errors even if overall step succeeded
+          $excavatorOutput = "${{ steps.excavator.outputs.result }}"
+          if ($excavatorOutput) {
+            Write-Host "Checking excavator output for errors..." -ForegroundColor Yellow
+            # Look for patterns indicating errors in the output
+            $errorPatterns = @(
+              ':\s+The remote server returned an error',
+              ':\s+.*?(404|not found|error|failed)',
+              'Error.*?(URL|checkver)'
+            )
+            foreach ($pattern in $errorPatterns) {
+              $matches = [regex]::Matches($excavatorOutput, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Multiline)
+              if ($matches.Count -gt 0) {
+                Write-Host "Found error patterns in excavator output" -ForegroundColor Yellow
+                $hasErrors = $true
+                break
               }
             }
+          }
 
-            if ($modifiedManifests.Count -gt 0) {
-              Write-Host "Found $($modifiedManifests.Count) modified manifest(s)" -ForegroundColor Yellow
-              $brokenManifests = $modifiedManifests | ForEach-Object { (Split-Path -LeafBase $_) }
-              $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
-            } else {
-              # If no modifications found, check all manifests
-              Write-Host "No specific manifests identified in git diff" -ForegroundColor Yellow
-              Write-Host "Will check all base manifests in auto-fix" -ForegroundColor Yellow
+          if ($hasErrors) {
+            # If no specific manifests identified, check all base manifests
+            if ($brokenManifests.Count -eq 0) {
+              Write-Host "No specific manifests identified, will check all base manifests in auto-fix" -ForegroundColor Yellow
               $brokenManifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' } | Select-Object -ExpandProperty BaseName)
               Write-Host "Total manifests to check: $($brokenManifests.Count)" -ForegroundColor Gray
             }
@@ -81,20 +101,17 @@ jobs:
             $brokenManifests | ConvertTo-Json | Out-File -FilePath "broken-manifests.json" -Encoding UTF8
             Write-Host "Saved $($brokenManifests.Count) manifest(s) to broken-manifests.json" -ForegroundColor Green
 
-            if ($brokenManifests.Count -gt 0) {
-              Write-Host "Error manifests identified:" -ForegroundColor Red
-              $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
-            }
+            Write-Host "Error manifests identified:" -ForegroundColor Red
+            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
 
             # Output as GitHub Actions output
             "broken-manifests=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             "has-errors=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
 
-            exit 1
+            Write-Host "Manifest errors detected, will report and attempt auto-fix" -ForegroundColor Red
           } else {
-            Write-Host "[OK] Excavator completed successfully" -ForegroundColor Green
+            Write-Host "[OK] No manifest errors detected" -ForegroundColor Green
             "has-errors=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-            exit 0
           }
 
       - name: Parse excavator logs for errors
