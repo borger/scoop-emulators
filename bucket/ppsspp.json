@@ -1,12 +1,12 @@
-{
-    "version": "1.19.3",
+﻿{
+    "version": "2",
     "description": "Sony PlayStation Portable (PSP) emulator",
     "homepage": "https://www.ppsspp.org",
     "license": "GPL-2.0-or-later",
     "architecture": {
         "64bit": {
             "url": "https://ppsspp.org/files/1_19_3/ppsspp_win.zip",
-            "hash": "4cd20bd3d937c1cdfc78c1f58fb679da9cee82372425bfa6717ee15470575f70",
+            "hash": "4CD20BD3D937C1CDFC78C1F58FB679DA9CEE82372425BFA6717EE15470575F70",
             "shortcuts": [
                 [
                     "PPSSPPWindows64.exe",
@@ -16,7 +16,7 @@
         },
         "32bit": {
             "url": "https://ppsspp.org/files/1_19_3/ppsspp_win.zip",
-            "hash": "4cd20bd3d937c1cdfc78c1f58fb679da9cee82372425bfa6717ee15470575f70",
+            "hash": "4CD20BD3D937C1CDFC78C1F58FB679DA9CEE82372425BFA6717EE15470575F70",
             "shortcuts": [
                 [
                     "PPSSPPWindows.exe",
