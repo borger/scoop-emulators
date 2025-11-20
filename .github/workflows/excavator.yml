@@ -148,7 +148,7 @@ jobs:
 
       - name: Upload broken manifests list
         if: steps.capture-errors.outputs.has-errors == 'true'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: broken-manifests
           path: broken-manifests.json
