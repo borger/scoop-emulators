@@ -1,4 +1,4 @@
-﻿on:
+on:
   issue_comment:
     types: [ created ]
 name: Commented Pull Request

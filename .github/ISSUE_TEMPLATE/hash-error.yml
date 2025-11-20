@@ -1,4 +1,4 @@
-﻿name: 🔢 Hash Check Failed
+name: 🔢 Hash Check Failed
 description: Report SHA256 hash mismatches or checksum validation failures
 title: "[Hash]: "
 labels: ["bug", "auto-fix"]

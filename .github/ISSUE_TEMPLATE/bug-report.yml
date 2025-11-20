@@ -1,4 +1,4 @@
-﻿name: 🐛 Installation or Update Error
+name: 🐛 Installation or Update Error
 description: Report issues when an emulator fails to install or update via Scoop
 title: "[Bug]: "
 labels: ["bug"]
