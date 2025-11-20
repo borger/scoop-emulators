@@ -323,10 +323,12 @@ try {
             Write-Host "Checking $arch URL..."
 
             # Test if old URL works
+            $urlValid = $false
             try {
-                $response = Invoke-WebRequest -Uri $oldUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+                $response = Invoke-WebRequest -Uri $oldUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
                 if ($response.StatusCode -eq 200) {
                     Write-Host "  [OK] Current URL still valid"
+                    $urlValid = $true
 
                     # Verify hash if it exists
                     $hashField = if ($arch -eq "generic") { "hash" } else { "hash" }
@@ -347,10 +349,14 @@ try {
                     continue
                 }
             } catch {
-                Write-Host "  [FAIL] Current URL returned error"
+                Write-Host "  [FAIL] Current URL returned error: $($_.Exception.Message)"
             }
 
-            # Try new URL with version substitution
+            if (!$urlValid) {
+                Write-Host "  [FAIL] URL is not accessible - attempting to fix"
+            }
+
+            # If URL is not valid, try to fix it
             try {
                 $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
                 if ($response.StatusCode -eq 200) {
@@ -466,6 +472,8 @@ try {
             if ($hash) {
                 $manifest.architecture.'64bit'.hash = $hash
                 Write-Host "  [OK] 64bit hash updated"
+            } else {
+                Write-Host "  [WARN] Could not get 64bit hash"
             }
         }
 
@@ -474,11 +482,26 @@ try {
             if ($hash) {
                 $manifest.architecture.'32bit'.hash = $hash
                 Write-Host "  [OK] 32bit hash updated"
+            } else {
+                Write-Host "  [WARN] Could not get 32bit hash"
             }
         }
 
-        # Save updated manifest
+        # Save updated manifest with proper 4-space indentation
         $updatedJson = $manifest | ConvertTo-Json -Depth 10
+        # Convert ConvertTo-Json's 2-space indentation to 4-space
+        $jsonLines = $updatedJson -split "`n"
+        $formattedLines = @()
+        foreach ($line in $jsonLines) {
+            if ($line -match '^( +)') {
+                $spaces = $matches[1].Length
+                $newSpaces = ($spaces / 2) * 4
+                $formattedLines += (' ' * $newSpaces) + $line.TrimStart()
+            } else {
+                $formattedLines += $line
+            }
+        }
+        $updatedJson = $formattedLines -join "`n"
         # Use UTF-8 without BOM (standard JSON)
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", [System.Text.Encoding]::UTF8)
 
