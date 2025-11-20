@@ -19,13 +19,16 @@ This script analyzes manifest errors and attempts to auto-fix common issues:
 1. Detects 404 errors and tries to find the correct download URL
 2. Fixes URL template mismatches (version vs filename format changes)
 3. Updates checkver patterns when they fail
-4. Recalculates hashes for updated URLs
-5. Detects hash mismatches and auto-recomputes
-6. Validates manifest structure
-7. Supports GitHub, GitLab, and Gitea repositories
-8. Attempts GitHub Copilot PR creation for unfixable issues
-9. Escalates to manual review if Copilot PR fails
-10. Logs issues for manual review if needed
+4. Detects and recovers from version scheme changes (numeric -> date-based, etc.)
+5. Attempts recovery when checkver itself returns 404 or fails
+6. Tries pattern matching when exact release version tags don't exist
+7. Recalculates hashes for updated URLs
+8. Detects hash mismatches and auto-recomputes
+9. Validates manifest structure
+10. Supports GitHub, GitLab, and Gitea repositories
+11. Attempts GitHub Copilot PR creation for unfixable issues
+12. Escalates to manual review if Copilot PR fails
+13. Logs issues for manual review if needed
 
 .PARAMETER ManifestPath
 Path to the manifest to fix.
@@ -144,24 +147,137 @@ function Test-ManifestStructure {
     return $errors
 }
 
+# Detect version scheme changes and attempt pattern recovery
+function Repair-VersionPattern {
+    param(
+        [string]$AppName,
+        [string]$RepoPath,
+        [string]$Platform = "github"
+    )
+
+    Write-Host "  Attempting to detect version scheme from recent releases..." -ForegroundColor Yellow
+
+    try {
+        $releases = $null
+
+        if ($Platform -eq "github") {
+            $apiUrl = "https://api.github.com/repos/$RepoPath/releases?per_page=5"
+            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+            $releases = $response.Content | ConvertFrom-Json
+        } elseif ($Platform -eq "gitlab") {
+            $projectId = [Uri]::EscapeDataString($RepoPath)
+            $apiUrl = "https://gitlab.com/api/v4/projects/$projectId/releases?per_page=5"
+            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+            $releases = $response.Content | ConvertFrom-Json
+        }
+
+        if ($releases -and $releases.Count -gt 0) {
+            # Analyze tag patterns from recent releases
+            $tags = @()
+            foreach ($release in $releases) {
+                if ($release.tag_name) { $tags += $release.tag_name }
+                elseif ($release.name) { $tags += $release.name }
+            }
+
+            Write-Host "  Recent tags: $($tags | Select-Object -First 3 | Join-String -Separator ', ')" -ForegroundColor Gray
+
+            # Detect version scheme patterns
+            if ($tags | Where-Object { $_ -match '^\d{4}-\d{2}-\d{2}' }) {
+                Write-Host "  [INFO] Detected date-based versioning (YYYY-MM-DD)" -ForegroundColor Cyan
+                return "date"
+            } elseif ($tags | Where-Object { $_ -match '^v?\d+\.\d+\.\d+' }) {
+                Write-Host "  [INFO] Detected semantic versioning" -ForegroundColor Cyan
+                return "semantic"
+            } elseif ($tags | Where-Object { $_ -match '^\d+$' }) {
+                Write-Host "  [INFO] Detected numeric-only versioning" -ForegroundColor Cyan
+                return "numeric"
+            } else {
+                Write-Host "  [INFO] Detected custom versioning scheme" -ForegroundColor Cyan
+                return "custom"
+            }
+        }
+    } catch {
+        Write-Host "  [WARN] Could not analyze recent releases: $_" -ForegroundColor Yellow
+    }
+
+    return $null
+}
+
+# Try to find release by pattern matching when version tag doesn't exist
+function Find-ReleaseByPatternMatch {
+    param(
+        [string]$RepoPath,
+        [string]$TargetVersion,
+        [string]$Platform = "github"
+    )
+
+    try {
+        $releases = $null
+
+        if ($Platform -eq "github") {
+            $apiUrl = "https://api.github.com/repos/$RepoPath/releases?per_page=10"
+            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+            $releases = $response.Content | ConvertFrom-Json
+        }
+
+        if ($releases) {
+            # Try exact match first
+            $exactMatch = $releases | Where-Object { $_.tag_name -eq $TargetVersion -or $_.tag_name -eq "v$TargetVersion" }
+            if ($exactMatch) { return $exactMatch[0] }
+
+            # Try partial matches (for version scheme mismatches)
+            $partialMatch = $releases | Where-Object {
+                $_.tag_name -match [regex]::Escape($TargetVersion) -or
+                $_.name -match [regex]::Escape($TargetVersion)
+            }
+            if ($partialMatch) {
+                Write-Host "  [INFO] Found release with partial version match: $($partialMatch[0].tag_name)" -ForegroundColor Cyan
+                return $partialMatch[0]
+            }
+
+            # Get latest release if no match found
+            $latestRelease = $releases | Where-Object { !$_.prerelease -and !$_.draft } | Select-Object -First 1
+            if ($latestRelease) {
+                Write-Host "  [WARN] No exact match found; using latest release: $($latestRelease.tag_name)" -ForegroundColor Yellow
+                return $latestRelease
+            }
+        }
+    } catch {
+        Write-Host "  [WARN] Pattern matching failed: $_" -ForegroundColor Yellow
+    }
+
+    return $null
+}
+
 # Auto-fix checkver pattern based on release analysis
 function Repair-CheckverPattern {
     param([string]$Repo, [string]$CurrentPattern, [object]$ReleaseData)
 
     # Analyze release tag/name to suggest pattern
     $tagName = $ReleaseData.tag_name
+    if (!$tagName) { $tagName = $ReleaseData.name }
+
+    Write-Host "  Analyzing tag format: $tagName" -ForegroundColor Gray
+
+    # Date-based versioning (YYYY-MM-DD)
+    if ($tagName -match '(\d{4}-\d{2}-\d{2})') {
+        Write-Host "  Detected date-based format from tag: $tagName" -ForegroundColor Yellow
+        return '(?<version>\d{4}-\d{2}-\d{2})'
+    }
 
     # Extract version numbers from tag
-    if ($tagName -match 'v?(\d+[\.\d]*)?') {
+    if ($tagName -match 'v?(\d+[\.\d\-]*)?') {
         $detectedVersion = $matches[1]
         if ($detectedVersion) {
             Write-Host "  Detected version format: $detectedVersion from tag: $tagName" -ForegroundColor Yellow
 
             # Suggest pattern based on detected format
             if ($tagName -match '^v\d') {
-                return '(?<version>v\d+[\.\d]*)'
+                return '(?<version>v\d+[\.\d\-]*)'
+            } elseif ($tagName -match '^\d{4}-\d{2}') {
+                return '(?<version>\d{4}-\d{2}-\d{2})'
             } elseif ($tagName -match '^\d') {
-                return '(?<version>\d+[\.\d]*)'
+                return '(?<version>\d+[\.\d\-]*)'
             }
         }
     }
@@ -285,11 +401,63 @@ try {
     $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
     # Parse version from checkver output
-    if ($checkverOutput -match ':\s+([\d\.]+)(\s+\(scoop version)?') {
-        $latestVersion = $matches[1]
-        $currentVersion = $manifest.version
+    # Support multiple version formats: numeric (1.2.3), date-based (2024-01-15), semantic (v1.2.3), etc.
+    $latestVersion = $null
 
-        if ($latestVersion -eq $currentVersion) {
+    if ($checkverOutput -match ':\s+([\d\.\-]+)(\s+\(scoop version)?') {
+        $latestVersion = $matches[1]
+    } elseif ($checkverOutput -match ':\s+([^\s\(]+)') {
+        # Fallback for unusual version formats
+        $latestVersion = $matches[1]
+    } elseif ($checkverOutput -match 'error|404|not found|failed' -and $manifest.checkver) {
+        # Checkver itself failed - attempt recovery
+        Write-Host "[WARN] Checkver execution failed or returned 404, attempting API fallback..." -ForegroundColor Yellow
+
+        $repoPlatform = "github"
+        $repoPath = $null
+
+        if ($manifest.checkver.github) {
+            $repoPlatform = "github"
+            if ($manifest.checkver.github -match 'github\.com/([^/]+/[^/]+)') {
+                $repoPath = $matches[1]
+            }
+        } elseif ($manifest.checkver.gitlab) {
+            $repoPlatform = "gitlab"
+            if ($manifest.checkver.gitlab -match 'gitlab\.com/([^/]+/[^/]+)') {
+                $repoPath = $matches[1]
+            }
+        }
+
+        if ($repoPath) {
+            Write-Host "  Detecting version scheme from repository..." -ForegroundColor Gray
+            $schemeType = Repair-VersionPattern -AppName $appName -RepoPath $repoPath -Platform $repoPlatform
+
+            # Get latest release
+            try {
+                if ($repoPlatform -eq "github") {
+                    $apiUrl = "https://api.github.com/repos/$repoPath/releases/latest"
+                    $latestRelease = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop | ConvertFrom-Json
+
+                    if ($latestRelease) {
+                        if ($latestRelease.tag_name) {
+                            $latestVersion = $latestRelease.tag_name -replace '^v', ''
+                        } elseif ($latestRelease.name) {
+                            $latestVersion = $latestRelease.name
+                        }
+
+                        if ($latestVersion) {
+                            Write-Host "[OK] Recovered version from latest release: $latestVersion" -ForegroundColor Green
+                        }
+                    }
+                }
+            } catch {
+                Write-Host "  [WARN] API fallback also failed: $_" -ForegroundColor Yellow
+            }
+        }
+    }
+
+    if ($latestVersion) {
+        $currentVersion = $manifest.version        if ($latestVersion -eq $currentVersion) {
             Write-Host "[OK] Manifest already up-to-date (v$currentVersion)"
             exit 1
         }
@@ -399,10 +567,47 @@ try {
             }
 
             if ($repoPath) {
-                Write-Host "  Attempting $repoPlatform API lookup..."
+                Write-Host "  Attempting $repoPlatform API lookup for version: $latestVersion..."
 
                 try {
                     $assets = Get-ReleaseAssets -Repo $repoPath -Version $latestVersion -Platform $repoPlatform
+
+                    # If release not found with exact version, attempt pattern matching
+                    if (!$assets -or $assets.Count -eq 0) {
+                        Write-Host "  [WARN] Release tag '$latestVersion' not found, attempting pattern match..." -ForegroundColor Yellow
+
+                        $release = Find-ReleaseByPatternMatch -RepoPath $repoPath -TargetVersion $latestVersion -Platform $repoPlatform
+
+                        if ($release) {
+                            # Update latestVersion to the found release
+                            if ($release.tag_name) {
+                                $latestVersion = $release.tag_name -replace '^v', ''  # Strip 'v' prefix if present
+                            } elseif ($release.name) {
+                                $latestVersion = $release.name
+                            }
+
+                            Write-Host "  [OK] Updated version to: $latestVersion" -ForegroundColor Green
+
+                            # Try to get assets from the matched release
+                            $assets = Get-ReleaseAssets -Repo $repoPath -Version $release.tag_name -Platform $repoPlatform
+
+                            # If still no assets but we have release info, try alternative version formats
+                            if (!$assets -or $assets.Count -eq 0) {
+                                # Try version without 'v' prefix
+                                $versionAlt = $release.tag_name -replace '^v', ''
+                                if ($versionAlt -ne $release.tag_name) {
+                                    $assets = Get-ReleaseAssets -Repo $repoPath -Version $versionAlt -Platform $repoPlatform
+                                }
+                                # Try version with 'v' prefix
+                                if ((!$assets -or $assets.Count -eq 0) -and $release.tag_name -notmatch '^v') {
+                                    $assets = Get-ReleaseAssets -Repo $repoPath -Version "v$($release.tag_name)" -Platform $repoPlatform
+                                }
+                            }
+                        } else {
+                            Write-Host "  [WARN] No release found matching version pattern" -ForegroundColor Yellow
+                            Add-Issue -Title "Release Not Found" -Description "Could not find release for version $latestVersion or similar" -Severity "warning"
+                        }
+                    }
 
                     if ($assets) {
                         # Find matching asset based on architecture
@@ -427,7 +632,7 @@ try {
                                 $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
                             }
                             # Last resort: largest archive (likely 64-bit)
-                            if (!$asset) {
+         -                   if (!$asset) {
                                 $asset = $archiveAssets | Sort-Object { $_.size } -Descending | Select-Object -First 1
                             }
                         } elseif ($arch -eq "32bit") {
