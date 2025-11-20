@@ -1,7 +1,88 @@
 ﻿# Scoop Emulators Bucket - AI Assistant Instructions
 
 ## Overview
-This is a Scoop bucket containing manifests for various emulators (MAME, Dolphin, RetroArch, shadps4, visualboyadvance-m, etc.). The bucket includes custom PowerShell scripts for validation and maintenance.
+This is a Scoop bucket containing manifests for various emulators (MAME, Dolphin, RetroArch, shadps4, visualboyadvance-m, etc.). The bucket includes custom PowerShell scripts for validation and maintenance with advanced GitHub Copilot integration for automated fixes.
+
+## Automated PR Validation & Auto-Merge Workflow
+
+### Complete Pipeline
+
+When Copilot submits a fix PR, an automated validation pipeline runs:
+
+```
+Copilot PR Created (conventional commit)
+         ↓
+validate-and-merge.ps1 Triggered
+         ↓
+Run Validation Scripts (in sequence)
+  1. checkver: Detects latest version
+  2. check-autoupdate: Validates autoupdate section
+  3. check-manifest-install: Tests Scoop installation
+         ↓
+Post Results to PR Comment
+         ↓
+Decision Point
+  ├─ ✅ All 3 Pass → Auto-merge with squash
+  ├─ ❌ Any Fail → Request Copilot fix
+  │   ├─ Retry Loop (up to 3 attempts)
+  │   └─ Each attempt follows same pipeline
+  └─ After 3 Failures → Create GitHub issue with @beyondmeat escalation
+```
+
+### Validation Pipeline Details
+
+**Script 1: checkver**
+- Detects latest version from GitHub releases or configured source
+- Returns exit code 0 with version on success
+- Returns exit code -1 on failure
+
+**Script 2: check-autoupdate**
+- Validates manifest has valid `autoupdate` section
+- Tests URL placeholders can be substituted
+- Returns exit code 0 if valid, -1 if invalid
+
+**Script 3: check-manifest-install**
+- Attempts to install manifest via `scoop install`
+- Auto-cleans up test installation
+- Returns exit code 0 if successful, -1 if failed
+
+**All Three Must Pass** for auto-merge to proceed.
+
+### Merge Behavior
+
+When all validations pass:
+1. Performs **squash merge** (combines all PR commits)
+2. Uses **conventional commit** format: `fix(bucket): <description>`
+3. Preserves original PR description in commit body
+4. Closes PR with auto-merge
+
+### Copilot Fix Loop
+
+If any validation fails:
+1. Posts validation failure details to PR comment
+2. Posts @copilot fix request in PR comment
+3. Copilot attempts to fix (up to 3 times total)
+4. Each fix attempt re-runs full validation pipeline
+
+### Escalation Process
+
+After 3 failed fix attempts by Copilot:
+1. Creates GitHub issue automatically
+2. Includes:
+   - Full validation failure details
+   - All attempted fixes and their results
+   - Link to PR
+   - Manifest content that failed
+3. Tags with labels: `needs-review`, `auto-fix-failed`, `@beyondmeat`
+4. Awaits manual human review and fix
+
+### Local Testing
+
+To test validation locally before PR:
+```powershell
+# Test single manifest validation
+.\bin\validate-and-merge.ps1 -ManifestPath bucket/app.json -BucketPath bucket
+```
 
 ## Manifest Structure
 
@@ -135,8 +216,74 @@ Both patterns can coexist with generic URLs. The update script handles both.
 
 ---
 
+### 4. `./bin/validate-and-merge.ps1` (NEW)
+**Purpose**: Validates all checks pass on a PR and automatically merges if successful
+
+**Usage:**
+```powershell
+# Run validation on PR
+.\bin\validate-and-merge.ps1 `
+  -ManifestPath bucket/shadps4.json `
+  -BucketPath bucket `
+  -PullRequestNumber 123 `
+  -GitHubToken $env:GITHUB_TOKEN `
+  -GitHubRepo "username/emulators"
+
+# Test locally without merging
+.\bin\validate-and-merge.ps1 -ManifestPath bucket/app.json -BucketPath bucket
+```
+
+**Parameters:**
+- `ManifestPath`: Path to manifest JSON file
+- `BucketPath`: Path to bucket directory
+- `PullRequestNumber`: GitHub PR number (if running in workflow)
+- `GitHubToken`: GitHub personal access token (if running in workflow)
+- `GitHubRepo`: Repository in format "owner/repo" (if running in workflow)
+- `MaxRetries`: Maximum Copilot fix attempts (default: 3)
+
+**Features:**
+- Runs all three validation scripts in sequence
+- Posts validation results to PR as comment
+- Auto-merges PR if all validations pass (squash merge with conventional commit)
+- Posts fix request to @copilot if any validation fails
+- Implements retry loop (up to 3 attempts)
+- Auto-escalates to @beyondmeat after max retries
+- Uses conventional commit format: `fix(bucket): app-name: description`
+
+**Validation Steps:**
+1. Runs `checkver` to detect latest version
+2. Runs `check-autoupdate` to validate autoupdate section
+3. Runs `check-manifest-install` to test Scoop installation
+4. All three must pass for auto-merge
+
+**Exit Codes:**
+- `0`: All validations passed and PR merged
+- `1`: Validation failed (requires manual fix or Copilot retry)
+- `-1`: Error in validation process
+
+**Auto-Merge Behavior:**
+- Uses GitHub API to merge with squash option
+- Commit message: `fix(bucket): <app>: <description>`
+- Preserves PR description in commit body
+- Auto-closes PR after merge
+
+**Copilot Integration:**
+- Posts comment: `@copilot fix this manifest`
+- Waits for Copilot to submit fix PR
+- Re-runs validate-and-merge on the fix PR
+- Up to 3 retry attempts before escalation
+
+**Escalation:**
+- After 3 failed attempts, creates GitHub issue
+- Tags with `@beyondmeat` and `needs-review`
+- Includes full validation failure logs
+- Includes all attempted fixes and results
+
+---
+
 ## Common Workflow
 
+### Manual Testing Workflow
 ```powershell
 # 1. Check for latest version
 .\bin\update-manifest.ps1 -ManifestPath bucket/app.json -Verbose
@@ -154,7 +301,31 @@ Both patterns can coexist with generic URLs. The update script handles both.
 .\bin\autofix-manifest.ps1 -ManifestPath bucket/app.json -NotifyOnIssues
 ```
 
-## Enhanced Features (November 2025)
+### Automated PR Validation Workflow
+```powershell
+# Run full validation on PR (called from GitHub Actions)
+.\bin\validate-and-merge.ps1 `
+  -ManifestPath bucket/app.json `
+  -BucketPath bucket `
+  -PullRequestNumber 123 `
+  -GitHubToken $env:GITHUB_TOKEN `
+  -GitHubRepo "owner/emulators"
+
+# If validation passes → auto-merge with conventional commit
+# If validation fails → request @copilot fix with retry loop
+# If retries exceeded → escalate to @beyondmeat
+```
+
+### GitHub Actions Workflow (excavator.yml)
+The excavator workflow automatically:
+1. Runs Scoop's excavator for standard updates
+2. Runs `autofix-manifest.ps1` on all non-nightly manifests
+3. Auto-commits successful fixes
+4. Validates with `validate-and-merge.ps1` on Copilot PRs
+5. Auto-merges when all tests pass
+6. Escalates failures to @beyondmeat
+
+---
 
 ### Intelligent Manifest Repair
 The autofix-manifest.ps1 script includes advanced features:
