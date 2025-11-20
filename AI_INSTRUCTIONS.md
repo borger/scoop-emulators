@@ -149,7 +149,29 @@ Both patterns can coexist with generic URLs. The update script handles both.
 
 # 4. Test installation
 .\bin\check-manifest-install.ps1 -ManifestPath bucket/app.json
+
+# 5. Auto-fix if issues are found
+.\bin\autofix-manifest.ps1 -ManifestPath bucket/app.json -NotifyOnIssues
 ```
+
+## Enhanced Features (November 2025)
+
+### Intelligent Manifest Repair
+The autofix-manifest.ps1 script includes advanced features:
+- **Checkver Pattern Fixing**: Analyzes release tags to suggest corrected regex patterns
+- **Multi-Platform Support**: GitHub, GitLab, and Gitea repositories
+- **Hash Verification**: Detects and auto-fixes mismatched hashes
+- **Structure Validation**: Validates and repairs manifest JSON structure
+- **Issue Tracking**: Logs problems with severity for manual review
+
+### Notification System
+Issues requiring manual review are tracked with:
+- Issue title and detailed description
+- Severity level (error/warning)
+- Affected app name
+- Timestamp for audit trail
+
+---
 
 ## Known Issues & Notes
 
@@ -242,12 +264,12 @@ This bucket now has a complete automation and validation framework:
 2. `check-autoupdate.ps1` - Validates autoupdate configurations
 3. `check-manifest-install.ps1` - Tests manifest installations
 4. `update-manifest.ps1` - Automated version and hash updates
-5. `autofix-manifest.ps1` - Intelligent manifest repair with GitHub API fallback
+5. `autofix-manifest.ps1` - Intelligent manifest repair with multi-platform support, hash verification, and issue tracking
 6. `auto-pr.ps1`, `checkhashes.ps1`, `checkurls.ps1`, `formatjson.ps1`, `missing-checkver.ps1`, `test.ps1` - Support scripts
 
 **GitHub Actions Integration:**
 - `excavator.yml` workflow runs hourly
-- Auto-fixes broken manifests
+- Auto-fixes broken manifests with intelligent recovery
 - Git auto-commit and push for successful updates
 - Scheduled: `0 * * * *` (every hour)
 
@@ -264,6 +286,12 @@ This bucket now has a complete automation and validation framework:
 - [x] Scripts tested with real manifests
 - [x] Installation tests verified
 - [x] Autoupdate patterns validated
+- [x] Intelligent checkver pattern fixing implemented
+- [x] Multi-platform repository support (GitHub/GitLab/Gitea)
+- [x] Hash mismatch detection and auto-fix
+- [x] Manifest structure validation
+- [x] Issue notification system
+- [x] Manual review workflow
 
 ### Ready for Production
-The bucket is fully configured for automated updates and validation. The excavator workflow will maintain the bucket automatically while preserving manual edits and handling edge cases.
+The bucket is fully configured for automated updates and validation with intelligent recovery from common issues. The excavator workflow will maintain the bucket automatically while preserving manual edits and handling edge cases through the issue tracking system.
