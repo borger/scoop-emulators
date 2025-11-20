@@ -1,4 +1,4 @@
-﻿on:
+on:
   schedule:
     # Run every hour to check for new versions
     - cron: '0 * * * *'

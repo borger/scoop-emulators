@@ -72,7 +72,24 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
 
 ## File Standards
 
-**All files: UTF-8 without BOM, CRLF line endings, trailing newline, NO TRAILING WHITESPACE**
+**All files: UTF-8 WITHOUT BOM, CRLF line endings, trailing newline, NO TRAILING WHITESPACE**
+
+### Critical: UTF-8 WITHOUT BOM
+**BOM (Byte Order Mark) breaks GitHub Actions workflows!**
+- UTF-8 BOM = `EF BB BF` bytes at start of file
+- PowerShell's default `[System.Text.Encoding]::UTF8` **ADDS BOM** (wrong!)
+- Use `New-Object System.Text.UTF8Encoding $false` instead (correct!)
+
+**NEVER use:**
+```powershell
+[System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::UTF8)  # ADDS BOM!
+```
+
+**ALWAYS use:**
+```powershell
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($path, $content, $utf8NoBom)  # NO BOM!
+```
 
 ### Critical: Trailing Whitespace
 **EVERY LINE MUST END WITH A CHARACTER, NOT SPACES OR TABS!** This includes:
@@ -89,23 +106,34 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
 
 ### File Validation Checklist
 Before committing ANY file changes:
+- [ ] UTF-8 encoding WITHOUT BOM (no `EF BB BF` bytes at start)
 - [ ] No trailing whitespace (spaces/tabs at end of lines)
 - [ ] Empty lines are completely empty (not spaces/tabs)
 - [ ] File ends with exactly one newline (`\n`)
 - [ ] Line endings are CRLF (`\r\n` on Windows) or consistent
-- [ ] UTF-8 encoding without BOM
 - [ ] Indentation is consistent (2 or 4 spaces, no tabs)
 
-**Quick PowerShell check:**
+**Quick PowerShell validation:**
 ```powershell
+# Check for BOM
+$bytes = [System.IO.File]::ReadAllBytes("file.yml")
+if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "ERROR: BOM detected (must be removed)"
+} else {
+    Write-Host "OK: No BOM"
+}
+
 # Find lines with trailing whitespace
 $content = Get-Content -Path "file.yml" -Raw
 $lines = $content -split "`n"
 $lines | ForEach-Object { if ($_ -match '\s+$') { Write-Host "Trailing whitespace found" } }
 
-# Remove trailing whitespace from all lines
-$cleaned = $content -replace '\s+\r\n', "`r`n"
-[System.IO.File]::WriteAllText("file.yml", $cleaned + "`r`n", [System.Text.Encoding]::UTF8)
+# Fix: Remove BOM and trailing whitespace, ensure UTF-8 without BOM
+$content = Get-Content -Path "file.yml" -Raw
+$cleaned = $content -replace '\s+\r\n', "`r`n"  # Remove trailing whitespace
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText("file.yml", $cleaned + "`r`n", $utf8NoBom)
+Write-Host "File cleaned: BOM removed, trailing whitespace removed"
 ```
 
 ---
