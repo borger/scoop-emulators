@@ -23,70 +23,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: '1'
 
-      - name: Parse excavator logs for errors
-        id: parse-logs
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-
-            // Get the current run ID
-            const runId = context.runId;
-
-            // First, list jobs for this workflow run to get the job ID
-            const jobsResponse = await github.rest.actions.listJobsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId
-            });
-
-            // Find the job with name 'excavate'
-            const excavateJob = jobsResponse.data.jobs.find(job => job.name === 'excavate');
-            if (!excavateJob) {
-              console.log('Could not find excavate job in workflow run');
-              core.setOutput('log-errors', '');
-              return;
-            }
-
-            const jobId = excavateJob.id;
-            console.log(`Found excavate job ID: ${jobId}`);
-
-            // Fetch the logs for this job
-            const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              job_id: jobId
-            });
-
-            // Parse the logs to find error messages
-            // Pattern: "appname: error message" or "appname: The remote server returned an error: (404) Not Found"
-            const logsText = Buffer.from(logs.data).toString('utf-8');
-            const errorPatterns = [
-              /^(\w+):\s+The remote server returned an error:\s*\([0-9]+\).*$/m,
-              /^(\w+):\s+.*?(?:404|not found|error|failed).*$/mi,
-              /Error.*?(\w+).*?(?:URL|checkver).*$/mi
-            ];
-
-            const foundErrors = new Set();
-
-            // Search for each pattern
-            errorPatterns.forEach(pattern => {
-              const matches = logsText.matchAll(pattern);
-              for (const match of matches) {
-                if (match[1]) {
-                  foundErrors.add(match[1].toLowerCase());
-                }
-              }
-            });
-
-            if (foundErrors.size > 0) {
-              const errorList = Array.from(foundErrors).join(',');
-              console.log(`Found ${foundErrors.size} errors in logs: ${errorList}`);
-              core.setOutput('log-errors', errorList);
-            } else {
-              console.log('No specific errors found in logs');
-              core.setOutput('log-errors', '');
-            }
+      - name: Capture excavator output
+        shell: pwsh
+        run: |
+          Write-Host "Excavator step outcome: ${{ steps.excavator.outcome }}" -ForegroundColor Cyan
+          Write-Host "Excavator step outputs: ${{ toJson(steps.excavator.outputs) }}" -ForegroundColor Gray
 
       - name: Capture excavator errors
         id: capture-errors
@@ -154,13 +95,14 @@ jobs:
             }
           }
 
-          # Strategy 5: Check log parsing results
-          $logErrors = "${{ steps.parse-logs.outputs.log-errors }}"
-          if ($logErrors) {
-            Write-Host "Found errors from log parsing: $logErrors" -ForegroundColor Yellow
-            $logErrorApps = $logErrors -split ','
-            $brokenManifests += $logErrorApps
-            $brokenManifests = $brokenManifests | Select-Object -Unique
+          # Strategy 5: Check if excavator actually failed
+          if ($excavatorResult -eq 'failure') {
+            Write-Host "Excavator step failed - likely a manifest error" -ForegroundColor Yellow
+            if ($brokenManifests.Count -eq 0) {
+              Write-Host "No specific manifests identified from git, will check all base manifests" -ForegroundColor Yellow
+              $brokenManifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' } | Select-Object -ExpandProperty BaseName)
+              Write-Host "Total manifests to check: $($brokenManifests.Count)" -ForegroundColor Gray
+            }
             $hasErrors = $true
           }
 
