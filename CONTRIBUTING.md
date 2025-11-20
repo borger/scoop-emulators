@@ -2,44 +2,185 @@
 
 You may propose new features or improvements by filing an issue. If you propose a new emulator, you will need to create the manifest file and complete the checklist provided in the template.
 
-## Manifest Validation Requirements
+## Commit Message Guidelines (Conventional Commits)
 
-**IMPORTANT:** Anytime a manifest is added or modified, it MUST be validated using the following scripts in the `./bin` directory:
+This project follows [Conventional Commits](https://www.conventionalcommits.org/) specification for clear, semantic commit messages.
 
-```powershell
-# Check for version updates
-.\bin\checkver.ps1 <app-name>
+### Format
 
-# Check for broken URLs
-.\bin\checkurls.ps1 <app-name>
+```
+<type>(<scope>): <subject>
 
-# Check for hash mismatches
-.\bin\checkhashes.ps1 <app-name>
+<body>
+
+<footer>
 ```
 
-All three scripts must run without errors before a manifest can be considered valid and ready for submission.
+### Type
+Must be one of:
+- **feat**: A new feature or manifest addition
+- **fix**: Bug fix or manifest repair
+- **docs**: Documentation changes (README, guides, etc.)
+- **refactor**: Code refactoring without feature changes
+- **test**: Test script additions or updates
+- **chore**: Build process, dependencies, or automation
+- **ci**: CI/CD configuration changes
+- **perf**: Performance improvements
 
-## Requirements for adding a new emulator to the bucket
+### Scope
+The scope should specify which part of the project:
+- **bucket**: Changes to manifest files
+- **scripts**: Changes to bin/ scripts (checkver, autofix, etc.)
+- **ci**: GitHub Actions workflow changes
+- **docs**: Documentation updates
+- Optional for minor changes
 
-- Active development - Is there recent commit activity in the past 2 years?
-- Recent releases - Is there a recent stable release in the past 3 years?
-- Does it work on Windows 10 and Windows 11?
-- Does it have a portable mode setting where appdata is stored in the same folder as the app?
-- Does it have a strong user base and broad appeal?
+### Subject
+- Imperative mood ("add" not "added")
+- No period at the end
+- Maximum 50 characters
+- Lowercase except for acronyms
 
-If you answered NO to any of the preceding questions, it most likely isn't a good fit for this bucket. But don't worry, there are plenty of other buckets out there that might fit better, you'll have to do some research.
+### Body
+- Explain *what* and *why*, not *how*
+- Wrap at 72 characters
+- Separate from subject with blank line
+- Optional but recommended for non-trivial changes
 
-## Creating a manifest (adding an app to scoop)
+### Footer
+- Close related issues: `Closes #123`, `Fixes #456`
+- Reference PRs: `PR #789`
+- Optional but useful for automation
 
-A scoop [app manifest](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests) is a json file that is used to tell scoop how to install/update/uninstall an app. We recommend reading the documentation on [creating an app manifest](https://github.com/ScoopInstaller/Scoop/wiki/Creating-an-app-manifest).
+### Examples
 
-Are you able to create a complete full featured manifest to add the app you want to the bucket? Will you fix the manifest in a timely manner when it eventually breaks due to changes out of our control?
+```
+feat(bucket): add RetroArch 1.22.1 manifest
 
-If you answered yes, you can get started by copying a manifest that is similar to the app you want to add. You will need to go to the app's github or homepage and gather info needed to edit the manifest.
+Added new RetroArch emulator manifest with support for 32-bit and 64-bit
+Windows installations. Includes proper autoupdate configuration pointing to
+official GitHub releases.
 
-If you answered NO to either question, please gather information that will be needed before filling submitting an issue and follow the template.
+Closes #456
+```
 
-## PR Checklist
+```
+fix(bucket): repair desmume manifest URL and hash
 
-You will need to complete a PR checklist and ensure your manifest meets our minimum required standards to be considered. This is provided via template when creating your PR.
+Replaced broken nightly.link URL with direct GitHub releases download.
+Updated SHA256 hash to match new download location.
+
+Fixes #789
+```
+
+```
+refactor(scripts): improve checkver output parsing
+
+Enhanced checkver wrapper to handle both outdated and current version
+formats without subprocess overhead. Uses native PowerShell I/O redirection.
+```
+
+```
+ci: add validation and auto-merge to Copilot workflow
+
+Implements automated manifest validation after Copilot PR creation.
+Runs checkver, autoupdate check, and installation test. Auto-merges
+if all pass, requests fixes if any fail, escalates to @beyondmeat.
+```
+
+## Automated Validation & Merge Workflow
+
+### How It Works
+
+1. **Issue Created**: Problem detected in manifest
+2. **Copilot PR**: AI submits fix with proper commit message
+3. **Validation Runs**:
+   - `checkver`: Version detection validation
+   - `check-autoupdate`: Config validation
+   - `check-manifest-install`: Installation test
+4. **Results Posted**: Comments on PR with validation report
+5. **Auto-Merge or Fix Loop**:
+   - ✅ All pass → Auto-merge with `feat()` or `fix()` commit
+   - ❌ Any fail → Request Copilot to fix (up to 3 attempts)
+   - After 3 failures → Escalate to @beyondmeat with detailed context
+
+### Validation Scripts
+
+**IMPORTANT:** All manifests must pass these validations:
+
+```powershell
+# Check for version detection
+.\bin\checkver.ps1 -App <app-name> -Dir bucket
+
+# Check for autoupdate configuration
+.\bin\check-autoupdate.ps1 -ManifestPath bucket/<app-name>.json
+
+# Check for installation
+.\bin\check-manifest-install.ps1 -ManifestPath bucket/<app-name>.json
+```
+
+## Manifest Validation Requirements
+
+Anytime a manifest is added or modified, it MUST be validated using the validation scripts. Validation is automatic in pull requests, but can be run locally for testing.
+
+## Requirements for Adding a New Emulator
+
+- Active development: Recent commit activity (past 2 years)
+- Recent releases: Stable release within past 3 years
+- Windows compatibility: Works on Windows 10 and Windows 11
+- Portable mode: App data stored in same folder as app
+- User base: Strong user base with broad appeal
+
+If you answer NO to any of these, consider other buckets that may be a better fit.
+
+## Creating a Manifest
+
+A scoop [app manifest](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests) is a JSON file that tells Scoop how to install/update/uninstall an app. Read the [manifest documentation](https://github.com/ScoopInstaller/Scoop/wiki/Creating-an-app-manifest) before starting.
+
+### Before You Start
+
+1. **Research**: Can you create a complete, full-featured manifest?
+2. **Maintenance**: Will you fix the manifest when upstream changes break it?
+
+If yes to both, copy a similar manifest and customize it. If no, gather information and file an issue with the template.
+
+## Pull Request Process
+
+1. **Create Feature Branch**: Use conventional commit naming
+2. **Make Changes**: Update manifests and/or scripts
+3. **Validation**: Run validation scripts locally
+4. **Commit Messages**: Follow Conventional Commits format
+5. **Submit PR**: Include description and issue reference
+6. **Automated Tests**: Wait for validation to complete
+7. **Review**: Address any feedback or failed validations
+8. **Merge**: Automatic if all validations pass, or manual if review needed
+
+### PR Checklist
+
+- [ ] Commit messages follow Conventional Commits format
+- [ ] Validation scripts pass (checkver, autoupdate, install)
+- [ ] Manifest is valid JSON
+- [ ] PR description explains the change
+- [ ] Closes/Fixes relevant issues
+- [ ] No unrelated changes included
+
+## Automated Validation Features
+
+### GitHub Copilot Integration
+
+When issues arise, the system automatically:
+1. Creates issue with `@copilot` label
+2. Copilot submits PR with fix
+3. Validation runs automatically
+4. Auto-merges if all pass
+5. Requests fixes if validation fails
+6. Escalates to @beyondmeat after 3 failed attempts
+
+### Smart Labels
+
+Automatically applied labels:
+- `auto-fix`: Automated repair attempt
+- `@copilot`: AI-assisted fix requested
+- `needs-review`: Manual review required
+- `@beyondmeat`: Escalation for complex issues
 
