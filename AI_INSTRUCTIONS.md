@@ -72,13 +72,41 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
 
 ## File Standards
 
-**All files: UTF-8 without BOM, CRLF line endings, trailing newline, no trailing whitespace**
+**All files: UTF-8 without BOM, CRLF line endings, trailing newline, NO TRAILING WHITESPACE**
+
+### Critical: Trailing Whitespace
+**EVERY LINE MUST END WITH A CHARACTER, NOT SPACES OR TABS!** This includes:
+- Empty lines (must be completely empty, not spaces/tabs)
+- Lines ending comments
+- Lines with PowerShell script blocks (`;` or `|` must be the last character)
+- YAML/JSON lines
 
 ### By Type
-- **PowerShell (.ps1)** - 2 or 4 space indentation
-- **JSON (.json)** - Use `formatjson.ps1` to validate
-- **Markdown (.md)** - No code fence wrapper around entire file
-- **YAML (.yml, .yaml)** - 2 space indentation
+- **PowerShell (.ps1)** - 2 or 4 space indentation, NO trailing whitespace
+- **JSON (.json)** - Use `formatjson.ps1` to validate, NO trailing whitespace
+- **Markdown (.md)** - No code fence wrapper around entire file, NO trailing whitespace
+- **YAML (.yml, .yaml)** - 2 space indentation, NO trailing whitespace (GitHub Actions files are strict!)
+
+### File Validation Checklist
+Before committing ANY file changes:
+- [ ] No trailing whitespace (spaces/tabs at end of lines)
+- [ ] Empty lines are completely empty (not spaces/tabs)
+- [ ] File ends with exactly one newline (`\n`)
+- [ ] Line endings are CRLF (`\r\n` on Windows) or consistent
+- [ ] UTF-8 encoding without BOM
+- [ ] Indentation is consistent (2 or 4 spaces, no tabs)
+
+**Quick PowerShell check:**
+```powershell
+# Find lines with trailing whitespace
+$content = Get-Content -Path "file.yml" -Raw
+$lines = $content -split "`n"
+$lines | ForEach-Object { if ($_ -match '\s+$') { Write-Host "Trailing whitespace found" } }
+
+# Remove trailing whitespace from all lines
+$cleaned = $content -replace '\s+\r\n', "`r`n"
+[System.IO.File]::WriteAllText("file.yml", $cleaned + "`r`n", [System.Text.Encoding]::UTF8)
+```
 
 ---
 

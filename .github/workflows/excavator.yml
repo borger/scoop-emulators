@@ -1,57 +1,71 @@
-on:
+﻿on:
   schedule:
     # Run every hour to check for new versions
     - cron: '0 * * * *'
   workflow_dispatch:
-
 name: Excavator
-
 jobs:
   excavate:
     name: Check for Updates
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@main
+        with:
+          fetch-depth: 0
       - name: Check for new versions
+        id: excavator
         uses: ScoopInstaller/GithubActions@main
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: '1'
-
-      - name: Check excavator results and logs for errors
+      - name: Check excavator results for errors
         shell: pwsh
         run: |
-          # Check if any errors occurred during excavation
-          $prFiles = Get-ChildItem -Path "${{ github.workspace }}/.git/PRs" -ErrorAction SilentlyContinue
-          
-          # Check excavator logs for common errors
-          $hasErrors = $false
-          $logDir = "${{ github.workspace }}/.git"
-          
-          # Look for error indicators in excavator output
-          if (Test-Path "$logDir") {
-            $logFiles = Get-ChildItem -Path $logDir -File -ErrorAction SilentlyContinue
-            foreach ($file in $logFiles) {
-              $content = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
-              if ($content) {
-                # Check for common error patterns
-                if ($content -match '404|not found|error|failed|exception' -and $content -notmatch 'warning|deprecated') {
-                  Write-Host "⚠ Found error in logs: $($file.Name)" -ForegroundColor Yellow
-                  Write-Host $content | Select-String '404|not found|error|failed|exception' -Context 2
-                  $hasErrors = $true
-                }
+          Write-Host "=== Excavator Results ===" -ForegroundColor Cyan
+          # Check if excavator step failed
+          $excavatorResult = "${{ steps.excavator.outcome }}"
+          Write-Host "Excavator outcome: $excavatorResult" -ForegroundColor Gray
+          # Run checkver on each manifest to detect broken URLs
+          Write-Host "`nRunning checkver on all manifests to detect 404s..." -ForegroundColor Cyan
+          $brokenManifests = @()
+          $manifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' })
+          foreach ($manifest in $manifests) {
+            $appName = $manifest.BaseName
+            Write-Host "Checking $appName..." -ForegroundColor Gray -NoNewline
+            try {
+              # Run checkver on this manifest
+              $checkverOutput = & ./bin/checkver.ps1 -App $appName -Dir "./bucket" 2>&1
+              $exitCode = $LASTEXITCODE
+              # Check for 404 or other errors in output
+              if ($checkverOutput -match '404|not found|connection failed|hash.*mismatch' -and $checkverOutput -notmatch 'deprecated|warning') {
+                Write-Host " âœ— ERROR" -ForegroundColor Red
+                Write-Host "  Error: $($checkverOutput | Select-String '404|not found|connection failed|hash.*mismatch' -First 1)" -ForegroundColor Yellow
+                $brokenManifests += $appName
+              } elseif ($exitCode -ne 0 -and $exitCode -ne -1) {
+                Write-Host " âœ— FAILED (exit $exitCode)" -ForegroundColor Red
+                $brokenManifests += $appName
+              } else {
+                Write-Host " âœ“" -ForegroundColor Green
               }
+            } catch {
+              Write-Host " âœ— ERROR" -ForegroundColor Red
+              Write-Host "  Exception: $_" -ForegroundColor Yellow
+              $brokenManifests += $appName
             }
           }
-          
-          if ($null -eq $prFiles -and -not $hasErrors) {
-            Write-Host "✓ Excavator completed successfully with no errors" -ForegroundColor Green
-            exit 0
-          } elseif ($null -ne $prFiles) {
-            Write-Host "⚠ Excavator created PRs - review in Actions" -ForegroundColor Yellow
-            exit 0
-          } else {
-            Write-Host "✗ Excavator completed with errors - auto-fix will be triggered" -ForegroundColor Red
+          # Report results
+          Write-Host "`n=== Summary ===" -ForegroundColor Cyan
+          if ($brokenManifests.Count -gt 0) {
+            Write-Host "âœ— Found issues in $($brokenManifests.Count) manifest(s):" -ForegroundColor Red
+            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
+            Write-Host "`nAuto-fix will be triggered to repair these manifests" -ForegroundColor Yellow
             exit 1
+          } elseif ($excavatorResult -eq 'failure') {
+            Write-Host "âœ— Excavator step failed" -ForegroundColor Red
+            exit 1
+          } else {
+            Write-Host "âœ“ All manifests passed verification" -ForegroundColor Green
+            exit 0
           }
 
