@@ -69,6 +69,13 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
    ```
 
 6. **Windows 11 Environment** - Commands should be windows compatible
+   - AVOID: Unix utilities like `head`, `tail`, `grep`, `sed`, `awk`
+   - USE: PowerShell cmdlets instead:
+     - `head -n 5` → `Select-Object -First 5`
+     - `tail -n 5` → `Select-Object -Last 5`
+     - `grep pattern` → `Select-String -Pattern pattern`
+     - `| sort` → `| Sort-Object`
+
 ---
 
 ## File Standards

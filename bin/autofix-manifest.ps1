@@ -359,6 +359,24 @@ function Test-HashMismatch {
     }
 }
 
+# Download a file and compute its SHA256 hash
+function Get-RemoteFileHash {
+    param([string]$Url)
+
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
+        $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
+        return $hash
+    } catch {
+        Write-Warning "Failed to download $Url : $_"
+        return $null
+    } finally {
+        if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
+    }
+}
+
 try {
     if (!(Test-Path $ManifestPath)) {
         Write-Error "Manifest not found: $ManifestPath"
@@ -372,6 +390,7 @@ try {
 
     # Read manifest
     $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
+    $checkverRepaired = $false
 
     # Validate manifest structure
     $structureErrors = Test-ManifestStructure -Manifest $manifest
@@ -400,29 +419,74 @@ try {
     Write-Host "Running checkver..."
     $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
-    # Parse version from checkver output
-    # checkver.ps1 outputs format: "appname: \n version \n (scoop version is ...) \n autoupdate available"
-    # Use the exact version returned by checkver.ps1 without modification
-    $latestVersion = $null
+    # Check if checkver output indicates a regex matching failure
+    if ($checkverOutput -match "couldn't match") {
+        Write-Host "[WARN] Checkver regex pattern doesn't match, attempting to fix checkver config..." -ForegroundColor Yellow
 
-    if ($checkverOutput -match '\(scoop version is ([^\)]+)\)') {
-        # Extract version from the scoop version line - this is the parsed version checkver produced
-        $latestVersion = $matches[1]
-        Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
-    } else {
-        # Fallback: Extract the version line after "appname:"
-        $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        # Try to detect repo from checkver config
+        $repoPlatform = "github"
+        $repoPath = $null
 
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
-                # Next non-empty line should be the version
-                if ($i + 1 -lt $lines.Count) {
-                    $versionLine = $lines[$i + 1]
-                    # Check if this looks like a version (not "(scoop version is...)")
-                    if ($versionLine -notmatch '^\(scoop version') {
-                        $latestVersion = $versionLine
+        if ($manifest.checkver.github) {
+            $repoPlatform = "github"
+            if ($manifest.checkver.github -match 'github\.com/([^/]+/[^/]+)') {
+                $repoPath = $matches[1]
+            }
+        } elseif ($manifest.checkver.gitlab) {
+            $repoPlatform = "gitlab"
+            if ($manifest.checkver.gitlab -match 'gitlab\.com/([^/]+/[^/]+)') {
+                $repoPath = $matches[1]
+            }
+        }
+
+        if ($repoPath) {
+            # Get the latest release and use API-based checkver
+            try {
+                if ($repoPlatform -eq "github") {
+                    $apiUrl = "https://api.github.com/repos/$repoPath/releases/latest"
+                    $latestRelease = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop | ConvertFrom-Json
+
+                    if ($latestRelease -and $latestRelease.tag_name) {
+                        # Repair checkver to use API-based version detection
+                        $manifest.checkver = @{
+                            "url"      = "https://api.github.com/repos/$repoPath/releases/latest"
+                            "jsonpath" = "$.tag_name"
+                            "regex"    = "v([0-9.]+)"
+                        }
+                        $checkverRepaired = $true
+                        Write-Host "  [OK] Repaired checkver config to use API-based detection" -ForegroundColor Green
+
+                        $latestVersion = $latestRelease.tag_name -replace '^v', ''
                         Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
-                        break
+                    }
+                }
+            } catch {
+                Write-Host "  [WARN] Could not repair checkver: $_" -ForegroundColor Yellow
+            }
+        }
+    }
+
+    # Parse version from checkver output if not already obtained
+    if (-not $latestVersion) {
+        # Extract version from the scoop version line - this is the parsed version checkver produced
+        if ($checkverOutput -match '\(scoop version is ([^\)]+)\)') {
+            $latestVersion = $matches[1]
+            Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+        } else {
+            # Fallback: Extract the version line after "appname:"
+            $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
+                    # Next non-empty line should be the version
+                    if ($i + 1 -lt $lines.Count) {
+                        $versionLine = $lines[$i + 1]
+                        # Check if this looks like a version (not "(scoop version is...)")
+                        if ($versionLine -notmatch '^\(scoop version') {
+                            $latestVersion = $versionLine
+                            Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+                            break
+                        }
                     }
                 }
             }
@@ -480,6 +544,16 @@ try {
         $currentVersion = $manifest.version
 
         if ($latestVersion -eq $currentVersion) {
+            # If checkver was repaired, save the manifest even though version didn't change
+            if ($checkverRepaired) {
+                Write-Host "[OK] Checkver repaired, saving manifest..." -ForegroundColor Green
+                $updatedJson = $manifest | ConvertTo-Json -Depth 10
+                $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                Write-Host "[OK] Manifest saved with repaired checkver"
+                exit 0
+            }
+
             Write-Host "[OK] Manifest already up-to-date (v$currentVersion)"
             exit 0
         }
@@ -721,24 +795,6 @@ try {
         # Calculate hashes for new URLs
         Write-Host "Calculating hashes..."
 
-        # Helper function to download and hash
-        function Get-RemoteFileHash {
-            param([string]$Url)
-
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            try {
-                $ProgressPreference = 'SilentlyContinue'
-                Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
-                $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
-                return $hash
-            } catch {
-                Write-Warning "Failed to download $Url : $_"
-                return $null
-            } finally {
-                if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
-            }
-        }
-
         if ($manifest.url) {
             $hash64 = Get-RemoteFileHash -Url $manifest.url
             if ($hash64) {
@@ -846,8 +902,9 @@ try {
             $updatedContent += "`r`n"
         }
 
-        # Write back preserving original line endings
-        [System.IO.File]::WriteAllText($ManifestPath, $updatedContent, [System.Text.Encoding]::UTF8)
+        # Write back preserving original line endings (UTF-8 without BOM)
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($ManifestPath, $updatedContent, $utf8NoBom)
 
         Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
 
