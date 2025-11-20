@@ -38,6 +38,33 @@ $ErrorActionPreference = 'Stop'
 
 Write-Host "=== Processing Issue #$IssueNumber ===" -ForegroundColor Cyan
 
+# Check if this is a manifest request issue
+function Test-ManifestRequest {
+    param([object]$Issue)
+
+    $requestLabels = @("request-manifest", "emulator-request", "add-emulator")
+    $hasRequestLabel = $false
+
+    foreach ($label in $Issue.labels) {
+        if ($requestLabels -contains $label.name) {
+            $hasRequestLabel = $true
+            break
+        }
+    }
+
+    if ($hasRequestLabel) {
+        return $true
+    }
+
+    # Also check for GitHub URL in title or body
+    if ($Issue.title -match 'https?://github\.com/[^/\s]+/[^/\s]+' -or
+        $Issue.body -match 'https?://github\.com/[^/\s]+/[^/\s]+') {
+        return $true
+    }
+
+    return $false
+}
+
 # Get issue details from GitHub API
 function Get-IssueDetails {
     param([int]$IssueNum, [string]$Repo, [string]$Token)
@@ -121,6 +148,39 @@ if (!$issue) {
 
 Write-Host "Issue Title: $($issue.title)" -ForegroundColor Cyan
 Write-Host "Issue Body: $($issue.body)" -ForegroundColor Gray
+
+# Check if this is a manifest request
+if (Test-ManifestRequest -Issue $issue) {
+    Write-Host "`n[INFO] Detected manifest request - triggering automated creation" -ForegroundColor Cyan
+
+    $manifestScript = Join-Path (Split-Path $PSScriptRoot) "create-emulator-manifest.ps1"
+
+    try {
+        Write-Host "[INFO] Executing manifest creation script..." -ForegroundColor Cyan
+
+        & $manifestScript -IssueNumber $IssueNumber -GitHubToken $GitHubToken -AutoApprove
+
+        Write-Host "`n[OK] Manifest created successfully from issue #$IssueNumber" -ForegroundColor Green
+        exit 0
+    }
+    catch {
+        Write-Host "`n[ERROR] Failed to create manifest from issue: $_" -ForegroundColor Red
+
+        # Post error comment to issue
+        $errorComment = @"
+❌ Automated manifest creation failed:
+
+**Error:** $($_.Exception.Message)
+
+Please provide a GitHub repository URL in the issue body, or manually review requirements for the manifest.
+
+cc: @beyondmeat
+"@
+
+        Add-IssueComment -IssueNum $IssueNumber -Body $errorComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
+        exit -1
+    }
+}
 
 # Extract manifest names from issue (look for references like "manifests/app-name.json" or "app-name")
 $manifestMatches = $issue.title + "`n" + $issue.body | Select-String -Pattern "(?:bucket/)?(\w+)\.json|(?:manifest|app)\s+([a-z0-9\-]+)" -AllMatches

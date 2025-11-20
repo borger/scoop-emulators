@@ -161,15 +161,6 @@ Write-Host "File cleaned: BOM removed, trailing whitespace removed"
 ### Autoupdate Patterns
 Two supported patterns (both work):
 
-**Pattern 1 - Direct Architecture:**
-```json
-"autoupdate": {
-    "64bit": { "url": "https://example.com/v$version/app-x64.zip", "hash": "sha256|..." },
-    "32bit": { "url": "https://example.com/v$version/app-x86.zip", "hash": "sha256|..." }
-}
-```
-
-**Pattern 2 - Nested Architecture:**
 ```json
 "autoupdate": {
     "architecture": {
@@ -178,8 +169,6 @@ Two supported patterns (both work):
     }
 }
 ```
-
-**Important:** Both patterns can coexist in the same manifest. Script handles both automatically.
 
 ### Version Detection (checkver)
 Common configurations:

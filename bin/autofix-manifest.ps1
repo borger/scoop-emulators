@@ -1,4 +1,53 @@
 #!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+Automatically repair common manifest issues.
+
+.DESCRIPTION
+Intelligently repairs broken manifests by:
+1. Detecting and fixing version format mismatches
+2. Recovering from URL pattern failures
+3. Re-downloading and recalculating hashes
+4. Updating checkver and autoupdate configurations
+5. Supporting GitHub, GitLab, and Gitea repositories
+
+.PARAMETER ManifestPath
+Path to the manifest JSON file to repair.
+
+.PARAMETER BucketPath
+Path to the bucket directory (auto-detected from manifest path if not specified).
+
+.PARAMETER IssueLog
+Log file path for detailed repair information.
+
+.PARAMETER NotifyOnIssues
+Post GitHub comments about repair attempts.
+
+.PARAMETER GitHubToken
+GitHub token for posting comments (uses $env:GITHUB_TOKEN if not specified).
+
+.PARAMETER GitHubRepo
+GitHub repository in format "owner/repo" (uses $env:GITHUB_REPOSITORY if not specified).
+
+.PARAMETER AutoCreateIssues
+Automatically create issues for manifests that couldn't be auto-fixed.
+
+.EXAMPLE
+# Auto-fix a broken manifest
+.\autofix-manifest.ps1 -ManifestPath bucket\gopher64.json
+
+# Auto-fix with GitHub issue posting
+.\autofix-manifest.ps1 -ManifestPath bucket\gopher64.json -GitHubToken $token -NotifyOnIssues
+
+# Auto-fix and create issue if it fails
+.\autofix-manifest.ps1 -ManifestPath bucket\gopher64.json -AutoCreateIssues
+
+.OUTPUTS
+Repaired manifest file with updated version, hashes, and URLs.
+
+.LINK
+https://github.com/borger/scoop-emulators
+#>
 
 param(
     [string]$ManifestPath,
@@ -359,6 +408,85 @@ function Test-HashMismatch {
     }
 }
 
+# Get GitHub release assets for a specific tag
+function Get-GitHubReleaseAssets {
+    param(
+        [string]$Owner,
+        [string]$Repo,
+        [string]$TagName = 'latest'
+    )
+
+    $apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/$TagName"
+    Write-Verbose "[INFO] Fetching GitHub release assets from: $apiUrl"
+
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
+        $releaseInfo = $response.Content | ConvertFrom-Json
+        return $releaseInfo.assets
+    } catch {
+        Write-Verbose "[WARN] Could not fetch GitHub release assets: $_"
+        return $null
+    }
+}
+
+# Get hash from GitHub release checksum file
+function Get-ReleaseChecksum {
+    param(
+        [object[]]$Assets,
+        [string]$TargetAssetName
+    )
+
+    if (-not $Assets) {
+        return $null
+    }
+
+    # Look for checksum files
+    $checksumPatterns = @('*.sha256', '*.sha256sum', '*.sha256.txt', '*.checksum', '*.hashes', '*.DIGEST', '*.md5', '*.md5sum')
+    $checksumAssets = @()
+
+    foreach ($pattern in $checksumPatterns) {
+        $checksumAssets += @($Assets | Where-Object { $_.name -like $pattern })
+    }
+
+    if ($checksumAssets.Count -eq 0) {
+        return $null
+    }
+
+    # Download and parse the checksum file
+    foreach ($checksumAsset in $checksumAssets) {
+        try {
+            $ProgressPreference = 'SilentlyContinue'
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop
+
+            # Parse the checksum file
+            $content = Get-Content -Path $tempFile -Raw
+            $lines = $content -split "`n" | Where-Object { $_ -match '\S' }
+
+            foreach ($line in $lines) {
+                # Match common formats: "hash filename" or "filename hash"
+                if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
+                    $hash = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[1] } else { $matches[2] }
+                    $filename = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[2] } else { $matches[1] }
+
+                    # Check if this matches the target asset
+                    if ($filename -like "*$($TargetAssetName)*" -or $TargetAssetName -like "*$filename*") {
+                        Write-Verbose "[OK] Found SHA256 from GitHub release: $hash"
+                        Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+                        return $hash
+                    }
+                }
+            }
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Verbose "[WARN] Failed to parse checksum file: $_"
+        }
+    }
+
+    return $null
+}
+
 # Download a file and compute its SHA256 hash
 function Get-RemoteFileHash {
     param([string]$Url)
@@ -391,6 +519,17 @@ try {
     # Read manifest
     $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
     $checkverRepaired = $false
+
+    # Extract GitHub owner/repo if available (for fetching release checksums)
+    $gitHubOwner = $null
+    $gitHubRepo = $null
+    if ($manifest.checkver.github) {
+        if ($manifest.checkver.github -match 'github\.com/([^/]+)/([^/]+)/?$') {
+            $gitHubOwner = $matches[1]
+            $gitHubRepo = $matches[2]
+            Write-Verbose "GitHub repo detected: $gitHubOwner/$gitHubRepo"
+        }
+    }
 
     # Validate manifest structure
     $structureErrors = Test-ManifestStructure -Manifest $manifest
@@ -769,8 +908,18 @@ try {
                                 $manifest.architecture.'32bit'.url = $fixedUrl
                             }
 
-                            # Recalculate hash for the new URL
-                            $hash = Get-RemoteFileHash -Url $fixedUrl
+                            # Try to get checksum from GitHub release first
+                            $hash = $null
+                            if ($assets) {
+                                $fileName = Split-Path -Leaf $fixedUrl
+                                $hash = Get-ReleaseChecksum -Assets $assets -TargetAssetName $fileName
+                            }
+
+                            # Fall back to downloading and calculating if no checksum found
+                            if (-not $hash) {
+                                $hash = Get-RemoteFileHash -Url $fixedUrl
+                            }
+
                             if ($hash) {
                                 if ($arch -eq "generic") {
                                     $manifest.hash = $hash.ToLower()
@@ -792,34 +941,104 @@ try {
             }
         }
 
-        # Calculate hashes for new URLs
-        Write-Host "Calculating hashes..."
+        # Calculate hashes for new URLs (try GitHub release checksums first)
+        Write-Host "Getting hashes for updated URLs..."
+
+        # Try to fetch GitHub release assets if available (for checksum files)
+        $releaseAssets = $null
+        $hasChecksumFiles = $false
+        if ($gitHubOwner -and $gitHubRepo) {
+            $releaseAssets = Get-GitHubReleaseAssets -Owner $gitHubOwner -Repo $gitHubRepo -TagName "v$($manifest.version)"
+            if (-not $releaseAssets) {
+                # Try without 'v' prefix
+                $releaseAssets = Get-GitHubReleaseAssets -Owner $gitHubOwner -Repo $gitHubRepo -TagName $manifest.version
+            }
+            # Check if checksum files exist
+            if ($releaseAssets) {
+                $checksumFiles = @($releaseAssets | Where-Object { $_.name -like '*.sha256' -or $_.name -like '*.sha256sum' -or $_.name -like '*.checksum' })
+                $hasChecksumFiles = $checksumFiles.Count -gt 0
+            }
+        }
 
         if ($manifest.url) {
-            $hash64 = Get-RemoteFileHash -Url $manifest.url
-            if ($hash64) {
-                $manifest.hash = $hash64
-                Write-Host "  [OK] Generic hash updated"
+            # If checksum files exist in release, use API-based hash lookup
+            if ($hasChecksumFiles -and $releaseAssets) {
+                $fileName = Split-Path -Leaf $manifest.url
+                $manifest.hash = [ordered]@{
+                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
+                }
+                Write-Host "  [OK] Generic hash configured for API lookup: $fileName"
+            } else {
+                # Fall back to static hash
+                $hash64 = $null
+                if ($releaseAssets) {
+                    $fileName = Split-Path -Leaf $manifest.url
+                    $hash64 = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
+                }
+                if (-not $hash64) {
+                    $hash64 = Get-RemoteFileHash -Url $manifest.url
+                }
+                if ($hash64) {
+                    $manifest.hash = $hash64
+                    Write-Host "  [OK] Generic hash updated"
+                }
             }
         }
 
         if ($manifest.architecture.'64bit'.url) {
-            $hash64bit = Get-RemoteFileHash -Url $manifest.architecture.'64bit'.url
-            if ($hash64bit) {
-                $manifest.architecture.'64bit'.hash = $hash64bit
-                Write-Host "  [OK] 64bit hash updated"
+            # If checksum files exist in release, use API-based hash lookup
+            if ($hasChecksumFiles -and $releaseAssets) {
+                $fileName = Split-Path -Leaf $manifest.architecture.'64bit'.url
+                $manifest.architecture.'64bit'.hash = [ordered]@{
+                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
+                }
+                Write-Host "  [OK] 64bit hash configured for API lookup: $fileName"
             } else {
-                Write-Host "  [WARN] Could not get 64bit hash"
+                # Fall back to static hash
+                $hash64bit = $null
+                if ($releaseAssets) {
+                    $fileName = Split-Path -Leaf $manifest.architecture.'64bit'.url
+                    $hash64bit = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
+                }
+                if (-not $hash64bit) {
+                    $hash64bit = Get-RemoteFileHash -Url $manifest.architecture.'64bit'.url
+                }
+                if ($hash64bit) {
+                    $manifest.architecture.'64bit'.hash = $hash64bit
+                    Write-Host "  [OK] 64bit hash updated"
+                } else {
+                    Write-Host "  [WARN] Could not get 64bit hash"
+                }
             }
         }
 
         if ($manifest.architecture.'32bit'.url) {
-            $hash32bit = Get-RemoteFileHash -Url $manifest.architecture.'32bit'.url
-            if ($hash32bit) {
-                $manifest.architecture.'32bit'.hash = $hash32bit
-                Write-Host "  [OK] 32bit hash updated"
+            # If checksum files exist in release, use API-based hash lookup
+            if ($hasChecksumFiles -and $releaseAssets) {
+                $fileName = Split-Path -Leaf $manifest.architecture.'32bit'.url
+                $manifest.architecture.'32bit'.hash = [ordered]@{
+                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
+                }
+                Write-Host "  [OK] 32bit hash configured for API lookup: $fileName"
             } else {
-                Write-Host "  [WARN] Could not get 32bit hash"
+                # Fall back to static hash
+                $hash32bit = $null
+                if ($releaseAssets) {
+                    $fileName = Split-Path -Leaf $manifest.architecture.'32bit'.url
+                    $hash32bit = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
+                }
+                if (-not $hash32bit) {
+                    $hash32bit = Get-RemoteFileHash -Url $manifest.architecture.'32bit'.url
+                }
+                if ($hash32bit) {
+                    $manifest.architecture.'32bit'.hash = $hash32bit
+                    Write-Host "  [OK] 32bit hash updated"
+                } else {
+                    Write-Host "  [WARN] Could not get 32bit hash"
+                }
             }
         }
 

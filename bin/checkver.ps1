@@ -1,4 +1,32 @@
 #!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+Check version detection for a manifest using checkver configuration.
+
+.DESCRIPTION
+Validates that the checkver configuration in a manifest correctly detects the latest version from the repository.
+
+.PARAMETER App
+Name of the app/manifest to check (without .json extension).
+If not specified, checks all manifests in the bucket.
+
+.PARAMETER Dir
+Path to the bucket directory containing manifests.
+If not specified, uses ../bucket relative to script location.
+
+.EXAMPLE
+# Check specific app
+.\checkver.ps1 -App gopher64 -Dir bucket
+
+# Check all apps
+.\checkver.ps1 -Dir bucket
+
+.OUTPUTS
+Version number if successful, or error message if detection fails.
+
+.LINK
+https://github.com/borger/scoop-emulators
+#>
 
 param(
     [string]$App = $null,
