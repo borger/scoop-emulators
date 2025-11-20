@@ -149,7 +149,6 @@ function Repair-CheckverPattern {
 
     # Analyze release tag/name to suggest pattern
     $tagName = $ReleaseData.tag_name
-    $releaseName = $ReleaseData.name
 
     # Extract version numbers from tag
     if ($tagName -match 'v?(\d+[\.\d]*)?') {
@@ -184,6 +183,7 @@ function Get-ReleaseAssets {
         }
         catch {
             Write-Host "  ⚠ GitHub API error: $_" -ForegroundColor Yellow
+            $errorMsg = $_
         }
     }
     elseif ($Platform -eq "gitlab") {
@@ -267,9 +267,9 @@ try {
     $structureErrors = Test-ManifestStructure -Manifest $manifest
     if ($structureErrors) {
         Write-Host "Manifest structure issues detected:" -ForegroundColor Yellow
-        foreach ($error in $structureErrors) {
-            Write-Host "  ⚠ $error" -ForegroundColor Yellow
-            Add-Issue -Title "Structure Error" -Description $error -Severity "error"
+        foreach ($errorMsg in $structureErrors) {
+            Write-Host "  ⚠ $errorMsg" -ForegroundColor Yellow
+            Add-Issue -Title "Structure Error" -Description $errorMsg -Severity "error"
         }
     }
 

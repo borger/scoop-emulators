@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
 Validates manifest changes and auto-merges PR if all checks pass.
@@ -57,7 +57,6 @@ $scriptRoot = Split-Path -Parent $PSScriptRoot
 $checkVerScript = "$scriptRoot/bin/checkver.ps1"
 $checkAutoupdateScript = "$scriptRoot/bin/check-autoupdate.ps1"
 $checkInstallScript = "$scriptRoot/bin/check-manifest-install.ps1"
-$autofixScript = "$scriptRoot/bin/autofix-manifest.ps1"
 
 Write-Host "=== Validating PR #$PullRequestNumber for $appName ===" -ForegroundColor Cyan
 
@@ -113,7 +112,7 @@ $allPassed = $validationResults.CheckVer -like "*PASS*" -and `
 $validationResults.AllPassed = $allPassed
 
 # Post validation results as PR comment
-function Post-PRComment {
+function Publish-PRComment {
     param([string]$Body, [string]$RepoRef, [int]$PRNum, [string]$Token)
 
     if (!$RepoRef -or !$Token -or !$PRNum) { return $false }
@@ -157,7 +156,7 @@ Write-Host "`n=== Validation Report ===" -ForegroundColor Cyan
 Write-Host $report
 
 # Post comment to PR
-Post-PRComment -Body $report -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+Publish-PRComment -Body $report -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
 if ($allPassed) {
     Write-Host "`n✓ All validations passed!" -ForegroundColor Green
@@ -179,7 +178,7 @@ This PR is ready to be merged by a maintainer.
 cc: @beyondmeat
 "@
 
-        Post-PRComment -Body $mergeRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+        Publish-PRComment -Body $mergeRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
         exit 0
     }
     else {
@@ -205,7 +204,7 @@ cc: @beyondmeat
 
             # Post merge comment
             $mergeComment = "✅ All validations passed. PR auto-merged by validation script."
-            Post-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+            Publish-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
             exit 0
         }
@@ -235,7 +234,7 @@ Please analyze the manifest and fix all issues. Validation will run again automa
 cc: @copilot
 "@
 
-    Post-PRComment -Body $fixRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+    Publish-PRComment -Body $fixRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
 
     exit 1
 }

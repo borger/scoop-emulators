@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
 Handles GitHub issues with automated Copilot-assisted fixes.
@@ -171,7 +171,7 @@ foreach ($manifest in $manifestsToFix) {
     }
     catch {
         $autoFixResults[$manifest] = "FAILED"
-        Write-Host "  ✗ Auto-fix failed for $manifest: $_" -ForegroundColor Red
+        Write-Host "  ✗ Auto-fix failed for $manifest``: $_" -ForegroundColor Red
     }
 }
 
@@ -187,9 +187,9 @@ if ($anySucceeded) {
 
     $prTitle = "fix(bucket): Auto-fix issue #$IssueNumber ($successList)"
     $prBody = @"
-## Auto-Fix for Issue #$IssueNumber
+## Auto-Fix for Issue #${IssueNumber}
 
-This PR addresses the following manifests from issue #$IssueNumber:
+This PR addresses the following manifests from issue #${IssueNumber}:
 
 **Successfully auto-fixed:**
 $($autoFixResults.GetEnumerator() | Where-Object { $_.Value -eq "SUCCESS" } | ForEach-Object { "- ✓ $($_.Key)" })
@@ -199,7 +199,7 @@ $($autoFixResults.GetEnumerator() | Where-Object { $_.Value -ne "SUCCESS" } | Fo
 
 All auto-fixed manifests have passed validation. Please review and merge.
 
-Closes #$IssueNumber
+Closes #${IssueNumber}
 "@
 
     $prNumber = New-PullRequest -Title $prTitle -Body $prBody -HeadBranch $branchName -BaseBranch "master" -Repo $GitHubRepo -Token $GitHubToken
