@@ -339,9 +339,9 @@ try {
                             if ($hashResult -and $hashResult.Mismatch) {
                                 Write-Host "    [OK] Auto-fixing hash mismatch" -ForegroundColor Green
                                 if ($arch -eq "generic") {
-                                    $manifest.hash = $hashResult.ActualHash
+                                    $manifest.hash = $hashResult.ActualHash.ToLower()
                                 } else {
-                                    $manifest.architecture.$arch.hash = $hashResult.ActualHash
+                                    $manifest.architecture.$arch.hash = $hashResult.ActualHash.ToLower()
                                 }
                             }
                         }
@@ -472,9 +472,9 @@ try {
                             $hash = Get-RemoteFileHash -Url $fixedUrl
                             if ($hash) {
                                 if ($arch -eq "generic") {
-                                    $manifest.hash = $hash
+                                    $manifest.hash = $hash.ToLower()
                                 } else {
-                                    $manifest.architecture.$arch.hash = $hash
+                                    $manifest.architecture.$arch.hash = $hash.ToLower()
                                 }
                                 Write-Host "  [OK] Updated hash for ${arch} asset" -ForegroundColor Green
                             }
@@ -505,7 +505,7 @@ try {
             try {
                 $ProgressPreference = 'SilentlyContinue'
                 Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
-                $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
+                $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
                 return $hash
             } catch {
                 Write-Warning "Failed to download $Url : $_"
