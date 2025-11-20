@@ -401,15 +401,35 @@ try {
     $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
     # Parse version from checkver output
-    # Support multiple version formats: numeric (1.2.3), date-based (2024-01-15), semantic (v1.2.3), etc.
+    # checkver.ps1 outputs format: "appname: \n version \n (scoop version is ...) \n autoupdate available"
+    # Use the exact version returned by checkver.ps1 without modification
     $latestVersion = $null
 
-    if ($checkverOutput -match ':\s+([\d\.\-]+)(\s+\(scoop version)?') {
+    if ($checkverOutput -match '\(scoop version is ([^\)]+)\)') {
+        # Extract version from the scoop version line - this is the parsed version checkver produced
         $latestVersion = $matches[1]
-    } elseif ($checkverOutput -match ':\s+([^\s\(]+)') {
-        # Fallback for unusual version formats
-        $latestVersion = $matches[1]
-    } elseif ($checkverOutput -match 'error|404|not found|failed' -and $manifest.checkver) {
+        Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+    } else {
+        # Fallback: Extract the version line after "appname:"
+        $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
+                # Next non-empty line should be the version
+                if ($i + 1 -lt $lines.Count) {
+                    $versionLine = $lines[$i + 1]
+                    # Check if this looks like a version (not "(scoop version is...)")
+                    if ($versionLine -notmatch '^\(scoop version') {
+                        $latestVersion = $versionLine
+                        Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    if (-not $latestVersion) {
         # Checkver itself failed - attempt recovery
         Write-Host "[WARN] Checkver execution failed or returned 404, attempting API fallback..." -ForegroundColor Yellow
 
