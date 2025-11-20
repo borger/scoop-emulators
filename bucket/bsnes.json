@@ -1,5 +1,5 @@
-﻿{
-    "version": "2",
+{
+    "version": "115",
     "description": "Nintendo SNES (Super Nintendo Entertainment System) emulator",
     "homepage": "https://github.com/bsnes-emu/bsnes",
     "license": {
@@ -7,7 +7,7 @@
         "url": "https://github.com/bsnes-emu/bsnes/blob/master/LICENSE.txt"
     },
     "url": "https://github.com/bsnes-emu/bsnes/releases/download/v115/bsnes_v115-windows.zip",
-    "hash": "BE2B3D17523F011359D1A88E05A54A0E70C846EE98A6B520D1A60E7422B2F7EF",
+    "hash": "be2b3d17523f011359d1a88e05a54a0e70c846ee98a6b520d1a60e7422b2f7ef",
     "extract_dir": "bsnes_v115-windows",
     "bin": "bsnes.exe",
     "shortcuts": [
