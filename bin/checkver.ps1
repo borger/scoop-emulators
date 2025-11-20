@@ -5,22 +5,8 @@ param(
     [string]$Dir = $null
 )
 
-# Get Scoop's checkver script from SCOOP_HOME
-if (!$env:SCOOP_HOME) {
-    # If SCOOP_HOME not set, try to get it from scoop command
-    try {
-        $env:SCOOP_HOME = & scoop prefix scoop 2>$null
-    } catch {
-        Write-Error "SCOOP_HOME not set and scoop command not available" -ErrorAction Stop
-    }
-}
-
+if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
 $checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
-
-if (!(Test-Path $checkverScript)) {
-    Write-Error "Scoop checkver script not found at: $checkverScript`nMake sure Scoop is installed." -ErrorAction Stop
-}
-
 $bucketDir = if ($Dir) { $Dir } else { "$PSScriptRoot/../bucket" }
 
 # Capture output from Scoop's checkver which uses Write-Host
