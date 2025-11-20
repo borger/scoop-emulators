@@ -1,8 +1,8 @@
 <!-- Provide a general summary of your changes in the title above -->
 
 <!--
-  By opening this PR you confirm that you will follow the contribution guidelines. 
-  You agree to submit a fully featured working manifest that creates shortcuts, 
+  By opening this PR you confirm that you will follow the contribution guidelines.
+  You agree to submit a fully featured working manifest that creates shortcuts,
   bin shims, persists data, enables portable mode, and has auto-update support.
 -->
 

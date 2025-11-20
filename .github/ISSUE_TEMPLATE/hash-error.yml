@@ -59,6 +59,6 @@ body:
     value: |
       **Note:** Hash mismatches are automatically detected and fixed by our system within 1 hour.
       If the error persists after that time, check GitHub Actions logs or file a new issue.
-      
+
       See [Manifest Error](./manifest-error.yml) template for other manifest-related issues.
 
