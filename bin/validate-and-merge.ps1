@@ -1,48 +1,41 @@
 #!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
-Validates manifest changes and auto-merges PR if all checks pass.
+    Validates manifest changes and auto-merges PR if all checks pass.
 
 .DESCRIPTION
-This script is called after Copilot submits a PR fix. It:
-1. Runs all validation scripts (checkver, autoupdate, install)
-2. Reports results to the PR
-3. Auto-merges if all checks pass
-4. Requests Copilot to fix issues if validation fails
-5. Escalates to @beyondmeat if Copilot fix attempts fail
+    Orchestrates the validation pipeline for Scoop manifests in a CI/CD context.
+    1. Runs checkver, check-autoupdate, and check-manifest-install.
+    2. Posts results to the GitHub PR.
+    3. Auto-merges if successful (for Copilot PRs) or tags maintainers (for User PRs).
+    4. Requests fixes from Copilot if validation fails.
 
 .PARAMETER ManifestPath
-Path to the manifest file to validate.
+    Path to the manifest file.
 
 .PARAMETER BucketPath
-Path to the bucket directory.
+    Path to the bucket root.
 
 .PARAMETER PullRequestNumber
-GitHub PR number for posting validation results.
+    GitHub PR ID.
 
 .PARAMETER GitHubToken
-GitHub API token for PR operations.
+    GitHub API Token.
 
 .PARAMETER GitHubRepo
-GitHub repository (owner/repo format).
-
-.PARAMETER MaxRetries
-Maximum number of Copilot fix attempts before escalation (default: 10).
-
-.PARAMETER IsUserPR
-Set to $true if PR was created by user (not Copilot). User PRs tag @beyondmeat for merge.
-
-.PARAMETER FromIssue
-Set to $true if this is fixing an issue. Issues trigger Copilot auto-fix workflow.
-
-.RETURNS
-0 if validation passes and merged/tagged, 1 if validation fails, -1 on error
+    Repository slug (owner/repo).
 #>
 
 param(
+    [Parameter(Mandatory = $true)]
     [string]$ManifestPath,
+
     [string]$BucketPath = (Split-Path -Parent (Split-Path -Parent $ManifestPath)),
+
+    [Parameter(Mandatory = $true)]
     [int]$PullRequestNumber,
+
     [string]$GitHubToken = $env:GITHUB_TOKEN,
     [string]$GitHubRepo = $env:GITHUB_REPOSITORY,
     [int]$MaxRetries = 10,
@@ -52,183 +45,201 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$appName = [System.IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $ManifestPath))
-$scriptRoot = Split-Path -Parent $PSScriptRoot
-$checkVerScript = "$scriptRoot/bin/checkver.ps1"
-$checkAutoupdateScript = "$scriptRoot/bin/check-autoupdate.ps1"
-$checkInstallScript = "$scriptRoot/bin/check-manifest-install.ps1"
+# Ensure TLS 1.2 is enabled (critical for PS 5.1)
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
-Write-Host "=== Validating PR #$PullRequestNumber for $appName ===" -ForegroundColor Cyan
+# --- Helpers ---
 
-# Test all validation scripts
-$validationResults = @{
-    CheckVer        = $null
-    CheckAutoupdate = $null
-    CheckInstall    = $null
-    AllPassed       = $false
-}
+function Invoke-GitHubApi {
+    param(
+        [string]$Uri,
+        [string]$Method = 'GET',
+        [object]$Body
+    )
 
-# Run checkver
-Write-Host "`n[1/3] Running checkver validation..." -ForegroundColor Yellow
-try {
-    & $checkVerScript -App $appName -Dir $BucketPath | Out-Null
-    $validationResults.CheckVer = "[OK] PASS"
-    Write-Host "  [OK] Checkver passed" -ForegroundColor Green
-} catch {
-    $validationResults.CheckVer = "[FAIL] FAIL: $_"
-    Write-Host "  [FAIL] Checkver failed: $_" -ForegroundColor Red
-}
+    $headers = @{
+        Authorization  = "token $GitHubToken"
+        "Content-Type" = "application/json"
+        "Accept"       = "application/vnd.github.v3+json"
+    }
 
-# Run check-autoupdate
-Write-Host "[2/3] Running autoupdate validation..." -ForegroundColor Yellow
-try {
-    & $checkAutoupdateScript -ManifestPath $ManifestPath -ErrorAction SilentlyContinue | Out-Null
-    $validationResults.CheckAutoupdate = "[OK] PASS"
-    Write-Host "  [OK] Autoupdate config valid" -ForegroundColor Green
-} catch {
-    $validationResults.CheckAutoupdate = "[FAIL] FAIL: $_"
-    Write-Host "  [FAIL] Autoupdate validation failed: $_" -ForegroundColor Red
-}
+    $params = @{
+        Uri             = $Uri
+        Method          = $Method
+        Headers         = $headers
+        ErrorAction     = 'Stop'
+        UseBasicParsing = $true # Required for PS 5.1
+    }
 
-# Run check-manifest-install
-Write-Host "[3/3] Running installation test..." -ForegroundColor Yellow
-try {
-    & $checkInstallScript -ManifestPath $ManifestPath | Out-Null
-    $validationResults.CheckInstall = "[OK] PASS"
-    Write-Host "  [OK] Installation test passed" -ForegroundColor Green
-} catch {
-    $validationResults.CheckInstall = "[FAIL] FAIL: $_"
-    Write-Host "  [FAIL] Installation test failed: $_" -ForegroundColor Red
-}
-
-# Check if all passed
-$allPassed = $validationResults.CheckVer -like "*PASS*" -and `
-    $validationResults.CheckAutoupdate -like "*PASS*" -and `
-    $validationResults.CheckInstall -like "*PASS*"
-
-$validationResults.AllPassed = $allPassed
-
-# Post validation results as PR comment
-function Publish-PRComment {
-    param([string]$Body, [string]$RepoRef, [int]$PRNum, [string]$Token)
-
-    if (!$RepoRef -or !$Token -or !$PRNum) { return $false }
+    if ($Body) {
+        $params.Body = ($Body | ConvertTo-Json -Depth 10 -Compress)
+    }
 
     try {
-        $headers = @{
-            Authorization  = "token $Token"
-            "Content-Type" = "application/json"
-        }
-
-        $payload = @{ body = $Body } | ConvertTo-Json
-        $apiUrl = "https://api.github.com/repos/$RepoRef/issues/$PRNum/comments"
-
-        Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop | Out-Null
+        Invoke-WebRequest @params | Out-Null
         return $true
     } catch {
-        Write-Host "[WARN] Failed to post PR comment: $_" -ForegroundColor Yellow
+        Write-Warning "GitHub API call failed: $($_.Exception.Message)"
         return $false
     }
 }
 
-# Build validation report
-$report = @"
-## [OK] Validation Report
+function Publish-PRComment {
+    param([string]$Body)
+    $url = "https://api.github.com/repos/$GitHubRepo/issues/$PullRequestNumber/comments"
+    Invoke-GitHubApi -Uri $url -Method POST -Body @{ body = $Body }
+}
 
-**Manifest**: \`$appName\`
+function Merge-PR {
+    param([string]$Title, [string]$Message)
+    $url = "https://api.github.com/repos/$GitHubRepo/pulls/$PullRequestNumber/merge"
+    $body = @{
+        commit_title   = $Title
+        commit_message = $Message
+        merge_method   = "squash"
+    }
+    Invoke-GitHubApi -Uri $url -Method PUT -Body $body
+}
 
-### Test Results
-- Checkver: $($validationResults.CheckVer)
-- Autoupdate Config: $($validationResults.CheckAutoupdate)
-- Installation Test: $($validationResults.CheckInstall)
+# --- Main Logic ---
 
-### Status
-$(if ($allPassed) { "[OK] All validations passed! Ready to merge." } else { "[FAIL] Validation failed. Requesting Copilot fix..." })
+$appName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
+$binDir = Join-Path (Split-Path -Parent $PSScriptRoot) "bin"
 
-**Timestamp**: $([DateTime]::UtcNow.ToString('o'))
-"@
+Write-Host "=== Validating PR #$PullRequestNumber for $appName ===" -ForegroundColor Cyan
 
-Write-Host "`n=== Validation Report ===" -ForegroundColor Cyan
-Write-Host $report
+$results = @{
+    CheckVer        = @{ Status = "PENDING"; Output = "" }
+    CheckAutoupdate = @{ Status = "PENDING"; Output = "" }
+    CheckInstall    = @{ Status = "PENDING"; Output = "" }
+}
 
-# Post comment to PR
-Publish-PRComment -Body $report -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
+# Define validation tasks
+$validationTasks = @(
+    @{
+        Id        = "CheckVer"
+        Label     = "Checkver"
+        Command   = "$binDir/checkver.ps1"
+        Arguments = @("-App", $appName, "-Dir", $BucketPath)
+    },
+    @{
+        Id        = "CheckAutoupdate"
+        Label     = "Autoupdate"
+        Command   = "$binDir/check-autoupdate.ps1"
+        Arguments = @("-ManifestPath", $ManifestPath)
+    }
+)
 
-if ($allPassed) {
-    Write-Host "`n[OK] All validations passed!" -ForegroundColor Green
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    Write-Host "`n[1-2/3] Running validation checks in parallel (PS 7+)..." -ForegroundColor Yellow
 
-    if ($IsUserPR) {
-        # User PR: Tag @beyondmeat for manual merge review
-        Write-Host "  → Tagging @beyondmeat for merge review (user PR)" -ForegroundColor Cyan
-
-        $mergeRequest = @"
-## [OK] Validation Passed - Ready for Merge
-
-All validation checks have passed successfully:
-- [OK] Checkver validation
-- [OK] Autoupdate configuration
-- [OK] Installation test
-
-This PR is ready to be merged by a maintainer.
-
-cc: @beyondmeat
-"@
-
-        Publish-PRComment -Body $mergeRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
-        exit 0
-    } else {
-        # Copilot PR: Auto-merge
-        Write-Host "  → Auto-merging (Copilot PR)..." -ForegroundColor Green
+    $taskResults = $validationTasks | ForEach-Object -Parallel {
+        $task = $_
+        $result = @{ Id = $task.Id; Status = "FAIL"; Output = "" }
+        $ErrorActionPreference = 'Stop'
 
         try {
-            $headers = @{
-                Authorization  = "token $GitHubToken"
-                "Content-Type" = "application/json"
-            }
-
-            $payload = @{
-                commit_title   = "fix(bucket): $appName auto-fix validation passed"
-                commit_message = "Auto-fixed manifest with all validation checks passing."
-                merge_method   = "squash"
-            } | ConvertTo-Json
-
-            $apiUrl = "https://api.github.com/repos/$GitHubRepo/pulls/$PullRequestNumber/merge"
-            $null = Invoke-WebRequest -Uri $apiUrl -Method PUT -Headers $headers -Body $payload -ErrorAction Stop
-
-            Write-Host "[OK] PR #$PullRequestNumber merged successfully" -ForegroundColor Green
-
-            # Post merge comment
-            $mergeComment = "[OK] All validations passed. PR auto-merged by validation script."
-            Publish-PRComment -Body $mergeComment -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
-
-            exit 0
+            & $task.Command @($task.Arguments) *>$null
+            if ($LASTEXITCODE -ne 0) { throw "Exited with code $LASTEXITCODE" }
+            $result.Status = "PASS"
         } catch {
-            Write-Host "[WARN] Failed to auto-merge PR: $_" -ForegroundColor Yellow
-            exit 1
+            $result.Output = $_.Exception.Message
+        }
+        return $result
+    }
+
+    foreach ($res in $taskResults) {
+        $results[$res.Id].Status = $res.Status
+        $results[$res.Id].Output = $res.Output
+        if ($res.Status -eq "PASS") {
+            Write-Host "  [OK] $($res.Id) passed" -ForegroundColor Green
+        } else {
+            Write-Host "  [FAIL] $($res.Id) failed" -ForegroundColor Red
         }
     }
 } else {
-    # Validation failed - request Copilot to fix
-    Write-Host "`n[FAIL] Validation failed. Requesting Copilot to fix issues..." -ForegroundColor Red
+    Write-Host "`n[1-2/3] Running validation checks sequentially (PS 5.1)..." -ForegroundColor Yellow
+
+    foreach ($task in $validationTasks) {
+        Write-Host "Running $($task.Label)..." -NoNewline
+        try {
+            & $task.Command @($task.Arguments) *>$null
+            if ($LASTEXITCODE -ne 0) { throw "Exited with code $LASTEXITCODE" }
+            $results[$task.Id].Status = "PASS"
+            Write-Host " [OK]" -ForegroundColor Green
+        } catch {
+            $results[$task.Id].Status = "FAIL"
+            $results[$task.Id].Output = $_.Exception.Message
+            Write-Host " [FAIL]" -ForegroundColor Red
+        }
+    }
+}
+
+# 3. Install
+Write-Host "[3/3] Running installation test..." -ForegroundColor Yellow
+try {
+    & "$binDir/check-manifest-install.ps1" -ManifestPath $ManifestPath | Out-Null
+    $results.CheckInstall.Status = "PASS"
+    Write-Host "  [OK] Installation test passed" -ForegroundColor Green
+} catch {
+    $results.CheckInstall.Status = "FAIL"
+    $results.CheckInstall.Output = $_.Exception.Message
+    Write-Host "  [FAIL] Installation failed" -ForegroundColor Red
+}
+
+# Evaluate
+$allPassed = ($results.CheckVer.Status -eq 'PASS') -and
+($results.CheckAutoupdate.Status -eq 'PASS') -and
+($results.CheckInstall.Status -eq 'PASS')
+
+# Build Report
+$icon = if ($allPassed) { "✅" } else { "❌" }
+$report = @"
+## $icon Validation Report: \`$appName\`
+
+| Test | Status | Details |
+|------|--------|---------|
+| **Checkver** | $($results.CheckVer.Status) | $($results.CheckVer.Output) |
+| **Autoupdate** | $($results.CheckAutoupdate.Status) | $($results.CheckAutoupdate.Output) |
+| **Install** | $($results.CheckInstall.Status) | $($results.CheckInstall.Output) |
+
+**Timestamp**: $([DateTime]::UtcNow.ToString('u'))
+"@
+
+Publish-PRComment -Body $report | Out-Null
+
+if ($allPassed) {
+    Write-Host "`n[SUCCESS] All checks passed." -ForegroundColor Green
+
+    if ($IsUserPR) {
+        Write-Host "User PR: Tagging maintainers." -ForegroundColor Cyan
+        Publish-PRComment -Body "✅ Ready for merge. cc: @beyondmeat" | Out-Null
+    } else {
+        Write-Host "Copilot PR: Auto-merging." -ForegroundColor Cyan
+        $mergeResult = Merge-PR -Title "fix(bucket): $appName validation passed" -Message "Auto-merged by validation pipeline."
+
+        if ($mergeResult) {
+            Write-Host "PR Merged." -ForegroundColor Green
+        } else {
+            Write-Error "Failed to merge PR."
+            exit 1
+        }
+    }
+    exit 0
+} else {
+    Write-Host "`n[FAILURE] Validation failed." -ForegroundColor Red
 
     $fixRequest = @"
-## [FAIL] Validation Failed - Requesting Fix
+## ⚠️ Validation Failed
 
-Validation tests failed. Please fix the following issues:
-
-$(if ($validationResults.CheckVer -notlike "*PASS*") { "- [WARN] **Checkver**: $($validationResults.CheckVer)`n" })
-$(if ($validationResults.CheckAutoupdate -notlike "*PASS*") { "- [WARN] **Autoupdate Config**: $($validationResults.CheckAutoupdate)`n" })
-$(if ($validationResults.CheckInstall -notlike "*PASS*") { "- [WARN] **Installation Test**: $($validationResults.CheckInstall)`n" })"@
-
-Please analyze the manifest and fix all issues. Validation will run again automatically.
-
-**Attempts**: This is fix attempt (1/$MaxRetries). If all fix attempts fail, will escalate to @beyondmeat.
+Please analyze the report above and fix the issues.
+- Checkver failures usually mean the regex needs updating.
+- Autoupdate failures mean the download URL is broken.
+- Install failures mean the package is invalid or conflicts exist.
 
 cc: @copilot
 "@
-
-    Publish-PRComment -Body $fixRequest -RepoRef $GitHubRepo -PRNum $PullRequestNumber -Token $GitHubToken | Out-Null
-
+    Publish-PRComment -Body $fixRequest | Out-Null
     exit 1
 }
 

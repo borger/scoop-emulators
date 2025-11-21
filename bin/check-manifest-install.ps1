@@ -1,104 +1,84 @@
 #!/usr/bin/env pwsh
 
-param(
-    [Parameter(Mandatory = $true)]
-    [string]$ManifestPath,
-
-    [string]$AppName = $null
-)
-
 <#
 .SYNOPSIS
-Tests if a manifest can be successfully installed with Scoop.
+    Tests installation of a Scoop manifest.
 
 .DESCRIPTION
-This script performs the following:
-1. Validates the manifest JSON structure
-2. Extracts the app name from the manifest filename if not provided
-3. Runs 'scoop install' with the manifest
-4. Checks for installation success
-5. Returns appropriate exit codes with error messages on failure
+    Validates JSON syntax, installs the app using Scoop, verifies installation,
+    and performs cleanup.
 
 .PARAMETER ManifestPath
-The path to the manifest JSON file to install.
+    Path to the manifest JSON file.
 
 .PARAMETER AppName
-Optional. The name of the app. If not provided, extracted from the manifest filename.
-
-.RETURNS
-0 if installation succeeds
--1 if an error occurs (prints error message to stderr)
+    Optional name override. Defaults to filename.
 #>
+
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateScript({ Test-Path $_ -PathType Leaf })]
+    [string]$ManifestPath,
+
+    [string]$AppName
+)
 
 $ErrorActionPreference = 'Stop'
 
+# Ensure TLS 1.2 is enabled (critical for PS 5.1)
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
+if (-not (Get-Command 'scoop' -ErrorAction SilentlyContinue)) {
+    Write-Error "Scoop is not installed or not in PATH."
+    exit 1
+}
+
 try {
-    # Check if file exists
-    if (!(Test-Path $ManifestPath)) {
-        Write-Error "Manifest file not found: $ManifestPath"
-        exit -1
-    }
-
-    # Convert to absolute path
     $ManifestPath = Convert-Path $ManifestPath
-
-    # Parse app name from filename if not provided
-    if (!$AppName) {
-        $AppName = [System.IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $ManifestPath))
-        Write-Verbose "Extracted app name from filename: $AppName"
+    if ([string]::IsNullOrWhiteSpace($AppName)) {
+        $AppName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
     }
 
-    # Validate manifest JSON structure
+    # Validate JSON syntax
     try {
-        $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
-        Write-Verbose "[OK] Manifest JSON is valid"
+        $json = Get-Content $ManifestPath -Raw | ConvertFrom-Json
+        if (-not $json.version) { throw "Missing 'version' field" }
     } catch {
-        Write-Error "Invalid manifest JSON in $ManifestPath : $($_.Exception.Message)"
-        exit -1
+        throw "Invalid JSON or schema: $($_.Exception.Message)"
     }
 
-    # Check for required manifest fields
-    if (!$manifest.version) {
-        Write-Error "Manifest is missing required 'version' field"
-        exit -1
+    # Clean previous state
+    if (scoop list $AppName) {
+        Write-Host "Cleaning up previous installation..." -ForegroundColor Yellow
+        scoop uninstall $AppName | Out-Null
     }
 
-    Write-Verbose "Manifest version: $($manifest.version)"
+    Write-Host "Installing $AppName..." -ForegroundColor Cyan
 
-    # Check if app is already installed
-    $installedApps = scoop list 2>&1
-    if ($installedApps -match $AppName) {
-        Write-Verbose "App '$AppName' is already installed, uninstalling first..."
-        scoop uninstall $AppName 2>&1 | Out-Null
-        Start-Sleep -Milliseconds 500
+    # Install
+    $installProcess = Start-Process -FilePath 'scoop' -ArgumentList "install `"$ManifestPath`"" -PassThru -Wait -NoNewWindow
+
+    if ($installProcess.ExitCode -ne 0) {
+        throw "Installation failed with exit code $($installProcess.ExitCode)"
     }
 
-    # Attempt installation
-    Write-Verbose "Installing app from manifest: $AppName"
-
-    $installOutput = scoop install $ManifestPath 2>&1
-    $installExitCode = $LASTEXITCODE
-
-    if ($installExitCode -ne 0) {
-        Write-Error "Installation failed with exit code $installExitCode`nOutput: $installOutput"
-        exit -1
+    # Verify
+    if (-not (scoop list $AppName)) {
+        throw "Installation reported success but app not found in list"
     }
 
-    # Verify installation was successful
-    $installedApps = scoop list 2>&1
-    if ($installedApps -match $AppName) {
-        Write-Verbose "[OK] Installation successful: $AppName"
+    Write-Host "Installation successful!" -ForegroundColor Green
+    exit 0
 
-        # Clean up - uninstall after successful test
-        Write-Verbose "Cleaning up: uninstalling $AppName"
-        scoop uninstall $AppName 2>&1 | Out-Null
-
-        exit 0
-    } else {
-        Write-Error "Installation verification failed: $AppName not found in installed apps list"
-        exit -1
-    }
 } catch {
-    Write-Error "Error during installation test: $($_.Exception.Message)"
-    exit -1
+    Write-Error $_.Exception.Message
+    exit 1
+} finally {
+    # Cleanup
+    if (Get-Command 'scoop' -ErrorAction SilentlyContinue) {
+        if (scoop list $AppName) {
+            Write-Host "Uninstalling cleanup..." -ForegroundColor Gray
+            scoop uninstall $AppName | Out-Null
+        }
+    }
 }

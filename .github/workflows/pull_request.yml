@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'pull_request_target'
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v4
       - name: PR Handler
         uses: ScoopInstaller/GithubActions@main
         env:
@@ -25,7 +25,7 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'issues' && (github.event.action == 'opened' || (github.event.action == 'labeled' && contains(github.event.issue.labels.*.name, 'verify')))
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v4
       - name: Issue Handler
         uses: ScoopInstaller/GithubActions@main
         env:
@@ -36,7 +36,7 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/verify')
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v4
       - name: Comment Handler
         uses: ScoopInstaller/GithubActions@main
         env:

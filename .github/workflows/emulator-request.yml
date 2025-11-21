@@ -1,0 +1,48 @@
+name: Handle Emulator Request
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  process-request:
+    if: contains(github.event.issue.labels.*.name, 'request-emulator') || contains(github.event.issue.labels.*.name, 'add-app')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          $env:SCOOP_HOME = "$env:SCOOP\apps\scoop\current"
+          iex (New-Object Net.WebClient).DownloadString('https://get.scoop.sh')
+          "SCOOP=$env:SCOOP" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:PATH = "$env:SCOOP\shims;$env:PATH"
+          "PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Dependencies
+        shell: pwsh
+        run: |
+          scoop install 7zip innounp lessmsi dark
+          # gh is usually pre-installed on windows-latest, but just in case
+          if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+            scoop install gh
+          }
+
+      - name: Generate Manifest
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          .\bin\create-manifest.ps1 -IssueNumber ${{ github.event.issue.number }} -GitHubToken "${{ secrets.GITHUB_TOKEN }}" -CreatePR -NonInteractive

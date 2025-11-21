@@ -52,6 +52,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'Continue'
 
+# Set security protocol for all web requests
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
 # Helper function for colored output (maintains Write-Host functionality with warning suppression)
 function Write-Status {
     param(
@@ -74,6 +77,8 @@ function Write-Status {
     [System.Console]::Out.WriteLine($Message)
     [System.Console]::ResetColor()
 }
+
+Test-Prerequisites
 
 function Get-NonInteractivePreference {
     <#
@@ -170,8 +175,7 @@ function Resolve-CommitVersion {
 
     try {
         $branchUrl = "https://api.github.com/repos/$Owner/$Repo/branches/$trimmed"
-        $branchResponse = Invoke-WebRequest -Uri $branchUrl -ErrorAction Stop
-        $branchInfo = $branchResponse.Content | ConvertFrom-Json
+        $branchInfo = Invoke-RestMethod -Uri $branchUrl -ErrorAction Stop
         if ($branchInfo.commit.sha) {
             $resolved = $branchInfo.commit.sha
             $shortHash = $resolved.Substring(0, 7)
@@ -212,22 +216,19 @@ function Get-GitHubReleaseInfo {
     }
 
     try {
-        $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-        $releaseInfo = $response.Content | ConvertFrom-Json
+        $releaseInfo = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
     } catch {
         if ($_.Exception.Response.StatusCode -eq 'NotFound') {
             # Fallback: Try to get tags if latest release fails (common in pre-release only repos)
             "Latest release not found, checking tags..." | Write-Status -Level Warn
             $tagsUrl = "https://api.github.com/repos/$owner/$repo/tags"
-            $tagsResponse = Invoke-WebRequest -Uri $tagsUrl -ErrorAction Stop
-            $tags = $tagsResponse.Content | ConvertFrom-Json
+            $tags = Invoke-RestMethod -Uri $tagsUrl -ErrorAction Stop
             if ($tags.Count -gt 0) {
                 $latestTag = $tags[0]
                 "Found latest tag: $($latestTag.name)" | Write-Status -Level Info
                 # We need release info for assets, so try to get release by tag
                 $apiUrl = "https://api.github.com/repos/$owner/$repo/releases/tags/$($latestTag.name)"
-                $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-                $releaseInfo = $response.Content | ConvertFrom-Json
+                $releaseInfo = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
             } else {
                 throw "No releases or tags found for $owner/$repo"
             }
@@ -287,12 +288,10 @@ function Get-GitLabReleaseInfo {
     $owner = $matches[1]
     $repo = $matches[2]
 
-    $projectPath = "$owner%2F$repo"
-    $apiUrl = "https://gitlab.com/api/v4/projects/$projectPath/releases"
+    $apiUrl = "https://gitlab.com/api/v4/projects/$owner%2F$repo/releases"
     "Fetching release info from: $apiUrl" | Write-Status -Level Info
 
-    $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-    $releases = $response.Content | ConvertFrom-Json
+    $releases = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
 
     if ($releases.Count -eq 0) {
         throw 'No releases found in GitLab repository'
@@ -355,8 +354,7 @@ function Get-SourceForgeReleaseInfo {
     $apiUrl = "https://sourceforge.net/projects/$project/best_release.json"
     "Fetching release info from: $apiUrl" | Write-Status -Level Info
 
-    $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-    $releaseInfo = $response.Content | ConvertFrom-Json
+    $releaseInfo = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
 
     $filename = $releaseInfo.release.filename
     $version = $null
@@ -417,8 +415,7 @@ function Get-IssueMetadata {
     }
 
     try {
-        $response = Invoke-WebRequest -Uri $apiUrl -Headers $headers -ErrorAction Stop
-        $issueInfo = $response.Content | ConvertFrom-Json
+        $issueInfo = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
 
         if ($issueInfo.body -match 'https?://github\.com/([^/]+)/([^/\s)]+)') {
             $repoUrl = $matches[0]
@@ -471,7 +468,7 @@ function Update-IssueComment {
         $body = @{ body = $Comment } | ConvertTo-Json
 
         try {
-            Invoke-WebRequest -Uri $commentUrl -Headers $headers -Method Post -Body $body -ContentType 'application/json' | Out-Null
+            Invoke-RestMethod -Uri $commentUrl -Headers $headers -Method Post -Body $body -ContentType 'application/json' | Out-Null
             "Added comment to issue #$IssueNumber" | Write-Status -Level OK
         } catch {
             "Failed to add comment: $_" | Write-Status -Level Warn
@@ -482,7 +479,7 @@ function Update-IssueComment {
         $labelBody = @{ labels = $Labels } | ConvertTo-Json
 
         try {
-            Invoke-WebRequest -Uri $apiUrl -Headers $headers -Method Patch -Body $labelBody -ContentType 'application/json' | Out-Null
+            Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Patch -Body $labelBody -ContentType 'application/json' | Out-Null
             'Updated issue labels' | Write-Status -Level OK
         } catch {
             "Failed to update labels: $_" | Write-Status -Level Warn
@@ -503,8 +500,7 @@ function Get-RepositoryInfo {
         $apiUrl = "https://api.github.com/repos/$owner/$repo"
         'Fetching repository metadata...' | Write-Status -Level Info
 
-        $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-        $repoInfo = $response.Content | ConvertFrom-Json
+        $repoInfo = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
 
         # Try to fetch README for better description
         $description = $repoInfo.description
@@ -549,12 +545,10 @@ function Get-RepositoryInfo {
             LicenseUrl  = if ($repoInfo.license) { "https://raw.githubusercontent.com/$owner/$repo/main/LICENSE" } else { $null }
         }
     } elseif ($Platform -eq 'gitlab') {
-        $projectPath = "$owner%2F$repo"
-        $apiUrl = "https://gitlab.com/api/v4/projects/$projectPath?license=true"
+        $apiUrl = "https://gitlab.com/api/v4/projects/$owner%2F$repo?license=true"
         'Fetching repository metadata...' | Write-Status -Level Info
 
-        $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-        $repoInfo = $response.Content | ConvertFrom-Json
+        $repoInfo = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
 
         return @{
             Description = $repoInfo.description
@@ -566,8 +560,7 @@ function Get-RepositoryInfo {
         'Fetching repository metadata...' | Write-Status -Level Info
 
         try {
-            $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-            $repoInfo = $response.Content | ConvertFrom-Json
+            $repoInfo = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
 
             return @{
                 Description = $repoInfo.short_description
@@ -885,8 +878,6 @@ function Get-AssetContent {
 
     $ProgressPreference = 'SilentlyContinue'
 
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
-
     $downloadUrl = if ($Asset.browser_download_url) { $Asset.browser_download_url } else { $Asset.url }
     $fileName = $Asset.name
     $outputPath = Join-Path $OutputDirectory $fileName
@@ -906,7 +897,7 @@ function Get-AssetContent {
     }
 
     "Downloading: $fileName" | Write-Status -Level Info
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $cachedFilePath -ErrorAction Stop
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $cachedFilePath -ErrorAction Stop -UseBasicParsing
     "Downloaded to cache: $cachedFilePath" | Write-Status -Level OK
 
     Copy-Item -Path $cachedFilePath -Destination $outputPath -Force | Out-Null
@@ -1010,7 +1001,9 @@ function Find-Executable {
         [switch]$NonInteractive
     )
 
-    $executables = @(Get-ChildItem -Path $SearchDirectory -Filter '*.exe' -Recurse | Select-Object -First 20)
+    $executables = @(Get-ChildItem -Path $SearchDirectory -Filter '*.exe' -Recurse |
+        Sort-Object Length -Descending |
+        Select-Object -First 20)
 
     # If no executables found, check for JAR files
     if ($executables.Count -eq 0) {
@@ -1667,7 +1660,8 @@ function New-ScoopManifest {
         [string[]]$AuxiliaryBinaries
     )
 
-    $versionToUse = Get-ManifestVersion -RepositoryInfo $RepositoryInfo -Asset ($ArchitectureAssets['64bit'] ?? $ArchitectureAssets['32bit']) -BuildType $BuildType
+    $assetToUse = if ($ArchitectureAssets['64bit']) { $ArchitectureAssets['64bit'] } else { $ArchitectureAssets['32bit'] }
+    $versionToUse = Get-ManifestVersion -RepositoryInfo $RepositoryInfo -Asset $assetToUse -BuildType $BuildType
 
     $manifest = [ordered]@{
         'version'  = $versionToUse
@@ -2412,15 +2406,3 @@ try {
 }
 
 #endregion
-
-<#
-.EXPANSION_SUGGESTIONS
-1. **SourceForge Support**: Add `Get-SourceForgeReleaseInfo` to support emulators hosted on SourceForge.
-2. **Auto-PR Creation**: Integrate with `gh` CLI to automatically create a Pull Request after manifest creation.
-   Example: `gh pr create --title "Add $cleanedAppName" --body "Auto-generated manifest"`
-3. **License Detection**: Improve `Find-LicenseFile` to read the content and match against known license texts (MIT, GPL, etc.) using regex or similarity.
-4. **Installer Extraction**: Integrate `innounp` (Inno Setup Unpacker) and `lessmsi` to automatically extract installers during the analysis phase.
-5. **Icon Extraction**: Extract the icon from the executable using `System.Drawing.Icon.ExtractAssociatedIcon` and save it as a PNG.
-6. **VirusTotal Check**: Upload the executable hash to VirusTotal API to check for malware.
-7. **Interactive Config**: Allow users to interactively edit the generated manifest before saving.
-#>

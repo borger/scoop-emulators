@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
     # Run on all triggers
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v4
 
       - name: Log trigger reason
         shell: pwsh

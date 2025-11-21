@@ -106,6 +106,9 @@ Automatically create GitHub issues for unfixable problems with Copilot and escal
 
 $ErrorActionPreference = 'Stop'
 
+# Set TLS 1.2 (required for GitHub API)
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
 # Issue tracking for notification system
 $issues = @()
 function Add-Issue {
@@ -171,8 +174,8 @@ Manifest: bucket/$appName.json
         } | ConvertTo-Json
 
         $apiUrl = "https://api.github.com/repos/$Repository/issues"
-        $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
-        $issueNumber = ($response.Content | ConvertFrom-Json).number
+        $response = Invoke-RestMethod -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        $issueNumber = $response.number
 
         Write-Host "[OK] GitHub issue #$issueNumber created" -ForegroundColor Green
         Write-Host "  Tags: $($labels -join ', ')" -ForegroundColor Green
@@ -211,13 +214,11 @@ function Repair-VersionPattern {
 
         if ($Platform -eq "github") {
             $apiUrl = "https://api.github.com/repos/$RepoPath/releases?per_page=5"
-            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
-            $releases = $response.Content | ConvertFrom-Json
+            $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
         } elseif ($Platform -eq "gitlab") {
             $projectId = [Uri]::EscapeDataString($RepoPath)
             $apiUrl = "https://gitlab.com/api/v4/projects/$projectId/releases?per_page=5"
-            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
-            $releases = $response.Content | ConvertFrom-Json
+            $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
         }
 
         if ($releases -and $releases.Count -gt 0) {
@@ -265,8 +266,7 @@ function Find-ReleaseByPatternMatch {
 
         if ($Platform -eq "github") {
             $apiUrl = "https://api.github.com/repos/$RepoPath/releases?per_page=10"
-            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
-            $releases = $response.Content | ConvertFrom-Json
+            $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
         }
 
         if ($releases) {
@@ -343,7 +343,7 @@ function Get-ReleaseAssets {
     if ($Platform -eq "github") {
         try {
             $apiUrl = "https://api.github.com/repos/$repo/releases/tags/$Version"
-            $release = Invoke-WebRequest -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing | ConvertFrom-Json
+            $release = Invoke-RestMethod -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing
             return $release.assets
         } catch {
             Write-Host "  [WARN] GitHub API error: $_" -ForegroundColor Yellow
@@ -353,7 +353,7 @@ function Get-ReleaseAssets {
         try {
             $projectId = [Uri]::EscapeDataString($repo)
             $apiUrl = "https://gitlab.com/api/v4/projects/$projectId/releases/$Version"
-            $release = Invoke-WebRequest -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing | ConvertFrom-Json
+            $release = Invoke-RestMethod -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing
 
             # Convert GitLab response to similar format
             $assets = $release.assets.sources | ForEach-Object {
@@ -366,7 +366,7 @@ function Get-ReleaseAssets {
     } elseif ($Platform -eq "gitea") {
         try {
             $apiUrl = "https://$repo/api/v1/repos/$repo/releases/tags/$Version"
-            $release = Invoke-WebRequest -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing | ConvertFrom-Json
+            $release = Invoke-RestMethod -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing
 
             # Convert Gitea response
             $assets = $release.assets | ForEach-Object {
@@ -389,7 +389,7 @@ function Test-HashMismatch {
     try {
         Write-Host "    Verifying hash..." -ForegroundColor Gray
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
+        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing | Out-Null
         $actualHash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
 
         if ($actualHash -ne $StoredHash) {
@@ -405,28 +405,6 @@ function Test-HashMismatch {
         return $null
     } finally {
         if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
-    }
-}
-
-# Get GitHub release assets for a specific tag
-function Get-GitHubReleaseAssets {
-    param(
-        [string]$Owner,
-        [string]$Repo,
-        [string]$TagName = 'latest'
-    )
-
-    $apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/$TagName"
-    Write-Verbose "[INFO] Fetching GitHub release assets from: $apiUrl"
-
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
-        $releaseInfo = $response.Content | ConvertFrom-Json
-        return $releaseInfo.assets
-    } catch {
-        Write-Verbose "[WARN] Could not fetch GitHub release assets: $_"
-        return $null
     }
 }
 
@@ -458,7 +436,7 @@ function Get-ReleaseChecksum {
         try {
             $ProgressPreference = 'SilentlyContinue'
             $tempFile = [System.IO.Path]::GetTempFileName()
-            Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop
+            Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing
 
             # Parse the checksum file
             $content = Get-Content -Path $tempFile -Raw
@@ -494,7 +472,7 @@ function Get-RemoteFileHash {
     $tempFile = [System.IO.Path]::GetTempFileName()
     try {
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
+        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing | Out-Null
         $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
         return $hash
     } catch {
@@ -583,7 +561,7 @@ try {
             try {
                 if ($repoPlatform -eq "github") {
                     $apiUrl = "https://api.github.com/repos/$repoPath/releases/latest"
-                    $latestRelease = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop | ConvertFrom-Json
+                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
 
                     if ($latestRelease -and $latestRelease.tag_name) {
                         # Repair checkver to use API-based version detection
@@ -659,7 +637,7 @@ try {
             try {
                 if ($repoPlatform -eq "github") {
                     $apiUrl = "https://api.github.com/repos/$repoPath/releases/latest"
-                    $latestRelease = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop | ConvertFrom-Json
+                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
 
                     if ($latestRelease) {
                         if ($latestRelease.tag_name) {
@@ -948,10 +926,10 @@ try {
         $releaseAssets = $null
         $hasChecksumFiles = $false
         if ($gitHubOwner -and $gitHubRepo) {
-            $releaseAssets = Get-GitHubReleaseAssets -Owner $gitHubOwner -Repo $gitHubRepo -TagName "v$($manifest.version)"
+            $releaseAssets = Get-ReleaseAssets -Repo "$gitHubOwner/$gitHubRepo" -Version "v$($manifest.version)" -Platform "github"
             if (-not $releaseAssets) {
                 # Try without 'v' prefix
-                $releaseAssets = Get-GitHubReleaseAssets -Owner $gitHubOwner -Repo $gitHubRepo -TagName $manifest.version
+                $releaseAssets = Get-ReleaseAssets -Repo "$gitHubOwner/$gitHubRepo" -Version $manifest.version -Platform "github"
             }
             # Check if checksum files exist
             if ($releaseAssets) {
@@ -960,84 +938,41 @@ try {
             }
         }
 
-        if ($manifest.url) {
-            # If checksum files exist in release, use API-based hash lookup
-            if ($hasChecksumFiles -and $releaseAssets) {
-                $fileName = Split-Path -Leaf $manifest.url
-                $manifest.hash = [ordered]@{
-                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
-                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
-                }
-                Write-Host "  [OK] Generic hash configured for API lookup: $fileName"
-            } else {
-                # Fall back to static hash
-                $hash64 = $null
-                if ($releaseAssets) {
-                    $fileName = Split-Path -Leaf $manifest.url
-                    $hash64 = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
-                }
-                if (-not $hash64) {
-                    $hash64 = Get-RemoteFileHash -Url $manifest.url
-                }
-                if ($hash64) {
-                    $manifest.hash = $hash64
-                    Write-Host "  [OK] Generic hash updated"
-                }
-            }
-        }
+        $hashTargets = @()
+        if ($manifest.url) { $hashTargets += @{ Name = 'Generic'; Obj = $manifest; Url = $manifest.url } }
+        if ($manifest.architecture.'64bit'.url) { $hashTargets += @{ Name = '64bit'; Obj = $manifest.architecture.'64bit'; Url = $manifest.architecture.'64bit'.url } }
+        if ($manifest.architecture.'32bit'.url) { $hashTargets += @{ Name = '32bit'; Obj = $manifest.architecture.'32bit'; Url = $manifest.architecture.'32bit'.url } }
 
-        if ($manifest.architecture.'64bit'.url) {
-            # If checksum files exist in release, use API-based hash lookup
-            if ($hasChecksumFiles -and $releaseAssets) {
-                $fileName = Split-Path -Leaf $manifest.architecture.'64bit'.url
-                $manifest.architecture.'64bit'.hash = [ordered]@{
-                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
-                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
-                }
-                Write-Host "  [OK] 64bit hash configured for API lookup: $fileName"
-            } else {
-                # Fall back to static hash
-                $hash64bit = $null
-                if ($releaseAssets) {
-                    $fileName = Split-Path -Leaf $manifest.architecture.'64bit'.url
-                    $hash64bit = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
-                }
-                if (-not $hash64bit) {
-                    $hash64bit = Get-RemoteFileHash -Url $manifest.architecture.'64bit'.url
-                }
-                if ($hash64bit) {
-                    $manifest.architecture.'64bit'.hash = $hash64bit
-                    Write-Host "  [OK] 64bit hash updated"
-                } else {
-                    Write-Host "  [WARN] Could not get 64bit hash"
-                }
-            }
-        }
+        foreach ($target in $hashTargets) {
+            $targetName = $target.Name
+            $targetObj = $target.Obj
+            $targetUrl = $target.Url
 
-        if ($manifest.architecture.'32bit'.url) {
             # If checksum files exist in release, use API-based hash lookup
             if ($hasChecksumFiles -and $releaseAssets) {
-                $fileName = Split-Path -Leaf $manifest.architecture.'32bit'.url
-                $manifest.architecture.'32bit'.hash = [ordered]@{
+                $fileName = Split-Path -Leaf $targetUrl
+                $targetObj.hash = [ordered]@{
                     "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
                     "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
                 }
-                Write-Host "  [OK] 32bit hash configured for API lookup: $fileName"
+                Write-Host "  [OK] $targetName hash configured for API lookup: $fileName"
             } else {
                 # Fall back to static hash
-                $hash32bit = $null
+                $newHash = $null
                 if ($releaseAssets) {
-                    $fileName = Split-Path -Leaf $manifest.architecture.'32bit'.url
-                    $hash32bit = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
+                    $fileName = Split-Path -Leaf $targetUrl
+                    $newHash = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
                 }
-                if (-not $hash32bit) {
-                    $hash32bit = Get-RemoteFileHash -Url $manifest.architecture.'32bit'.url
+                if (-not $newHash) {
+                    $newHash = Get-RemoteFileHash -Url $targetUrl
                 }
-                if ($hash32bit) {
-                    $manifest.architecture.'32bit'.hash = $hash32bit
-                    Write-Host "  [OK] 32bit hash updated"
+                if ($newHash) {
+                    $targetObj.hash = $newHash
+                    Write-Host "  [OK] $targetName hash updated"
                 } else {
-                    Write-Host "  [WARN] Could not get 32bit hash"
+                    if ($targetName -ne 'Generic') {
+                        Write-Host "  [WARN] Could not get $targetName hash"
+                    }
                 }
             }
         }
