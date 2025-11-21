@@ -71,10 +71,10 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
 6. **Windows 11 Environment** - Commands should be windows compatible
    - AVOID: Unix utilities like `head`, `tail`, `grep`, `sed`, `awk`
    - USE: PowerShell cmdlets instead:
-     - `head -n 5` → `Select-Object -First 5`
-     - `tail -n 5` → `Select-Object -Last 5`
-     - `grep pattern` → `Select-String -Pattern pattern`
-     - `| sort` → `| Sort-Object`
+     - First 5 items: `Select-Object -First 5`
+     - Last 5 items: `Select-Object -Last 5`
+     - Pattern matching: `Select-String -Pattern pattern`
+     - Sorting: `Sort-Object`
 
 ---
 
@@ -304,7 +304,7 @@ or with regex:
 ### Troubleshooting
 | Issue | Likely Cause | Debug Step |
 |-------|--------------|-----------|
-| Checkver fails | Invalid URL, broken regex, auth required | Test URL manually with curl/Invoke-WebRequest |
+| Checkver fails | Invalid URL, broken regex, auth required | Test URL manually with Invoke-WebRequest |
 | Autoupdate fails | Version format mismatch with URL template | Manually substitute version and verify URL exists |
 | Install fails | Broken URL or hash mismatch | Verify URLs download, recalculate hash if needed |
 
