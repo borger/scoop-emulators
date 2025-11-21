@@ -136,6 +136,11 @@ jobs:
           "SCOOP=$env:SCOOP" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Install Dependencies
+        shell: pwsh
+        run: |
+          if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) { scoop install 7zip }
+
       - name: Auto-fix broken manifests
         shell: pwsh
         run: |

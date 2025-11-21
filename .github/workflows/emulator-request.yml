@@ -34,7 +34,11 @@ jobs:
       - name: Install Dependencies
         shell: pwsh
         run: |
-          scoop install 7zip innounp lessmsi dark
+          if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) { scoop install 7zip }
+          if (-not (Get-Command innounp -ErrorAction SilentlyContinue)) { scoop install innounp }
+          if (-not (Get-Command lessmsi -ErrorAction SilentlyContinue)) { scoop install lessmsi }
+          if (-not (Get-Command dark -ErrorAction SilentlyContinue)) { scoop install dark }
+
           # gh is usually pre-installed on windows-latest, but just in case
           if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
             scoop install gh

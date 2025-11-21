@@ -56,10 +56,9 @@ try {
     Write-Host "Installing $AppName..." -ForegroundColor Cyan
 
     # Install
-    $installProcess = Start-Process -FilePath 'scoop' -ArgumentList "install `"$ManifestPath`"" -PassThru -Wait -NoNewWindow
-
-    if ($installProcess.ExitCode -ne 0) {
-        throw "Installation failed with exit code $($installProcess.ExitCode)"
+    scoop install "$ManifestPath"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installation failed with exit code $LASTEXITCODE"
     }
 
     # Verify

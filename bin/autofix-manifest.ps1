@@ -199,6 +199,37 @@ function Test-ManifestStructure {
     return $errors
 }
 
+# Sort manifest keys according to Scoop standards
+function Get-OrderedManifest {
+    param([object]$Manifest)
+
+    $orderedKeys = @(
+        'version', 'description', 'homepage', 'license', 'notes', 'depends', 'suggest',
+        'identifier', 'url', 'hash', 'architecture', 'extract_dir', 'extract_to',
+        'pre_install', 'installer', 'post_install', 'env_add_path', 'env_set',
+        'bin', 'shortcuts', 'persist', 'uninstaller', 'checkver', 'autoupdate',
+        '64bit', '32bit', 'arm64'
+    )
+
+    $sorted = [ordered]@{}
+
+    # Add known keys in order
+    foreach ($key in $orderedKeys) {
+        if ($Manifest.PSObject.Properties.Match($key).Count) {
+            $sorted[$key] = $Manifest.$key
+        }
+    }
+
+    # Add remaining keys
+    foreach ($prop in $Manifest.PSObject.Properties) {
+        if ($orderedKeys -notcontains $prop.Name) {
+            $sorted[$prop.Name] = $prop.Value
+        }
+    }
+
+    return $sorted
+}
+
 # Detect version scheme changes and attempt pattern recovery
 function Repair-VersionPattern {
     param(
@@ -347,7 +378,6 @@ function Get-ReleaseAssets {
             return $release.assets
         } catch {
             Write-Host "  [WARN] GitHub API error: $_" -ForegroundColor Yellow
-            $errorMsg = $_
         }
     } elseif ($Platform -eq "gitlab") {
         try {
@@ -585,11 +615,22 @@ try {
 
     # Parse version from checkver output if not already obtained
     if (-not $latestVersion) {
-        # Extract version from the scoop version line - this is the parsed version checkver produced
-        if ($checkverOutput -match '\(scoop version is ([^\)]+)\)') {
+        # Extract version from checkver output: "appname: version (scoop version is old_version)"
+        # We want the first version, not the one in parentheses (which is the local version)
+        if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
             $latestVersion = $matches[1]
             Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
-        } else {
+        } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
+            # Fallback for when "(scoop version is...)" is missing (e.g. new app?)
+            $potentialVersion = $matches[1]
+            if ($potentialVersion -ne "couldn't") {
+                # Avoid matching "couldn't match"
+                $latestVersion = $potentialVersion
+                Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+            }
+        }
+
+        if (-not $latestVersion) {
             # Fallback: Extract the version line after "appname:"
             $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
 
@@ -631,7 +672,7 @@ try {
 
         if ($repoPath) {
             Write-Host "  Detecting version scheme from repository..." -ForegroundColor Gray
-            $schemeType = Repair-VersionPattern -AppName $appName -RepoPath $repoPath -Platform $repoPlatform
+            Repair-VersionPattern -AppName $appName -RepoPath $repoPath -Platform $repoPlatform | Out-Null
 
             # Get latest release
             try {
@@ -671,11 +712,14 @@ try {
                 exit 0
             }
 
-            Write-Host "[OK] Manifest already up-to-date (v$currentVersion)"
+            Write-Host "[OK] Manifest already up-to-date ($currentVersion)"
             exit 0
         }
 
-        Write-Host "Found update: v$currentVersion -> v$latestVersion" -ForegroundColor Yellow
+        Write-Host "Found update: $currentVersion -> $latestVersion" -ForegroundColor Yellow
+
+        # Update version in memory object
+        $manifest.version = $latestVersion
 
         # Attempt to detect and fix URL issues
         Write-Host "Analyzing download URLs..."
@@ -700,63 +744,71 @@ try {
 
             # Try to construct new URL based on version change
             $newUrl = $oldUrl -replace [regex]::Escape($currentVersion), $latestVersion
+            $urlChanged = $newUrl -ne $oldUrl
+            $urlValid = $false
 
             Write-Host "Checking $arch URL..."
 
-            # Test if old URL works
-            $urlValid = $false
-            try {
-                $response = Invoke-WebRequest -Uri $oldUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
-                if ($response.StatusCode -eq 200) {
-                    Write-Host "  [OK] Current URL still valid"
-                    $urlValid = $true
+            # If URL structure suggests it depends on version, try new URL first
+            if ($urlChanged) {
+                try {
+                    $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
+                    if ($response.StatusCode -eq 200) {
+                        Write-Host "  [OK] Fixed URL found with version substitution: $newUrl" -ForegroundColor Green
 
-                    # Verify hash if it exists
-                    $hashField = if ($arch -eq "generic") { "hash" } else { "hash" }
-                    if ($manifest.PSObject.Properties.Name -contains $hashField) {
-                        $currentHash = if ($arch -eq "generic") { $manifest.hash } else { $manifest.architecture.$arch.hash }
-                        if ($currentHash) {
-                            $hashResult = Test-HashMismatch -Url $oldUrl -StoredHash $currentHash
-                            if ($hashResult -and $hashResult.Mismatch) {
-                                Write-Host "    [OK] Auto-fixing hash mismatch" -ForegroundColor Green
-                                if ($arch -eq "generic") {
-                                    $manifest.hash = $hashResult.ActualHash.ToLower()
-                                } else {
-                                    $manifest.architecture.$arch.hash = $hashResult.ActualHash.ToLower()
+                        # Update manifest with new URL
+                        if ($arch -eq "generic") {
+                            $manifest.url = $newUrl
+                        } elseif ($arch -eq "64bit") {
+                            $manifest.architecture.'64bit'.url = $newUrl
+                        } elseif ($arch -eq "32bit") {
+                            $manifest.architecture.'32bit'.url = $newUrl
+                        }
+
+                        continue
+                    }
+                } catch {
+                    Write-Host "  [INFO] Version-substituted URL not accessible"
+                }
+            }
+
+            # If new URL failed or wasn't tried, check old URL
+            if (!$urlValid) {
+                try {
+                    $response = Invoke-WebRequest -Uri $oldUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
+                    if ($response.StatusCode -eq 200) {
+                        Write-Host "  [OK] Current URL still valid"
+                        $urlValid = $true
+
+                        # Verify hash if it exists
+                        $hashField = if ($arch -eq "generic") { "hash" } else { "hash" }
+                        if ($manifest.PSObject.Properties.Name -contains $hashField) {
+                            $currentHash = if ($arch -eq "generic") { $manifest.hash } else { $manifest.architecture.$arch.hash }
+                            if ($currentHash) {
+                                $hashResult = Test-HashMismatch -Url $oldUrl -StoredHash $currentHash
+                                if ($hashResult -and $hashResult.Mismatch) {
+                                    Write-Host "    [OK] Auto-fixing hash mismatch" -ForegroundColor Green
+                                    if ($arch -eq "generic") {
+                                        $manifest.hash = $hashResult.ActualHash.ToLower()
+                                    } else {
+                                        $manifest.architecture.$arch.hash = $hashResult.ActualHash.ToLower()
+                                    }
                                 }
                             }
                         }
+                        continue
                     }
-                    continue
+                } catch {
+                    Write-Host "  [FAIL] Current URL returned error: $($_.Exception.Message)"
                 }
-            } catch {
-                Write-Host "  [FAIL] Current URL returned error: $($_.Exception.Message)"
             }
 
             if (!$urlValid) {
                 Write-Host "  [FAIL] URL is not accessible - attempting to fix"
             }
 
-            # If URL is not valid, try version-substituted URL first
-            try {
-                $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
-                if ($response.StatusCode -eq 200) {
-                    Write-Host "  [OK] Fixed URL found with version substitution: $newUrl" -ForegroundColor Green
-
-                    # Update manifest with new URL
-                    if ($arch -eq "generic") {
-                        $manifest.url = $newUrl
-                    } elseif ($arch -eq "64bit") {
-                        $manifest.architecture.'64bit'.url = $newUrl
-                    } elseif ($arch -eq "32bit") {
-                        $manifest.architecture.'32bit'.url = $newUrl
-                    }
-
-                    continue
-                }
-            } catch {
-                # New URL also failed, try to find via repository API
-            }
+            # If URL is not valid, try version-substituted URL first (already tried above, but logic flow continues)
+            # We can skip this block as we already tried substitution above
 
             # Try to find via repository API (GitHub, GitLab, Gitea)
             $repoPlatform = "github"
@@ -943,6 +995,8 @@ try {
         if ($manifest.architecture.'64bit'.url) { $hashTargets += @{ Name = '64bit'; Obj = $manifest.architecture.'64bit'; Url = $manifest.architecture.'64bit'.url } }
         if ($manifest.architecture.'32bit'.url) { $hashTargets += @{ Name = '32bit'; Obj = $manifest.architecture.'32bit'; Url = $manifest.architecture.'32bit'.url } }
 
+        $forceRewrite = $false
+
         foreach ($target in $hashTargets) {
             $targetName = $target.Name
             $targetObj = $target.Obj
@@ -951,9 +1005,16 @@ try {
             # If checksum files exist in release, use API-based hash lookup
             if ($hasChecksumFiles -and $releaseAssets) {
                 $fileName = Split-Path -Leaf $targetUrl
-                $targetObj.hash = [ordered]@{
+                $hashValue = [ordered]@{
                     "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
                     "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
+                }
+
+                if ($targetObj.PSObject.Properties.Match('hash').Count) {
+                    $targetObj.hash = $hashValue
+                } else {
+                    $targetObj | Add-Member -MemberType NoteProperty -Name "hash" -Value $hashValue
+                    $forceRewrite = $true
                 }
                 Write-Host "  [OK] $targetName hash configured for API lookup: $fileName"
             } else {
@@ -967,7 +1028,13 @@ try {
                     $newHash = Get-RemoteFileHash -Url $targetUrl
                 }
                 if ($newHash) {
-                    $targetObj.hash = $newHash
+                    if ($targetObj.PSObject.Properties.Match('hash').Count) {
+                        $targetObj.hash = $newHash
+                    } else {
+                        $targetObj | Add-Member -MemberType NoteProperty -Name "hash" -Value $newHash
+                        $forceRewrite = $true
+                        Write-Host "  [INFO] Added missing hash field, will rewrite manifest" -ForegroundColor Gray
+                    }
                     Write-Host "  [OK] $targetName hash updated"
                 } else {
                     if ($targetName -ne 'Generic') {
@@ -977,9 +1044,48 @@ try {
             }
         }
 
+        # If we added new fields (like hash), we must rewrite the file using ConvertTo-Json
+        # because regex replacement can't easily insert new lines in the right place
+        if ($forceRewrite) {
+            Write-Host "  [INFO] Rewriting manifest to include new fields..." -ForegroundColor Cyan
+
+            # Sort keys before saving
+            $sortedManifest = Get-OrderedManifest -Manifest $manifest
+            $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
+
+            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+            [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+
+            # Format the JSON to match Scoop standards
+            $formatScript = "$PSScriptRoot/formatjson.ps1"
+            if (Test-Path $formatScript) {
+                Write-Host "  [INFO] Formatting manifest..." -ForegroundColor Cyan
+                try {
+                    $output = & $formatScript -App $appName 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Host "  [WARN] Formatting failed: $output" -ForegroundColor Yellow
+                    }
+                } catch {
+                    Write-Host "  [WARN] Formatting script error: $_" -ForegroundColor Yellow
+                }
+            }
+
+            Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
+            exit 0
+        }
+
         # Save updated manifest - preserve original formatting by doing targeted text replacements
         $originalContent = Get-Content $ManifestPath -Raw
         $updatedContent = $originalContent
+
+        # Update version in text content if it changed
+        if ($currentVersion -ne $latestVersion) {
+            $versionPattern = '"version":\s*"' + [regex]::Escape($currentVersion) + '"'
+            if ($updatedContent -match $versionPattern) {
+                $updatedContent = $updatedContent -replace $versionPattern, "`"version`": `"$latestVersion`""
+                Write-Host "  [OK] Updated version in manifest text" -ForegroundColor Green
+            }
+        }
 
         # Build list of replacements (URL, old hash, new hash)
         $replacements = @()

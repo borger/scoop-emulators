@@ -78,6 +78,18 @@ function Write-Status {
     [System.Console]::ResetColor()
 }
 
+function Test-Prerequisites {
+    $missing = @()
+    if (-not (Get-Command '7z' -ErrorAction SilentlyContinue)) { $missing += '7z' }
+    if (-not (Get-Command 'git' -ErrorAction SilentlyContinue)) { $missing += 'git' }
+
+    if ($missing) {
+        "Missing prerequisites: $($missing -join ', ')" | Write-Status -Level Error
+        "Please install them via Scoop: scoop install $($missing -join ' ')" | Write-Status -Level Info
+        exit 1
+    }
+}
+
 Test-Prerequisites
 
 function Get-NonInteractivePreference {
@@ -141,7 +153,11 @@ function Test-NightlyBuild {
     [CmdletBinding()]
     param([string]$TagName)
 
-    $nightlyPatterns = @('nightly', 'continuous', 'dev', 'latest', 'main', 'master', 'trunk', 'canary')
+    if ($TagName -match 'nightly|continuous|dev|canary') {
+        return $true
+    }
+
+    $nightlyPatterns = @('latest', 'main', 'master', 'trunk')
     return $nightlyPatterns -contains ($TagName.ToLower())
 }
 
@@ -244,10 +260,45 @@ function Get-GitHubReleaseInfo {
     if (Test-NightlyBuild -TagName $releaseInfo.tag_name) {
         $buildType = 'nightly'
         'Detected nightly/continuous build' | Write-Status -Level OK
-        $commitInfo = Resolve-CommitVersion -Owner $owner -Repo $repo -TargetCommitish $releaseInfo.target_commitish
-        if ($commitInfo) {
-            $versionToUse = $commitInfo.Short
-            $resolvedCommitHash = $commitInfo.Full
+
+        # Priority 1: Check release name or tag name for version hash (e.g. Citron "Nightly: 3f5587ea9")
+        # We look for 7-9 hex characters that are NOT part of a larger word
+        $hashRegex = '(?<![a-f0-9])([a-f0-9]{7,9})(?![a-f0-9])'
+
+        if ($releaseInfo.name -match $hashRegex) {
+            $versionToUse = $matches[1]
+            $resolvedCommitHash = $versionToUse
+            "Found version hash in release name: $versionToUse" | Write-Status -Level OK
+        } elseif ($releaseInfo.tag_name -match $hashRegex) {
+            $versionToUse = $matches[1]
+            $resolvedCommitHash = $versionToUse
+            "Found version hash in tag name: $versionToUse" | Write-Status -Level OK
+        } else {
+            # Priority 2: Fallback based on keywords
+            $lowerName = $releaseInfo.name.ToLower()
+            $lowerTag = $releaseInfo.tag_name.ToLower()
+
+            if ($lowerName -eq 'nightly' -or $lowerTag -eq 'nightly') {
+                # If strictly "nightly", use date
+                if ($releaseInfo.published_at) {
+                    $versionToUse = (Get-Date $releaseInfo.published_at).ToString('yyyy-MM-dd')
+                    "Using release date as version: $versionToUse" | Write-Status -Level OK
+                } else {
+                    # Fallback to commit hash if no date (unlikely for release)
+                    $commitInfo = Resolve-CommitVersion -Owner $owner -Repo $repo -TargetCommitish $releaseInfo.target_commitish
+                    if ($commitInfo) {
+                        $versionToUse = $commitInfo.Short
+                        $resolvedCommitHash = $commitInfo.Full
+                    }
+                }
+            } else {
+                # "continuous", "dev", or other variants -> use commit hash
+                $commitInfo = Resolve-CommitVersion -Owner $owner -Repo $repo -TargetCommitish $releaseInfo.target_commitish
+                if ($commitInfo) {
+                    $versionToUse = $commitInfo.Short
+                    $resolvedCommitHash = $commitInfo.Full
+                }
+            }
         }
     } elseif ($releaseInfo.prerelease) {
         $buildType = 'dev'
@@ -263,6 +314,8 @@ function Get-GitHubReleaseInfo {
         Owner        = $owner
         Repo         = $repo
         TagName      = $releaseInfo.tag_name
+        ReleaseName  = $releaseInfo.name
+        ReleaseBody  = $releaseInfo.body
         Version      = $versionToUse
         Assets       = $releaseInfo.assets
         RepoUrl      = "https://github.com/$owner/$repo"
@@ -658,12 +711,6 @@ function Find-Dependencies {
         $depends += 'dotnet-runtime'
     }
 
-    # Check for OpenAL
-    if (Get-ChildItem -Path $Directory -Recurse -Filter 'OpenAL32.dll' -File) {
-        "Detected OpenAL DLL, adding 'openal' dependency" | Write-Status -Level Info
-        $depends += 'openal'
-    }
-
     # Check for Java dependencies
     # Heuristic: presence of .jar files
     $jarFiles = Get-ChildItem -Path $Directory -Recurse -Filter '*.jar' -File
@@ -987,6 +1034,21 @@ function Expand-Asset {
     "Archive extracted to: $ExtractDirectory" | Write-Status -Level OK
 
     return $ExtractDirectory
+}
+
+function Get-ExtractDir {
+    <#
+    .SYNOPSIS
+    Determines if the extracted content is contained within a single directory.
+    #>
+    [CmdletBinding()]
+    param([string]$Directory)
+
+    $items = Get-ChildItem -Path $Directory -Force
+    if ($items.Count -eq 1 -and $items[0].PSIsContainer) {
+        return $items[0].Name
+    }
+    return $null
 }
 
 #endregion
@@ -1339,26 +1401,42 @@ After making changes, close the application normally.
 
     $initialSnapshot = Get-DirectorySnapshot -Path $WorkingDirectory
 
+    "Launching application..." | Write-Status -Level Info
+
     try {
         $process = Start-Process -FilePath $ExecutablePath -WorkingDirectory $WorkingDirectory -PassThru -ErrorAction Stop
         $startTime = Get-Date
+        $timeoutWarned = $false
 
         while (-not $process.HasExited) {
             if (((Get-Date) - $startTime).TotalSeconds -gt $TimeoutSeconds) {
                 if ($IsNonInteractive) {
-                    '[INFO] Timeout reached, auto-closing application...' | Write-Status -Level Info
-                    $process | Stop-Process -Force -ErrorAction SilentlyContinue
-                } else {
-                    '[INFO] Timeout reached. Please close the application manually or press ENTER if already closed...' | Write-Status -Level Info
-                    # Give user a chance to react if they are slow
-                    if ([Console]::KeyAvailable) {
-                        $null = [Console]::ReadKey($true)
+                    '[INFO] Timeout reached, closing application...' | Write-Status -Level Info
+
+                    # Try graceful close first
+                    $process.CloseMainWindow() | Out-Null
+
+                    # Wait up to 5 seconds for graceful exit
+                    $closeStart = Get-Date
+                    while (-not $process.HasExited -and ((Get-Date) - $closeStart).TotalSeconds -lt 5) {
+                        Start-Sleep -Milliseconds 500
+                        $process.Refresh()
                     }
+
+                    if (-not $process.HasExited) {
+                        '[INFO] Application blocked or hung, force killing...' | Write-Status -Level Warn
+                        $process | Stop-Process -Force -ErrorAction SilentlyContinue
+                    }
+                    break
+                } elseif (-not $timeoutWarned) {
+                    '[INFO] Timeout reached. Please close the application manually when done...' | Write-Status -Level Info
+                    $timeoutWarned = $true
                 }
-                break
             }
             Start-Sleep -Milliseconds 500
         }
+
+        "Application closed. Analyzing file system changes..." | Write-Status -Level Info
 
         # Ensure process is really gone
         if (-not $process.HasExited) {
@@ -1483,6 +1561,27 @@ function Get-ManifestCheckver {
 
     if ($RepositoryInfo.Platform -eq 'github') {
         if ($BuildType -in @('nightly', 'dev')) {
+            # Check if release name contains a commit hash (common in nightly builds like Citron)
+            if ($RepositoryInfo.ReleaseName -match '(?<prefix>.*?)(?<hash>[a-f0-9]{7,9})(?<suffix>.*)') {
+                $hash = $matches['hash']
+                $prefix = [regex]::Escape($matches['prefix'])
+                $suffix = [regex]::Escape($matches['suffix'])
+
+                # Construct a regex that matches the version in the release name
+                # We use a simplified regex if the prefix/suffix are complex, focusing on the hash
+                $re = "$prefix([a-f0-9]{7,9})$suffix"
+                if ($RepositoryInfo.ReleaseName -match 'Nightly: ([a-f0-9]+)') {
+                    $re = 'Nightly: ([a-f0-9]+)'
+                }
+
+                "Detected version hash in release name: $hash" | Write-Status -Level OK
+                return @{
+                    'url' = "https://api.github.com/repos/$($RepositoryInfo.Owner)/$($RepositoryInfo.Repo)/releases/tags/$($RepositoryInfo.TagName)"
+                    'jp'  = "$.name"
+                    're'  = $re
+                }
+            }
+
             # For nightly/dev builds, get commit hash from the branch
             $branchName = 'main'
             if ($RepositoryInfo.TargetRef -and ($RepositoryInfo.TargetRef -notmatch '^[0-9a-f]{7,}$')) {
@@ -1616,6 +1715,9 @@ if (-not (Test-Path "`$dir\$folder")) {
     }
 
     $repoNameLower = $RepoName.ToLower()
+    # Clean up common suffixes that might not be in the app data folder name (e.g. Citron-CI -> citron)
+    $repoNameLower = $repoNameLower -replace '[-_]?(ci|dev|nightly|canary|preview)$', ''
+
     return $portableTxtCode + $folderCreationCode + @"
 
 `$appDataPath = `$env:APPDATA
@@ -1633,6 +1735,59 @@ if (-not (Test-Path "`$dir\$folder")) {
     }
 }
 "@
+}
+
+function Get-ManifestLicense {
+    <#
+    .SYNOPSIS
+    Determines the license string for the manifest.
+    #>
+    [CmdletBinding()]
+    param(
+        [hashtable]$Metadata,
+        [string]$LicenseFile
+    )
+
+    if ($Metadata.License) {
+        return $Metadata.License
+    }
+    if ($LicenseFile) {
+        return $LicenseFile
+    }
+    return "Unknown"
+}
+
+function Get-ManifestArchitecture {
+    <#
+    .SYNOPSIS
+    Constructs the architecture section of the manifest.
+    #>
+    [CmdletBinding()]
+    param(
+        [hashtable]$ArchitectureAssets
+    )
+
+    $arch = [ordered]@{}
+
+    foreach ($key in $ArchitectureAssets.Keys) {
+        $asset = $ArchitectureAssets[$key]
+        $url = if ($asset.browser_download_url) { $asset.browser_download_url } else { $asset.url }
+        $arch[$key] = [ordered]@{
+            'url' = $url
+        }
+
+        if ($asset.Hash) {
+            $arch[$key]['hash'] = $asset.Hash
+        } elseif ($asset.Checksum) {
+            $arch[$key]['hash'] = $asset.Checksum
+        }
+
+        if ($asset.ExtractDir) {
+            $arch[$key]['extract_dir'] = $asset.ExtractDir
+        }
+    }
+
+    return $arch
 }
 
 function New-ScoopManifest {
@@ -1923,7 +2078,20 @@ function Export-Manifest {
     [System.IO.File]::WriteAllText($jsonPath, $json + "`n", $utf8NoBom)
 
     'Manifest saved to: ' + $jsonPath | Write-Status -Level OK
-    'Run ''npx prettier --write ' + "$cleanedName.json'" + ''' to format the JSON' | Write-Status -Level Info
+
+    # Format the JSON to match Scoop standards
+    $formatScript = Join-Path $PSScriptRoot "formatjson.ps1"
+    if (Test-Path $formatScript) {
+        'Formatting manifest...' | Write-Status -Level Info
+        try {
+            $output = & $formatScript -App $cleanedName 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                "Formatting failed: $output" | Write-Status -Level Warn
+            }
+        } catch {
+            "Formatting script error: $_" | Write-Status -Level Warn
+        }
+    }
 
     return $jsonPath
 }
@@ -2132,12 +2300,12 @@ try {
 
         $extractDirName = Get-ExtractDir -Directory $extractDir
 
-        $licenseFile = Find-LicenseFile -SearchDirectory $extractDir
+        $licenseFile = Find-LicenseFile -Directory $extractDir
         if ($licenseFile) {
             "License file found: $licenseFile" | Write-Status -Level OK
         }
 
-        $dependencies = Find-Dependencies -SearchDirectory $extractDir
+        $dependencies = Find-Dependencies -Directory $extractDir
         if ($dependencies) {
             "Dependencies detected: $($dependencies -join ', ')" | Write-Status -Level OK
         }
@@ -2146,6 +2314,37 @@ try {
         $auxBinaries = Find-AuxiliaryBinaries -Directory $extractDir -MainExecutableName $executableName
         if ($auxBinaries) {
             "Auxiliary binaries found: $($auxBinaries -join ', ')" | Write-Status -Level Info
+
+            if (-not $sessionIsNonInteractive) {
+                $selectedAux = @()
+
+                '' | Write-Status
+                'Select auxiliary binaries to include:' | Write-Status -Level Info
+                for ($i = 0; $i -lt $auxBinaries.Count; $i++) {
+                    "  [$($i + 1)] $($auxBinaries[$i])" | Write-Status -Level Info
+                }
+
+                $response = Read-Host "Enter numbers separated by commas (e.g. 1,3) or 'all'/'none' [Default: none]"
+
+                if ($response -match '(?i)^all$') {
+                    $selectedAux = $auxBinaries
+                } elseif ($response -match '(?i)^none$' -or [string]::IsNullOrWhiteSpace($response)) {
+                    $selectedAux = @()
+                } else {
+                    $indices = $response -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d+$' }
+                    foreach ($idx in $indices) {
+                        $i = [int]$idx - 1
+                        if ($i -ge 0 -and $i -lt $auxBinaries.Count) {
+                            $selectedAux += $auxBinaries[$i]
+                        }
+                    }
+                }
+
+                $auxBinaries = $selectedAux
+            } else {
+                # In non-interactive mode, only include main executable
+                $auxBinaries = @()
+            }
         }
     }
 
@@ -2165,7 +2364,8 @@ try {
 
     '' | Write-Status
     'Monitoring application execution...' | Write-Status -Level Step
-    $persistResult = Test-PortableMode -ExecutablePath $executablePath -WorkingDirectory (Split-Path $executablePath) -IsNonInteractive $sessionIsNonInteractive
+    $timeout = if ($sessionIsNonInteractive) { 10 } else { 180 }
+    $persistResult = Test-PortableMode -ExecutablePath $executablePath -WorkingDirectory (Split-Path $executablePath) -IsNonInteractive $sessionIsNonInteractive -TimeoutSeconds $timeout
 
     '' | Write-Status
     'Building manifest...' | Write-Status -Level Step
