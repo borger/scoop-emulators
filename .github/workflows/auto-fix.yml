@@ -14,6 +14,13 @@ on:
 
 name: Auto-Fix Manifests
 
+# Ensure only one run per branch/workflow executes at a time. When a new run
+# is triggered (for example by a new push), any in-progress runs in the same
+# group will be cancelled so work is only performed against the latest commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   autofix:
     name: Fix Broken Manifests
