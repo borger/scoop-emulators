@@ -260,16 +260,21 @@ function ConvertTo-CanonicalVersion {
     if ($v -match '^\d{4}-\d{2}-\d{2}-[a-f0-9]+$') { return $v }
 
     # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
-    if ($v -match '-g(?<commit>[0-9a-f]{7})$') {
+    # But only if it doesn't already contain semantic versioning (dots)
+    if ($v -notmatch '\d+\.\d+' -and $v -match '-g(?<commit>[0-9a-f]{7})$') {
         return $matches['commit']
     }
 
     # Detect and temporarily strip common hyphenated suffixes (e.g. -master, -release)
-    # Prefer returning version without these suffixes unless URLs require them
+    # But preserve git commit suffixes like -g<commit> and semantic build suffixes
     $hyphenSuffix = $null
     if ($v -match '(?<base>.+?)(-(?<suf>[a-zA-Z][\w-]*))$') {
-        $v = $matches['base']
-        $hyphenSuffix = $matches['suf']
+        $suffix = $matches['suf']
+        # Don't strip suffixes that look like git commits (g followed by hex) or semantic build info
+        if ($suffix -notmatch '^g[a-f0-9]+$' -and $suffix -notmatch '^\d+.*') {
+            $v = $matches['base']
+            $hyphenSuffix = $suffix
+        }
     }
 
     # If version looks like <build>-<commitSHA> (e.g. 3834-59250a6), prefer the build number only
