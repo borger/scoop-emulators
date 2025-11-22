@@ -789,8 +789,8 @@ try {
 
         Write-Host "Found update: $currentVersion -> $latestVersion" -ForegroundColor Yellow
 
-        # Update version in memory object
-        $manifest.version = $latestVersion
+        # Update version in memory object (ensure it's stored as a string to preserve JSON quoting)
+        $manifest.version = [string]$latestVersion
 
         # Attempt to detect and fix URL issues
         Write-Host "Analyzing download URLs..."
@@ -1115,6 +1115,11 @@ try {
             }
         }
 
+        # Ensure version property is a string before any rewrite (prevents ConvertTo-Json from emitting a bare number)
+        if ($manifest.PSObject.Properties.Match('version').Count) {
+            $manifest.version = [string]$manifest.version
+        }
+
         # If we added new fields (like hash), we must rewrite the file using ConvertTo-Json
         # because regex replacement can't easily insert new lines in the right place
         if ($forceRewrite) {
@@ -1151,10 +1156,17 @@ try {
 
         # Update version in text content if it changed
         if ($currentVersion -ne $latestVersion) {
-            $versionPattern = '"version":\s*"' + [regex]::Escape($currentVersion) + '"'
-            if ($updatedContent -match $versionPattern) {
-                $updatedContent = $updatedContent -replace $versionPattern, "`"version`": `"$latestVersion`""
-                Write-Host "  [OK] Updated version in manifest text" -ForegroundColor Green
+            # Try to replace quoted version first, then unquoted numeric version if present
+            $quotedPattern = '"version":\s*"' + [regex]::Escape($currentVersion) + '"'
+            $unquotedPattern = '"version":\s*' + [regex]::Escape($currentVersion) + '(?![\d\w\._-])'
+
+            if ($updatedContent -match $quotedPattern) {
+                $updatedContent = $updatedContent -replace $quotedPattern, "`"version`": `"$latestVersion`""
+                Write-Host "  [OK] Updated quoted version in manifest text" -ForegroundColor Green
+            } elseif ($updatedContent -match $unquotedPattern) {
+                # Handle numeric/unquoted version
+                $updatedContent = $updatedContent -replace $unquotedPattern, "`"version`": `"$latestVersion`""
+                Write-Host "  [OK] Updated unquoted numeric version in manifest text (now quoted)" -ForegroundColor Green
             }
         }
 
