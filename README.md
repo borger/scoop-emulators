@@ -13,6 +13,7 @@ Interested in adding something? To add a new emulator, please read the [Contribu
 ## 1. Installing Scoop
 
 Open PowerShell (Windows 10/11 have it built-in) and run:
+
 ```powershell
 iwr -useb get.scoop.sh | iex
 ```
@@ -35,6 +36,7 @@ scoop install mame scummvm ares
 Apps install to `~/scoop/apps/<app-name>/current`. Config and shortcuts are auto-managed by Scoop.
 
 **Custom Install Location:** Use junctions to link apps to custom folders:
+
 ```cmd
 mklink /D "C:\custom\path" "%HOMEDRIVE%%HOMEPATH%\scoop\apps\<app-name>\current"
 ```
@@ -52,12 +54,14 @@ scoop update <app-name>   # Update specific app
 **Automate with Task Scheduler:**
 
 Create `scoop-update.ps1` with:
+
 ```powershell
 scoop update
 scoop update *
 ```
 
 Then register the task (run as Administrator):
+
 ```powershell
 $taskName = "Scoop Update"
 $scriptPath = "$env:USERPROFILE\scoop-update.ps1"

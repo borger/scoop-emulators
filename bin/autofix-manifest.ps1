@@ -253,6 +253,9 @@ function ConvertTo-CanonicalVersion {
     # Strip leading dots
     $v = $v -replace '^\.+', ''
 
+    # Preserve ISO-style dates (YYYY-MM-DD) exactly (nightly/date tags)
+    if ($v -match '^\d{4}-\d{2}-\d{2}$') { return $v }
+
     # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
     if ($v -match '-g(?<commit>[0-9a-f]{7})$') {
         return $matches['commit']
@@ -665,6 +668,16 @@ try {
     $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
     $checkverRepaired = $false
 
+    # If manifest explicitly uses the 'nightly' channel, do not run checkver — maintain dates/labels exactly
+    $skipCheckver = $false
+    if ($manifest.PSObject.Properties.Match('version').Count -and ($manifest.version -eq 'nightly')) {
+        Write-Host "[INFO] Manifest uses 'nightly' channel; skipping checkver detection" -ForegroundColor Cyan
+        $skipCheckver = $true
+    }
+
+    # Ensure checkver output variable exists
+    $checkverOutput = ""
+
     # Extract Repository Info (GitHub/GitLab/Gitea)
     $gitHubOwner = $null; $gitHubRepo = $null
     $gitLabRepo = $null
@@ -763,8 +776,12 @@ try {
     }
 
     if (-not $latestVersion) {
-        Write-Host "Running checkver..."
-        $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+        if (-not $skipCheckver) {
+            Write-Host "Running checkver..."
+            $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+        } else {
+            Write-Host "[INFO] Skipping checkver because manifest is 'nightly'" -ForegroundColor Cyan
+        }
     }
 
     # Check if checkver output indicates a regex matching failure
