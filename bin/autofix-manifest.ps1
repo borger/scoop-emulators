@@ -253,12 +253,27 @@ function Normalize-Version {
     # Strip leading dots
     $v = $v -replace '^\.+', ''
 
+    # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
+    if ($v -match '-g(?<commit>[0-9a-f]{7})$') {
+        return $matches['commit']
+    }
+
     # Detect and temporarily strip common hyphenated suffixes (e.g. -master, -release)
     # Prefer returning version without these suffixes unless URLs require them
     $hyphenSuffix = $null
     if ($v -match '(?<base>.+?)(-(?<suf>[a-zA-Z][\w-]*))$') {
         $v = $matches['base']
         $hyphenSuffix = $matches['suf']
+    }
+
+    # If version looks like <build>-<commitSHA> (e.g. 3834-59250a6), prefer the build number only
+    if ($v -match '^(?<build>\d+)[\-_](?<commit>[a-f0-9]{6,})$') {
+        return $matches['build']
+    }
+
+    # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
+    if ($v -match '-g(?<commit>[0-9a-f]{7})$') {
+        return $matches['commit']
     }
 
     # If already has dots (semantic-like), return as-is
@@ -318,7 +333,14 @@ function Normalize-Version {
             $right = $digits.Substring($digits.Length - 3)
             $candidate = "$left.$right"
         } elseif ($digits.Length -eq 3) {
-            $candidate = "0.$digits"
+            # Treat 3-digit sequences as MAME-style only when there is a non-numeric prefix
+            # (e.g., 'mame0282' -> '0.282'). If the raw value is purely numeric like '115',
+            # return the digits unchanged.
+            if ($pre -match '[a-zA-Z]' -or $RawVersion -match '[a-zA-Z]') {
+                $candidate = "0.$digits"
+            } else {
+                $candidate = $digits
+            }
         } else {
             # Fallback: return digits as-is
             $candidate = $digits
@@ -878,6 +900,29 @@ try {
     }
 
     if ($latestVersion) {
+        # If checkver returned a short git SHA (7 hex chars) but the manifest uses GitHub releases,
+        # prefer the latest release tag instead of treating the SHA as a numeric version.
+        if ($latestVersion -match '^[a-f0-9]{7}$') {
+            try {
+                # If repo not already extracted, try to parse it from checkver.url (e.g., actions/workflows URL)
+                if (-not $gitHubOwner -and -not $gitHubRepo -and $manifest.checkver -and $manifest.checkver.url -and ($manifest.checkver.url -match 'github\.com/([^/]+)/([^/]+)/?')) {
+                    $gitHubOwner = $matches[1]; $gitHubRepo = $matches[2]
+                }
+
+                if ($gitHubOwner -and $gitHubRepo -and ($manifest.autoupdate -and ($manifest.autoupdate.url -match '/releases/download' -or ($manifest.autoupdate.architecture -and ($manifest.autoupdate.architecture.'64bit'.url -match '/releases/download' -or $manifest.autoupdate.architecture.'32bit'.url -match '/releases/download')) ) -or ($manifest.checkver -and $manifest.checkver.url -and $manifest.checkver.url -match 'actions/workflows'))) {
+                    Write-Host "  [INFO] checkver returned a commit SHA; querying GitHub Releases for canonical tag..." -ForegroundColor Cyan
+                    $apiUrl = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                    $rel = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+                    if ($rel) {
+                        if ($rel.tag_name) { $latestVersion = $rel.tag_name -replace '^v', '' -replace '^\.', '' ; Write-Host "  [OK] Using latest release tag: $latestVersion" -ForegroundColor Green }
+                        elseif ($rel.name) { $latestVersion = $rel.name; Write-Host "  [OK] Using latest release name: $latestVersion" -ForegroundColor Green }
+                    }
+                }
+            } catch {
+                Write-Host "  [WARN] Could not fetch latest release tag: $_" -ForegroundColor Yellow
+            }
+        }
+
         # Normalize latestVersion into canonical form (handles tags like v.0.12.5, .0.12.5, mame0282)
         try { $latestVersion = Normalize-Version -RawVersion $latestVersion -Manifest $manifest } catch { }
         $currentVersion = $manifest.version
