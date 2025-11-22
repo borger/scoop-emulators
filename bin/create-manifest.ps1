@@ -279,10 +279,20 @@ function Get-GitHubReleaseInfo {
             $lowerTag = $releaseInfo.tag_name.ToLower()
 
             if ($lowerName -eq 'nightly' -or $lowerTag -eq 'nightly') {
-                # If strictly "nightly", use date
+                # If strictly "nightly", use date + commit hash if available
                 if ($releaseInfo.published_at) {
-                    $versionToUse = (Get-Date $releaseInfo.published_at).ToString('yyyy-MM-dd')
-                    "Using release date as version: $versionToUse" | Write-Status -Level OK
+                    $dateStr = (Get-Date $releaseInfo.published_at).ToString('yyyy-MM-dd')
+
+                    # Try to resolve commit hash
+                    $commitInfo = Resolve-CommitVersion -Owner $owner -Repo $repo -TargetCommitish $releaseInfo.target_commitish
+                    if ($commitInfo) {
+                        $versionToUse = "$dateStr-$($commitInfo.Short)"
+                        $resolvedCommitHash = $commitInfo.Full
+                        "Using date-commit version: $versionToUse" | Write-Status -Level OK
+                    } else {
+                        $versionToUse = $dateStr
+                        "Using release date as version: $versionToUse" | Write-Status -Level OK
+                    }
                 } else {
                     # Fallback to commit hash if no date (unlikely for release)
                     $commitInfo = Resolve-CommitVersion -Owner $owner -Repo $repo -TargetCommitish $releaseInfo.target_commitish
@@ -1582,7 +1592,22 @@ function Get-ManifestCheckver {
                 }
             }
 
-            # For nightly/dev builds, get commit hash from the branch
+            # For nightly/dev builds
+
+            # If we are using date-commit format (YYYY-MM-DD-hash)
+            if ($RepositoryInfo.Version -match '^\d{4}-\d{2}-\d{2}-[a-f0-9]{7}$') {
+                # We need a checkver that extracts both date and commit
+                # If it's a nightly tag, we can use the release API
+                if ($RepositoryInfo.TagName -eq 'nightly') {
+                    return @{
+                        'url'     = "https://api.github.com/repos/$($RepositoryInfo.Owner)/$($RepositoryInfo.Repo)/releases/tags/nightly"
+                        'regex'   = '(?<date>\d{4}-\d{2}-\d{2})T[\s\S]*?Commit\s+(?<commit>[a-f0-9]{7})'
+                        'replace' = '${date}-${commit}'
+                    }
+                }
+            }
+
+            # Fallback to branch commit hash
             $branchName = 'main'
             if ($RepositoryInfo.TargetRef -and ($RepositoryInfo.TargetRef -notmatch '^[0-9a-f]{7,}$')) {
                 $branchName = $RepositoryInfo.TargetRef

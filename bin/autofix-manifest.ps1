@@ -256,6 +256,9 @@ function ConvertTo-CanonicalVersion {
     # Preserve ISO-style dates (YYYY-MM-DD) exactly (nightly/date tags)
     if ($v -match '^\d{4}-\d{2}-\d{2}$') { return $v }
 
+    # Preserve date-commit format (YYYY-MM-DD-hash)
+    if ($v -match '^\d{4}-\d{2}-\d{2}-[a-f0-9]+$') { return $v }
+
     # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
     if ($v -match '-g(?<commit>[0-9a-f]{7})$') {
         return $matches['commit']
@@ -272,11 +275,6 @@ function ConvertTo-CanonicalVersion {
     # If version looks like <build>-<commitSHA> (e.g. 3834-59250a6), prefer the build number only
     if ($v -match '^(?<build>\d+)[\-_](?<commit>[a-f0-9]{6,})$') {
         return $matches['build']
-    }
-
-    # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
-    if ($v -match '-g(?<commit>[0-9a-f]{7})$') {
-        return $matches['commit']
     }
 
     # If already has dots (semantic-like), return as-is

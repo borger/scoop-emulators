@@ -1,5 +1,5 @@
 {
-  "version": "cf031f1",
+  "version": "2025-09-21-cf031f1",
   "description": "Microsoft Xbox emulator",
   "homepage": "https://cxbx-reloaded.co.uk/",
   "license": {
@@ -22,9 +22,10 @@
   ],
   "checkver": {
     "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases.atom",
-    "regex": "CI-([a-f\\d]+)."
+    "regex": "<updated>(?<date>\\d{4}-\\d{2}-\\d{2})T[\\s\\S]*?<title>CI-(?<commit>[a-f\\d]+)</title>",
+    "replace": "${date}-${commit}"
   },
   "autoupdate": {
-    "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$version/CxbxReloaded-Release.zip"
+    "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases/download/CI-$matchCommit/CxbxReloaded-Release.zip"
   }
 }
