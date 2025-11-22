@@ -2356,7 +2356,10 @@ try {
                 '' | Write-Status
                 'Select auxiliary binaries to include:' | Write-Status -Level Info
                 for ($i = 0; $i -lt $auxBinaries.Count; $i++) {
-                    "  [$($i + 1)] $($auxBinaries[$i])" | Write-Status -Level Info
+                    # Ensure we stringify the entry (handles unexpected object types)
+                    $entry = $auxBinaries[$i]
+                    $name = if ($entry -is [string]) { $entry } else { ($entry | Out-String).Trim() }
+                    "  [$($i + 1)] $name" | Write-Status -Level Info
                 }
 
                 $response = Read-Host "Enter numbers separated by commas (e.g. 1,3) or 'all'/'none' [Default: none]"
