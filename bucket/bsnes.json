@@ -1,5 +1,5 @@
 {
-    "version": "115",
+    "version": "2",
     "description": "Nintendo SNES (Super Nintendo Entertainment System) emulator",
     "homepage": "https://github.com/bsnes-emu/bsnes",
     "license": {
