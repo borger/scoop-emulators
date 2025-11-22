@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-    "version": "8878-20251121",
-=======
     "version": "2025-11-21-0bf4978",
->>>>>>> 0304cae62 (fix: update checkver regex and version formats for bsnes, mgba-dev, xenia-canary, and other manifests)
     "description": "Nintendo Game Boy Advance emulator",
     "homepage": "https://mgba.io/",
     "license": {
