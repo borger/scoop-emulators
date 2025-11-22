@@ -2359,7 +2359,8 @@ try {
                     # Ensure we get a sensible filename for display regardless of object type
                     $entry = $auxBinaries[$i]
                     if ($entry -is [string]) {
-                        $name = $entry
+                        # If the entry is a full path or contains extra characters, get the filename
+                        $name = [System.IO.Path]::GetFileName($entry)
                     } elseif ($entry -is [System.IO.FileInfo]) {
                         $name = $entry.Name
                     } elseif ($entry -is [PSCustomObject] -and $entry.PSObject.Properties.Match('Name').Count) {
@@ -2368,8 +2369,8 @@ try {
                         $name = ($entry | Out-String).Trim()
                     }
 
-                    # Trim and show in quotes to avoid terminal truncation or confusing whitespace
-                    $name = $name.Trim()
+                    # Remove control characters and trim whitespace
+                    $name = ($name -replace '[\p{C}]', '').Trim()
                     "  [$($i + 1)] '$name'" | Write-Status -Level Info
                 }
 
