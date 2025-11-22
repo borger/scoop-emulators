@@ -50,8 +50,8 @@
             "if (-not $sha -and $rel.tag_name -and $rel.tag_name -match '([a-f0-9]{7,40})') { $sha = $matches[1] }",
             "if (-not $sha -and $rel.assets -and $rel.assets.Count -gt 0) { foreach ($a in $rel.assets) { if ($a.name -match '([a-f0-9]{7,40})') { $sha = $matches[1]; break } } }",
             "$date = $null",
-            "if ($rel.published_at) { $date = (Get-Date $rel.published_at -Format 'yyyyMMdd') }",
-            "if (-not $date -and $rel.name -and $rel.name -match '(\\d{4}-\\d{2}-\\d{2})') { $date = (Get-Date $matches[1] -Format 'yyyyMMdd') }",
+            "if ($rel.published_at) { $date = (Get-Date $rel.published_at -Format 'yyyy-MM-dd') }",
+            "if (-not $date -and $rel.name -and $rel.name -match '(\\d{4}-\\d{2}-\\d{2})') { $date = (Get-Date $matches[1] -Format 'yyyy-MM-dd') }",
             "if ($date -and $sha) { Write-Output ($app + ': ' + ($date + '-' + $sha)); exit 0 }",
             "if ($sha) { Write-Output ($app + ': ' + $sha); exit 0 }",
             "Write-Error 'could not parse release metadata'"
