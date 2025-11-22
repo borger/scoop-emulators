@@ -777,7 +777,25 @@ function Find-AuxiliaryBinaries {
         $aux += $exe.Name
     }
 
-    return $aux
+    if (-not $aux -or $aux.Count -eq 0) {
+        return @()
+    }
+
+    $normalized = $aux | ForEach-Object {
+        if ($_ -is [string]) {
+            $_
+        } elseif ($_ -is [System.IO.FileInfo]) {
+            $_.Name
+        } else {
+            $_.ToString()
+        }
+    }
+
+    if (-not $normalized -or $normalized.Count -eq 0) {
+        return @()
+    }
+
+    return , $normalized
 }
 
 function Find-Notes {
@@ -2346,8 +2364,8 @@ try {
         }
 
         $notes = Find-Notes -Directory $extractDir
-        $auxBinaries = Find-AuxiliaryBinaries -Directory $extractDir -MainExecutableName $executableName
-        if ($auxBinaries) {
+        $auxBinaries = @(Find-AuxiliaryBinaries -Directory $extractDir -MainExecutableName $executableName)
+        if ($auxBinaries.Count -gt 0) {
             "Auxiliary binaries found: $($auxBinaries -join ', ')" | Write-Status -Level Info
 
             if (-not $sessionIsNonInteractive) {
@@ -2356,8 +2374,9 @@ try {
                 '' | Write-Status
                 'Select auxiliary binaries to include:' | Write-Status -Level Info
                 for ($i = 0; $i -lt $auxBinaries.Count; $i++) {
-                    # Ensure we get a sensible filename for display regardless of object type
                     $entry = $auxBinaries[$i]
+
+                    # Ensure we get a sensible filename for display regardless of object type
                     if ($entry -is [string]) {
                         # If the entry is a full path or contains extra characters, get the filename
                         $name = [System.IO.Path]::GetFileName($entry)
