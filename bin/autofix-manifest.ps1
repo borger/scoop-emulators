@@ -238,8 +238,8 @@ function Get-OrderedManifest {
     return $sorted
 }
 
-# Normalize raw version strings into a canonical form
-function Normalize-Version {
+# Convert raw version strings into a canonical form
+function ConvertTo-CanonicalVersion {
     param(
         [string]$RawVersion,
         [object]$Manifest
@@ -323,7 +323,7 @@ function Normalize-Version {
     # Try to find a contiguous run of digits in the value (fallback for single-run tags like mame0282)
     if ($v -match '(?<pre>.*?)(?<digits>\d+)(?<post>.*)') {
         $digits = $matches['digits']
-        $pre = $matches['pre']
+        $prefix = $matches['pre']
         $post = $matches['post']
 
         # If it's a MAME-style tag like 'mame0282' or contains letters + digits,
@@ -336,7 +336,7 @@ function Normalize-Version {
             # Treat 3-digit sequences as MAME-style only when there is a non-numeric prefix
             # (e.g., 'mame0282' -> '0.282'). If the raw value is purely numeric like '115',
             # return the digits unchanged.
-            if ($pre -match '[a-zA-Z]' -or $RawVersion -match '[a-zA-Z]') {
+            if ($prefix -match '[a-zA-Z]' -or $RawVersion -match '[a-zA-Z]') {
                 $candidate = "0.$digits"
             } else {
                 $candidate = $digits
@@ -924,7 +924,7 @@ try {
         }
 
         # Normalize latestVersion into canonical form (handles tags like v.0.12.5, .0.12.5, mame0282)
-        try { $latestVersion = Normalize-Version -RawVersion $latestVersion -Manifest $manifest } catch { }
+        try { $latestVersion = ConvertTo-CanonicalVersion -RawVersion $latestVersion -Manifest $manifest } catch { }
         $currentVersion = $manifest.version
 
         if ($latestVersion -eq $currentVersion) {

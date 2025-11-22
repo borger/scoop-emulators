@@ -71,3 +71,7 @@ Register-ScheduledTask -TaskName $taskName -Trigger $trigger -Action $action -Ru
 ## Credits
 
 - [beyondmeat](https://github.com/beyondmeat) - main contributor and maintainer of this bucket.
+
+## Developer notes
+
+- bin/autofix-manifest.ps1: internal helper renamed from `Normalize-Version` to `ConvertTo-CanonicalVersion` to use an approved PowerShell verb. This is an internal change and does not affect normal usage of the bucket tools.
