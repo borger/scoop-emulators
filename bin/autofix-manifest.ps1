@@ -238,6 +238,114 @@ function Get-OrderedManifest {
     return $sorted
 }
 
+# Normalize raw version strings into a canonical form
+function Normalize-Version {
+    param(
+        [string]$RawVersion,
+        [object]$Manifest
+    )
+
+    if (-not $RawVersion) { return $null }
+    $v = $RawVersion.Trim()
+
+    # Strip leading v and optional dot (v.1.2.3 -> 1.2.3)
+    $v = $v -replace '^[vV]\.?', ''
+    # Strip leading dots
+    $v = $v -replace '^\.+', ''
+
+    # Detect and temporarily strip common hyphenated suffixes (e.g. -master, -release)
+    # Prefer returning version without these suffixes unless URLs require them
+    $hyphenSuffix = $null
+    if ($v -match '(?<base>.+?)(-(?<suf>[a-zA-Z][\w-]*))$') {
+        $v = $matches['base']
+        $hyphenSuffix = $matches['suf']
+    }
+
+    # If already has dots (semantic-like), return as-is
+    if ($v -match '\d+\.\d+') { return $v }
+
+    # If the version contains multiple digit groups separated by underscores/dots/hyphens
+    # (e.g. beta_10_6, release-1-2-3), join them with dots to form a semantic-like version
+    $digitMatches = [regex]::Matches($v, '\d+') | ForEach-Object { $_.Value }
+    if ($digitMatches.Count -ge 2) {
+        $candidate = ($digitMatches -join '.')
+
+        # Preserve any trailing alpha suffix (e.g., 10_6b -> 10.6b)
+        if ($v -match '[a-zA-Z]+$') { $candidate += $matches[0] }
+
+        # Validate candidate against manifest URLs if provided
+        if ($Manifest) {
+            $candidates = @($candidate, "v$candidate", "v.$candidate", ".$candidate")
+            foreach ($c in $candidates) {
+                if ($Manifest.url -and $Manifest.url -match [regex]::Escape($c)) { return $candidate }
+                if ($Manifest.architecture) {
+                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($c)) { return $candidate }
+                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($c)) { return $candidate }
+                }
+            }
+        }
+
+        # If no manifest match found, still return the candidate as a reasonable normalization
+        if ($hyphenSuffix) {
+            # If URLs mention the hyphen suffix, prefer candidate without suffix unless only suffixed form matches
+            $withSuffix = "$candidate-$hyphenSuffix"
+            if ($Manifest) {
+                if ($Manifest.url -and $Manifest.url -match [regex]::Escape($candidate)) { return $candidate }
+                if ($Manifest.url -and $Manifest.url -match [regex]::Escape($withSuffix)) { return $candidate }
+                if ($Manifest.architecture) {
+                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($candidate)) { return $candidate }
+                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($candidate)) { return $candidate }
+                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($withSuffix)) { return $withSuffix }
+                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($withSuffix)) { return $withSuffix }
+                }
+            }
+            return $candidate
+        }
+
+        return $candidate
+    }
+
+    # Try to find a contiguous run of digits in the value (fallback for single-run tags like mame0282)
+    if ($v -match '(?<pre>.*?)(?<digits>\d+)(?<post>.*)') {
+        $digits = $matches['digits']
+        $pre = $matches['pre']
+        $post = $matches['post']
+
+        # If it's a MAME-style tag like 'mame0282' or contains letters + digits,
+        # convert by inserting a dot before the last 3 digits when length>=4
+        if ($digits.Length -ge 4) {
+            $left = $digits.Substring(0, $digits.Length - 3)
+            $right = $digits.Substring($digits.Length - 3)
+            $candidate = "$left.$right"
+        } elseif ($digits.Length -eq 3) {
+            $candidate = "0.$digits"
+        } else {
+            # Fallback: return digits as-is
+            $candidate = $digits
+        }
+
+        # Append any trailing alpha suffix that was present (e.g., 0282b -> 0.282b)
+        if ($post -match '[a-zA-Z]+') { $candidate += ($post -replace '[^a-zA-Z]', '') }
+
+        # Validate candidate against manifest URLs if provided
+        if ($Manifest) {
+            $candidates = @($candidate, "v$candidate", "v.$candidate", ".$candidate")
+            foreach ($c in $candidates) {
+                if ($Manifest.url -and $Manifest.url -match [regex]::Escape($c)) { return $candidate }
+                if ($Manifest.architecture) {
+                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($c)) { return $candidate }
+                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($c)) { return $candidate }
+                }
+            }
+        }
+
+        # If no manifest match found, still return the candidate as a reasonable normalization
+        return $candidate
+    }
+
+    return $v
+}
+
 # Detect version scheme changes and attempt pattern recovery
 function Repair-VersionPattern {
     param(
@@ -593,7 +701,7 @@ try {
 
             if ($latestRelease) {
                 if ($latestRelease.tag_name) {
-                    $latestVersion = $latestRelease.tag_name -replace '^v', ''
+                    $latestVersion = $latestRelease.tag_name -replace '^v', '' -replace '^\.', ''
                 } elseif ($latestRelease.name) {
                     $latestVersion = $latestRelease.name
                 }
@@ -612,7 +720,7 @@ try {
             $apiUrl = "https://gitlab.com/api/v4/projects/$id/releases"
             $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
             if ($releases -and $releases.Count -gt 0) {
-                $latestVersion = $releases[0].tag_name -replace '^v', ''
+                $latestVersion = $releases[0].tag_name -replace '^v', '' -replace '^\.', ''
                 Write-Host "  [INFO] Found version from GitLab Releases: $latestVersion" -ForegroundColor Cyan
             }
         } catch {
@@ -624,7 +732,7 @@ try {
             $apiUrl = "$giteaBase/api/v1/repos/$giteaRepo/releases?limit=1"
             $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
             if ($releases -and $releases.Count -gt 0) {
-                $latestVersion = $releases[0].tag_name -replace '^v', ''
+                $latestVersion = $releases[0].tag_name -replace '^v', '' -replace '^\.', ''
                 Write-Host "  [INFO] Found version from Gitea Releases: $latestVersion" -ForegroundColor Cyan
             }
         } catch {
@@ -674,7 +782,7 @@ try {
                         $checkverRepaired = $true
                         Write-Host "  [OK] Repaired checkver config to use API-based detection" -ForegroundColor Green
 
-                        $latestVersion = $latestRelease.tag_name -replace '^v', ''
+                        $latestVersion = $latestRelease.tag_name -replace '^v', '' -replace '^\.', ''
                         Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
                     }
                 }
@@ -753,7 +861,7 @@ try {
 
                     if ($latestRelease) {
                         if ($latestRelease.tag_name) {
-                            $latestVersion = $latestRelease.tag_name -replace '^v', ''
+                            $latestVersion = $latestRelease.tag_name -replace '^v', '' -replace '^\.', ''
                         } elseif ($latestRelease.name) {
                             $latestVersion = $latestRelease.name
                         }
@@ -770,6 +878,8 @@ try {
     }
 
     if ($latestVersion) {
+        # Normalize latestVersion into canonical form (handles tags like v.0.12.5, .0.12.5, mame0282)
+        try { $latestVersion = Normalize-Version -RawVersion $latestVersion -Manifest $manifest } catch { }
         $currentVersion = $manifest.version
 
         if ($latestVersion -eq $currentVersion) {
@@ -783,6 +893,46 @@ try {
                 exit 0
             }
 
+            # If the current version is in a non-canonical form (e.g., 'mame0282'), try to canonicalize using checkver
+            if ($currentVersion -match '^mame\d+' -or $currentVersion -match '^\.' -or ($currentVersion -notmatch '\d+\.\d+')) {
+                Write-Host "[INFO] Current version format looks non-canonical: $currentVersion. Attempting canonicalization via checkver..." -ForegroundColor Cyan
+                try {
+                    if (Test-Path $checkverScript) {
+                        $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+                        $detectedVersion = $null
+                        if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
+                            $detectedVersion = $matches[1]
+                        } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
+                            $potential = $matches[1]
+                            if ($potential -ne "couldn't") { $detectedVersion = $potential }
+                        }
+
+                        if ($detectedVersion) {
+                            $detectedVersion = $detectedVersion -replace '^v', ''
+                            # Normalize MAME style tags if present
+                            if ($detectedVersion -match '^mame(?<digits>\d+)(?<suffix>[a-zA-Z]*)$') {
+                                $d = $matches['digits']
+                                if ($d.Length -ge 4) { $detectedVersion = $d.Substring(0, 1) + '.' + $d.Substring(1) } else { if ($d.Length -gt 3) { $detectedVersion = $d.Substring(0, $d.Length - 3) + '.' + $d.Substring($d.Length - 3) } else { $detectedVersion = $d } }
+                                if ($matches['suffix']) { $detectedVersion += $matches['suffix'] }
+                            }
+
+                            if ($detectedVersion -ne $manifest.version) {
+                                Write-Host "  [OK] Canonical version from checkver: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                                $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
+                                $sortedManifest = Get-OrderedManifest -Manifest $manifest
+                                $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
+                                $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                                [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                                Write-Host "[OK] Manifest canonicalized and saved" -ForegroundColor Green
+                                exit 0
+                            }
+                        }
+                    }
+                } catch {
+                    Write-Host "  [WARN] checkver canonicalization failed: $_" -ForegroundColor Yellow
+                }
+            }
+
             Write-Host "[OK] Manifest already up-to-date ($currentVersion)"
             exit 0
         }
@@ -791,6 +941,8 @@ try {
 
         # Update version in memory object (ensure it's stored as a string to preserve JSON quoting)
         $manifest.version = [string]$latestVersion
+        # Normalize: strip any leading dot that may appear from URL patterns like 'v.$version'
+        if ($manifest.version -match '^\.(.+)') { $manifest.version = $matches[1] }
 
         # Attempt to detect and fix URL issues
         Write-Host "Analyzing download URLs..."
@@ -917,7 +1069,7 @@ try {
                         if ($release) {
                             # Update latestVersion to the found release
                             if ($release.tag_name) {
-                                $latestVersion = $release.tag_name -replace '^v', ''  # Strip 'v' prefix if present
+                                $latestVersion = $release.tag_name -replace '^v', '' -replace '^\.', ''  # Strip 'v' prefix and leading dot if present
                             } elseif ($release.name) {
                                 $latestVersion = $release.name
                             }
@@ -930,7 +1082,7 @@ try {
                             # If still no assets but we have release info, try alternative version formats
                             if (!$assets -or $assets.Count -eq 0) {
                                 # Try version without 'v' prefix
-                                $versionAlt = $release.tag_name -replace '^v', ''
+                                $versionAlt = $release.tag_name -replace '^v', '' -replace '^\.', ''
                                 if ($versionAlt -ne $release.tag_name) {
                                     $assets = Get-ReleaseAsset -Repo $repoPath -Version $versionAlt -Platform $repoPlatform
                                 }
@@ -1118,6 +1270,7 @@ try {
         # Ensure version property is a string before any rewrite (prevents ConvertTo-Json from emitting a bare number)
         if ($manifest.PSObject.Properties.Match('version').Count) {
             $manifest.version = [string]$manifest.version
+            if ($manifest.version -match '^\.(.+)') { $manifest.version = $matches[1] }
         }
 
         # If we added new fields (like hash), we must rewrite the file using ConvertTo-Json
@@ -1188,9 +1341,9 @@ try {
                         if (-not $versionValid) {
                             # Fallback: try to extract version from URL patterns (look for v<digits> or _v<digits>)
                             $found = $null
-                            if ($manifest.url -and ($manifest.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                            if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                            if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if ($manifest.url -and ($manifest.url -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
 
                             if ($found) {
                                 Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
@@ -1204,7 +1357,7 @@ try {
 
                         if ($versionValid -and $detectedVersion -ne $manifest.version) {
                             Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
-                            $manifest.version = [string]$detectedVersion
+                            $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
 
                             # Rewrite manifest with updated version
                             $sortedManifest = Get-OrderedManifest -Manifest $manifest
@@ -1353,6 +1506,38 @@ try {
                 if ($detectedVersion) {
                     $detectedVersion = $detectedVersion -replace '^v', ''
 
+                    # Normalize MAME tags like 'mame0282' -> '0.282'
+                    if ($detectedVersion -match '^mame(?<digits>\d+)(?<suffix>[a-zA-Z]*)$') {
+                        $d = $matches['digits']
+                        if ($d.Length -ge 4) {
+                            $detectedVersion = $d.Substring(0, 1) + '.' + $d.Substring(1)
+                        } else {
+                            if ($d.Length -gt 3) {
+                                $detectedVersion = $d.Substring(0, $d.Length - 3) + '.' + $d.Substring($d.Length - 3)
+                            } else {
+                                $detectedVersion = $d
+                            }
+                        }
+                        if ($matches['suffix']) { $detectedVersion += $matches['suffix'] }
+                        Write-Host "  [INFO] Normalized MAME tag to canonical version: $detectedVersion" -ForegroundColor Cyan
+                    }
+
+                    # Normalize MAME tags like 'mame0282' -> '0.282'
+                    if ($detectedVersion -match '^mame(?<digits>\d+)(?<suffix>[a-zA-Z]*)$') {
+                        $d = $matches['digits']
+                        if ($d.Length -ge 4) {
+                            $detectedVersion = $d.Substring(0, 1) + '.' + $d.Substring(1)
+                        } else {
+                            if ($d.Length -gt 3) {
+                                $detectedVersion = $d.Substring(0, $d.Length - 3) + '.' + $d.Substring($d.Length - 3)
+                            } else {
+                                $detectedVersion = $d
+                            }
+                        }
+                        if ($matches['suffix']) { $detectedVersion += $matches['suffix'] }
+                        Write-Host "  [INFO] Normalized MAME tag to canonical version: $detectedVersion" -ForegroundColor Cyan
+                    }
+
                     # Validate that detected version appears in updated URLs (to avoid spurious small numbers)
                     $versionValid = $false
                     if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
@@ -1364,9 +1549,9 @@ try {
                     if (-not $versionValid) {
                         # Fallback: try to extract version from URL patterns (look for v<digits> or _v<digits>)
                         $found = $null
-                        if ($manifest.url -and ($manifest.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                        if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                        if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                        if ($manifest.url -and ($manifest.url -match 'v\.? (?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                        if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v\.? (?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                        if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v\.? (?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
 
                         if ($found) {
                             Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
@@ -1380,7 +1565,7 @@ try {
 
                     if ($versionValid -and $detectedVersion -ne $manifest.version) {
                         Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
-                        $manifest.version = [string]$detectedVersion
+                        $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
 
                         # Rewrite file to ensure version is quoted and consistent
                         $sortedManifest = Get-OrderedManifest -Manifest $manifest
