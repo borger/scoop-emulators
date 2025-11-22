@@ -30,12 +30,13 @@
     ],
     "checkver": {
         "script": [
+            "$app = 'vita3k'",
             "$url = 'https://github.com/Vita3K/Vita3K/releases/tag/continuous'",
             "$cont = (Invoke-WebRequest $url -UseBasicParsing -Headers @{ 'User-Agent' = 'Mozilla/5.0' }).Content",
-            "if ($cont -match 'Vita3K Build:\\s*(\\d+)') { Write-Output $matches[1]; exit 0 }",
-            "if ($cont -match 'Corresponding commit:\\s*([a-f0-9]{7})') { Write-Output $matches[1]; exit 0 }",
+            "if ($cont -match 'Vita3K Build:\\s*(\\d+)') { Write-Output ($app + ': ' + $matches[1]); exit 0 }",
+            "if ($cont -match 'Corresponding commit:\\s*([a-f0-9]{7})') { Write-Output ($app + ': ' + $matches[1]); exit 0 }",
             "# fallback: try to extract first 7-char commit from the page",
-            "if ($cont -match '([a-f0-9]{7})') { Write-Output $matches[1]; exit 0 }",
+            "if ($cont -match '([a-f0-9]{7})') { Write-Output ($app + ': ' + $matches[1]); exit 0 }",
             "Write-Error 'could not detect vita3k build or commit'"
         ]
     },

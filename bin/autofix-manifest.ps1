@@ -253,6 +253,9 @@ function ConvertTo-CanonicalVersion {
     # Strip leading dots
     $v = $v -replace '^\.+', ''
 
+    # If the value is purely numeric (build number), preserve as-is
+    if ($v -match '^[0-9]+$') { return $v }
+
     # Preserve ISO-style dates (YYYY-MM-DD) exactly (nightly/date tags)
     if ($v -match '^\d{4}-\d{2}-\d{2}$') { return $v }
 
