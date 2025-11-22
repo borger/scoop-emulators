@@ -123,6 +123,7 @@ function New-GitHubIssue {
         [string]$Description,
         [string]$Repository,
         [string]$Token,
+        [string]$IssueType,
         [switch]$TagCopilot,
         [switch]$TagEscalation
     )
@@ -137,6 +138,13 @@ function New-GitHubIssue {
         $labels = @("auto-fix")
         if ($TagCopilot) { $labels += "@copilot" }
         if ($TagEscalation) { $labels += "needs-review"; $labels += "@beyondmeat" }
+
+        # Add issue type labels
+        switch ($IssueType) {
+            "bug" { $labels += "bug" }
+            "manifest-error" { $labels += "manifest-error" }
+            "hash-error" { $labels += "hash-mismatch" }
+        }
 
         # Build issue body with context
         $body = @"
@@ -233,7 +241,6 @@ function Get-OrderedManifest {
 # Detect version scheme changes and attempt pattern recovery
 function Repair-VersionPattern {
     param(
-        [string]$AppName,
         [string]$RepoPath,
         [string]$Platform = "github"
     )
@@ -331,7 +338,7 @@ function Find-ReleaseByPatternMatch {
 
 # Auto-fix checkver pattern based on release analysis
 function Repair-CheckverPattern {
-    param([string]$Repo, [string]$CurrentPattern, [object]$ReleaseData)
+    param([object]$ReleaseData)
 
     # Analyze release tag/name to suggest pattern
     $tagName = $ReleaseData.tag_name
@@ -366,7 +373,7 @@ function Repair-CheckverPattern {
 }
 
 # Support multiple Git platforms
-function Get-ReleaseAssets {
+function Get-ReleaseAsset {
     param([string]$Repo, [string]$Version, [string]$Platform = "github")
 
     $assets = @()
@@ -528,14 +535,26 @@ try {
     $manifest = Get-Content -Path $ManifestPath -Raw | ConvertFrom-Json
     $checkverRepaired = $false
 
-    # Extract GitHub owner/repo if available (for fetching release checksums)
-    $gitHubOwner = $null
-    $gitHubRepo = $null
+    # Extract Repository Info (GitHub/GitLab/Gitea)
+    $gitHubOwner = $null; $gitHubRepo = $null
+    $gitLabRepo = $null
+    $giteaBase = $null; $giteaRepo = $null
+
     if ($manifest.checkver.github) {
         if ($manifest.checkver.github -match 'github\.com/([^/]+)/([^/]+)/?$') {
-            $gitHubOwner = $matches[1]
-            $gitHubRepo = $matches[2]
+            $gitHubOwner = $matches[1]; $gitHubRepo = $matches[2]
             Write-Verbose "GitHub repo detected: $gitHubOwner/$gitHubRepo"
+        }
+    } elseif ($manifest.checkver.gitlab) {
+        if ($manifest.checkver.gitlab -match 'gitlab\.com/([^/]+)/([^/]+)/?$') {
+            $gitLabRepo = "$($matches[1])/$($matches[2])"
+            Write-Verbose "GitLab repo detected: $gitLabRepo"
+        }
+    } elseif ($manifest.checkver.gitea) {
+        if ($manifest.checkver.gitea -match '(https?://[^/]+)/([^/]+/[^/]+)') {
+            $giteaBase = $matches[1]
+            $giteaRepo = $matches[2]
+            Write-Verbose "Gitea repo detected: $giteaRepo on $giteaBase"
         }
     }
 
@@ -563,8 +582,60 @@ try {
         exit 1
     }
 
-    Write-Host "Running checkver..."
-    $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+    $latestVersion = $null
+
+    # Try to get latest version from APIs first (Priority)
+    if ($gitHubOwner -and $gitHubRepo) {
+        Write-Host "Checking GitHub Releases for $gitHubOwner/$gitHubRepo..."
+        try {
+            $apiUrl = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+            $latestRelease = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+
+            if ($latestRelease) {
+                if ($latestRelease.tag_name) {
+                    $latestVersion = $latestRelease.tag_name -replace '^v', ''
+                } elseif ($latestRelease.name) {
+                    $latestVersion = $latestRelease.name
+                }
+
+                if ($latestVersion) {
+                    Write-Host "  [INFO] Found version from GitHub Releases: $latestVersion" -ForegroundColor Cyan
+                }
+            }
+        } catch {
+            Write-Host "  [WARN] Failed to check GitHub Releases: $_" -ForegroundColor Yellow
+        }
+    } elseif ($gitLabRepo) {
+        Write-Host "Checking GitLab Releases for $gitLabRepo..."
+        try {
+            $id = [Uri]::EscapeDataString($gitLabRepo)
+            $apiUrl = "https://gitlab.com/api/v4/projects/$id/releases"
+            $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+            if ($releases -and $releases.Count -gt 0) {
+                $latestVersion = $releases[0].tag_name -replace '^v', ''
+                Write-Host "  [INFO] Found version from GitLab Releases: $latestVersion" -ForegroundColor Cyan
+            }
+        } catch {
+            Write-Host "  [WARN] Failed to check GitLab Releases: $_" -ForegroundColor Yellow
+        }
+    } elseif ($giteaBase -and $giteaRepo) {
+        Write-Host "Checking Gitea Releases for $giteaRepo..."
+        try {
+            $apiUrl = "$giteaBase/api/v1/repos/$giteaRepo/releases?limit=1"
+            $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+            if ($releases -and $releases.Count -gt 0) {
+                $latestVersion = $releases[0].tag_name -replace '^v', ''
+                Write-Host "  [INFO] Found version from Gitea Releases: $latestVersion" -ForegroundColor Cyan
+            }
+        } catch {
+            Write-Host "  [WARN] Failed to check Gitea Releases: $_" -ForegroundColor Yellow
+        }
+    }
+
+    if (-not $latestVersion) {
+        Write-Host "Running checkver..."
+        $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+    }
 
     # Check if checkver output indicates a regex matching failure
     if ($checkverOutput -match "couldn't match") {
@@ -672,7 +743,7 @@ try {
 
         if ($repoPath) {
             Write-Host "  Detecting version scheme from repository..." -ForegroundColor Gray
-            Repair-VersionPattern -AppName $appName -RepoPath $repoPath -Platform $repoPlatform | Out-Null
+            Repair-VersionPattern -RepoPath $repoPath -Platform $repoPlatform | Out-Null
 
             # Get latest release
             try {
@@ -835,7 +906,7 @@ try {
                 Write-Host "  Attempting $repoPlatform API lookup for version: $latestVersion..."
 
                 try {
-                    $assets = Get-ReleaseAssets -Repo $repoPath -Version $latestVersion -Platform $repoPlatform
+                    $assets = Get-ReleaseAsset -Repo $repoPath -Version $latestVersion -Platform $repoPlatform
 
                     # If release not found with exact version, attempt pattern matching
                     if (!$assets -or $assets.Count -eq 0) {
@@ -854,18 +925,18 @@ try {
                             Write-Host "  [OK] Updated version to: $latestVersion" -ForegroundColor Green
 
                             # Try to get assets from the matched release
-                            $assets = Get-ReleaseAssets -Repo $repoPath -Version $release.tag_name -Platform $repoPlatform
+                            $assets = Get-ReleaseAsset -Repo $repoPath -Version $release.tag_name -Platform $repoPlatform
 
                             # If still no assets but we have release info, try alternative version formats
                             if (!$assets -or $assets.Count -eq 0) {
                                 # Try version without 'v' prefix
                                 $versionAlt = $release.tag_name -replace '^v', ''
                                 if ($versionAlt -ne $release.tag_name) {
-                                    $assets = Get-ReleaseAssets -Repo $repoPath -Version $versionAlt -Platform $repoPlatform
+                                    $assets = Get-ReleaseAsset -Repo $repoPath -Version $versionAlt -Platform $repoPlatform
                                 }
                                 # Try version with 'v' prefix
                                 if ((!$assets -or $assets.Count -eq 0) -and $release.tag_name -notmatch '^v') {
-                                    $assets = Get-ReleaseAssets -Repo $repoPath -Version "v$($release.tag_name)" -Platform $repoPlatform
+                                    $assets = Get-ReleaseAsset -Repo $repoPath -Version "v$($release.tag_name)" -Platform $repoPlatform
                                 }
                             }
                         } else {
@@ -978,10 +1049,10 @@ try {
         $releaseAssets = $null
         $hasChecksumFiles = $false
         if ($gitHubOwner -and $gitHubRepo) {
-            $releaseAssets = Get-ReleaseAssets -Repo "$gitHubOwner/$gitHubRepo" -Version "v$($manifest.version)" -Platform "github"
+            $releaseAssets = Get-ReleaseAsset -Repo "$gitHubOwner/$gitHubRepo" -Version "v$($manifest.version)" -Platform "github"
             if (-not $releaseAssets) {
                 # Try without 'v' prefix
-                $releaseAssets = Get-ReleaseAssets -Repo "$gitHubOwner/$gitHubRepo" -Version $manifest.version -Platform "github"
+                $releaseAssets = Get-ReleaseAsset -Repo "$gitHubOwner/$gitHubRepo" -Version $manifest.version -Platform "github"
             }
             # Check if checksum files exist
             if ($releaseAssets) {
@@ -1183,6 +1254,7 @@ try {
                     -Description $issueDesc `
                     -Repository $GitHubRepo `
                     -Token $GitHubToken `
+                    -IssueType "manifest-error" `
                     -TagCopilot
 
                 if (!$issueNum) {
@@ -1193,6 +1265,7 @@ try {
                         -Description $issueDesc `
                         -Repository $GitHubRepo `
                         -Token $GitHubToken `
+                        -IssueType "bug" `
                         -TagEscalation
                 }
             }
@@ -1218,6 +1291,7 @@ try {
                     -Description $issueDesc `
                     -Repository $GitHubRepo `
                     -Token $GitHubToken `
+                    -IssueType "manifest-error" `
                     -TagEscalation | Out-Null
             }
 
