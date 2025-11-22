@@ -1146,6 +1146,80 @@ try {
                 }
             }
 
+            # After saving, run checkver to ensure version is canonical according to checkver
+            try {
+                if (Test-Path $checkverScript) {
+                    Write-Host "  [INFO] Running checkver to determine canonical version..." -ForegroundColor Cyan
+                    $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+
+                    # Try to extract version from checkver output
+                    $detectedVersion = $null
+                    if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
+                        $detectedVersion = $matches[1]
+                    } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
+                        $potential = $matches[1]
+                        if ($potential -ne "couldn't") { $detectedVersion = $potential }
+                    } else {
+                        $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                        for ($i = 0; $i -lt $lines.Count; $i++) {
+                            if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
+                                if ($i + 1 -lt $lines.Count) {
+                                    $versionLine = $lines[$i + 1]
+                                    if ($versionLine -notmatch '^\(scoop version') {
+                                        $detectedVersion = $versionLine
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if ($detectedVersion) {
+                        $detectedVersion = $detectedVersion -replace '^v', ''
+
+                        # Validate that detected version appears in updated URLs (to avoid spurious small numbers)
+                        $versionValid = $false
+                        if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
+                        if (-not $versionValid -and $manifest.architecture) {
+                            if ($manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                            if ($manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                        }
+
+                        if (-not $versionValid) {
+                            # Fallback: try to extract version from URL patterns (look for v<digits> or _v<digits>)
+                            $found = $null
+                            if ($manifest.url -and ($manifest.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+
+                            if ($found) {
+                                Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
+                                $detectedVersion = $found
+                                $versionValid = $true
+                            } else {
+                                Write-Host "  [WARN] checkver returned '$detectedVersion' which doesn't match updated URLs; ignoring" -ForegroundColor Yellow
+                                $versionValid = $false
+                            }
+                        }
+
+                        if ($versionValid -and $detectedVersion -ne $manifest.version) {
+                            Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                            $manifest.version = [string]$detectedVersion
+
+                            # Rewrite manifest with updated version
+                            $sortedManifest = Get-OrderedManifest -Manifest $manifest
+                            $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
+                            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                            [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                        }
+                    } else {
+                        Write-Host "  [WARN] checkver did not return a parseable version" -ForegroundColor Yellow
+                    }
+                }
+            } catch {
+                Write-Host "  [WARN] Running checkver failed: $_" -ForegroundColor Yellow
+            }
+
             Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
             exit 0
         }
@@ -1248,6 +1322,79 @@ try {
         # Write back preserving original line endings (UTF-8 without BOM)
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($ManifestPath, $updatedContent, $utf8NoBom)
+
+        # After targeted text replacements, run checkver to canonicalize version
+        try {
+            if (Test-Path $checkverScript) {
+                Write-Host "  [INFO] Running checkver to determine canonical version..." -ForegroundColor Cyan
+                $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
+
+                $detectedVersion = $null
+                if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
+                    $detectedVersion = $matches[1]
+                } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
+                    $potential = $matches[1]
+                    if ($potential -ne "couldn't") { $detectedVersion = $potential }
+                } else {
+                    $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                    for ($i = 0; $i -lt $lines.Count; $i++) {
+                        if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
+                            if ($i + 1 -lt $lines.Count) {
+                                $versionLine = $lines[$i + 1]
+                                if ($versionLine -notmatch '^\(scoop version') {
+                                    $detectedVersion = $versionLine
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if ($detectedVersion) {
+                    $detectedVersion = $detectedVersion -replace '^v', ''
+
+                    # Validate that detected version appears in updated URLs (to avoid spurious small numbers)
+                    $versionValid = $false
+                    if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
+                    if (-not $versionValid -and $manifest.architecture) {
+                        if ($manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                        if ($manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                    }
+
+                    if (-not $versionValid) {
+                        # Fallback: try to extract version from URL patterns (look for v<digits> or _v<digits>)
+                        $found = $null
+                        if ($manifest.url -and ($manifest.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                        if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                        if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+
+                        if ($found) {
+                            Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
+                            $detectedVersion = $found
+                            $versionValid = $true
+                        } else {
+                            Write-Host "  [WARN] checkver returned '$detectedVersion' which doesn't match updated URLs; ignoring" -ForegroundColor Yellow
+                            $versionValid = $false
+                        }
+                    }
+
+                    if ($versionValid -and $detectedVersion -ne $manifest.version) {
+                        Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                        $manifest.version = [string]$detectedVersion
+
+                        # Rewrite file to ensure version is quoted and consistent
+                        $sortedManifest = Get-OrderedManifest -Manifest $manifest
+                        $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
+                        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                    }
+                } else {
+                    Write-Host "  [WARN] checkver did not return a parseable version" -ForegroundColor Yellow
+                }
+            }
+        } catch {
+            Write-Host "  [WARN] Running checkver failed: $_" -ForegroundColor Yellow
+        }
 
         Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
 
