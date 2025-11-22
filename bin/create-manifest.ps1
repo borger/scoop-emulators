@@ -126,6 +126,16 @@ function Request-ManifestDetails {
     }
     $finalPersist = @($finalPersist) | Where-Object { $_ }
 
+    # Normalize compact numeric dates (YYYYMMDD) into dashed format YYYY-MM-DD
+    if ($versionToUse -and ($versionToUse -match '^[0-9]{8}$')) {
+        try {
+            $versionToUse = ([datetime]::ParseExact($versionToUse, 'yyyyMMdd', $null)).ToString('yyyy-MM-dd')
+            "Normalized numeric date version to dashed format: $versionToUse" | Write-Status -Level Info
+        } catch {
+            # If parse fails, leave version as-is
+        }
+    }
+
     return @{
         Description  = $finalDesc
         PersistItems = $finalPersist
