@@ -51,8 +51,8 @@
     ],
     "checkver": {
         "url": "https://api.github.com/repos/RPCS3/rpcs3-binaries-win/releases/latest",
-        "jsonpath": "$.assets[?(@.name =~ /rpcs3-v[a-f\\d.-]+_win64_msvc\\.7z/)].browser_download_url",
-        "regex": "releases/download/(?<build>build-[a-f\\d]+)/rpcs3-v(?<version>[\\d.-]+)-(?<commit>[a-f\\d]+)_win64_msvc\\.7z"
+        "jsonpath": "$.assets[?(@.name =~ /rpcs3-v\\d+\\.\\d+\\.\\d+-\\d+-[a-f\\d]+_win64_msvc\\.7z/)].browser_download_url",
+        "regex": "releases/download/(?<build>build-[a-f\\d]+)/rpcs3-v(?<version>\\d+\\.\\d+\\.\\d+)-(?<buildnum>\\d+)-(?<commit>[a-f\\d]+)_win64_msvc\\.7z"
     },
     "autoupdate": {
         "url": "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/$matchBuild/rpcs3-v$version-$matchCommit_win64_msvc.7z",
