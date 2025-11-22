@@ -3,6 +3,15 @@ on:
     # Run twice daily to fix broken manifests
     - cron: '0 0,12 * * *'
   workflow_dispatch:
+    inputs:
+      manifests:
+        description: 'Comma-separated list of manifest base names to fix (leave empty to process all or use excavator artifact)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'If true, run autofix but do not commit or push changes'
+        required: false
+        default: 'false'
   # Trigger on push to bucket if manifests change
   push:
     paths:
@@ -153,7 +162,16 @@ jobs:
         run: |
           $bucketPath = "${{ github.workspace }}/bucket"
           $scriptsPath = "${{ github.workspace }}/bin"
-          $manifestsToFix = "${{ steps.parse-errors.outputs.manifests-to-fix }}"
+          $manualInput = "${{ github.event.inputs.manifests }}"
+          $dryRun = "${{ github.event.inputs.dry_run }}"
+
+          # Prefer manual inputs (from workflow_dispatch) when provided, otherwise use excavator artifacts
+          if ($manualInput -and $manualInput.Trim() -ne '') {
+            Write-Host "Manual run requested for: $manualInput" -ForegroundColor Cyan
+            $manifestsToFix = $manualInput
+          } else {
+            $manifestsToFix = "${{ steps.parse-errors.outputs.manifests-to-fix }}"
+          }
 
           Write-Host "Starting auto-fix process..." -ForegroundColor Cyan
           Write-Host "SCOOP_HOME: $env:SCOOP_HOME" -ForegroundColor Gray
@@ -191,6 +209,7 @@ jobs:
           Write-Host "Fixed: $fixedCount manifest(s)" -ForegroundColor Cyan
 
       - name: Commit and push changes
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         shell: pwsh
         run: |
           git config user.name "Scoop Auto-Updater"
@@ -209,3 +228,9 @@ jobs:
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit skipped (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        shell: pwsh
+        run: |
+          Write-Host "Dry run: changes were not committed or pushed" -ForegroundColor Yellow
