@@ -1,5 +1,5 @@
 {
-    "version": "3.834",
+    "version": "3834",
     "description": "Sony PlayStation Vita emulator",
     "homepage": "https://vita3k.org",
     "license": "GPL-2.0-only",
@@ -29,9 +29,15 @@
         "config.yml"
     ],
     "checkver": {
-        "github": "https://github.com/Vita3K/Vita3K/",
-        "regex": "Vita3K Build: (?<version>\\d+)",
-        "replace": "${version}"
+        "script": [
+            "$url = 'https://github.com/Vita3K/Vita3K/releases/tag/continuous'",
+            "$cont = (Invoke-WebRequest $url -UseBasicParsing -Headers @{ 'User-Agent' = 'Mozilla/5.0' }).Content",
+            "if ($cont -match 'Vita3K Build:\\s*(\\d+)') { Write-Output $matches[1]; exit 0 }",
+            "if ($cont -match 'Corresponding commit:\\s*([a-f0-9]{7})') { Write-Output $matches[1]; exit 0 }",
+            "# fallback: try to extract first 7-char commit from the page",
+            "if ($cont -match '([a-f0-9]{7})') { Write-Output $matches[1]; exit 0 }",
+            "Write-Error 'could not detect vita3k build or commit'"
+        ]
     },
     "autoupdate": {
         "architecture": {
