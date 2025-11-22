@@ -5,6 +5,12 @@ on:
   push:
   workflow_dispatch:
 
+# Ensure CI runs cancel any in-progress runs for the same branch so only the
+# latest commit is tested.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test_powershell:
     name: WindowsPowerShell
