@@ -2356,10 +2356,21 @@ try {
                 '' | Write-Status
                 'Select auxiliary binaries to include:' | Write-Status -Level Info
                 for ($i = 0; $i -lt $auxBinaries.Count; $i++) {
-                    # Ensure we stringify the entry (handles unexpected object types)
+                    # Ensure we get a sensible filename for display regardless of object type
                     $entry = $auxBinaries[$i]
-                    $name = if ($entry -is [string]) { $entry } else { ($entry | Out-String).Trim() }
-                    "  [$($i + 1)] $name" | Write-Status -Level Info
+                    if ($entry -is [string]) {
+                        $name = $entry
+                    } elseif ($entry -is [System.IO.FileInfo]) {
+                        $name = $entry.Name
+                    } elseif ($entry -is [PSCustomObject] -and $entry.PSObject.Properties.Match('Name').Count) {
+                        $name = $entry.Name
+                    } else {
+                        $name = ($entry | Out-String).Trim()
+                    }
+
+                    # Trim and show in quotes to avoid terminal truncation or confusing whitespace
+                    $name = $name.Trim()
+                    "  [$($i + 1)] '$name'" | Write-Status -Level Info
                 }
 
                 $response = Read-Host "Enter numbers separated by commas (e.g. 1,3) or 'all'/'none' [Default: none]"
