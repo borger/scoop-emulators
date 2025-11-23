@@ -209,13 +209,16 @@ try {
 
     Write-Verbose "Checkver output: '$checkverOutput'"
 
-    # Parse the output to find the latest version
-    # checkver outputs either:
-    # - "shadps4: 0.12.5 (scoop version is 0.12.0) autoupdate available" (outdated)
-    # - "shadps4: 0.12.5" (already up to date)
-    if ($checkverOutput -match ':\s+([\d\.]+)(\s+\(scoop version)?') {
+    # Parse the output to find the latest version. Support arbitrary tokens (dates, hashes, semantic versions).
+    # Prefer the form: "appname: <version> (scoop version is ...)", otherwise take the first non-space token after the colon.
+    $latestVersion = $null
+    if ($checkverOutput -match "$([regex]::Escape($AppName)):\s*(\S+)\s*\(scoop version") {
         $latestVersion = $matches[1]
-    } else {
+    } elseif ($checkverOutput -match "$([regex]::Escape($AppName)):\s*(\S+)") {
+        $latestVersion = $matches[1]
+    }
+
+    if (-not $latestVersion) {
         Write-Error "Could not parse version from checkver output: $checkverOutput"
         exit -1
     }
@@ -241,30 +244,44 @@ try {
         # Update version
         $manifestJson.version = $latestVersion
 
+        # Derive commit-only token if version contains a trailing commit SHA
+        $commitToken = $null
+        if ($latestVersion -match '([a-f0-9]{7,40})$') { $commitToken = $matches[1] }
+
         # Process autoupdate to update URLs with the new version
         if ($manifestJson.autoupdate.architecture.'64bit'.url) {
             Write-Verbose "Updating 64bit URL..."
-            $manifestJson.architecture.'64bit'.url = $manifestJson.autoupdate.architecture.'64bit'.url -replace '\$version', $latestVersion
+            $newUrl64 = $manifestJson.autoupdate.architecture.'64bit'.url -replace '\$version', $latestVersion
+            if ($commitToken) { $newUrl64 = $newUrl64 -replace '\$matchCommit', $commitToken }
+            $manifestJson.architecture.'64bit'.url = $newUrl64
         }
 
         if ($manifestJson.autoupdate.architecture.'32bit'.url) {
             Write-Verbose "Updating 32bit URL..."
-            $manifestJson.architecture.'32bit'.url = $manifestJson.autoupdate.architecture.'32bit'.url -replace '\$version', $latestVersion
+            $newUrl32 = $manifestJson.autoupdate.architecture.'32bit'.url -replace '\$version', $latestVersion
+            if ($commitToken) { $newUrl32 = $newUrl32 -replace '\$matchCommit', $commitToken }
+            $manifestJson.architecture.'32bit'.url = $newUrl32
         }
 
         if ($manifestJson.autoupdate.'64bit'.url) {
             Write-Verbose "Updating 64bit URL (direct)..."
-            $manifestJson.architecture.'64bit'.url = $manifestJson.autoupdate.'64bit'.url -replace '\$version', $latestVersion
+            $newUrl64 = $manifestJson.autoupdate.'64bit'.url -replace '\$version', $latestVersion
+            if ($commitToken) { $newUrl64 = $newUrl64 -replace '\$matchCommit', $commitToken }
+            $manifestJson.architecture.'64bit'.url = $newUrl64
         }
 
         if ($manifestJson.autoupdate.'32bit'.url) {
             Write-Verbose "Updating 32bit URL (direct)..."
-            $manifestJson.architecture.'32bit'.url = $manifestJson.autoupdate.'32bit'.url -replace '\$version', $latestVersion
+            $newUrl32 = $manifestJson.autoupdate.'32bit'.url -replace '\$version', $latestVersion
+            if ($commitToken) { $newUrl32 = $newUrl32 -replace '\$matchCommit', $commitToken }
+            $manifestJson.architecture.'32bit'.url = $newUrl32
         }
 
         if ($manifestJson.autoupdate.url) {
             Write-Verbose "Updating generic URL..."
-            $manifestJson.url = $manifestJson.autoupdate.url -replace '\$version', $latestVersion
+            $newUrl = $manifestJson.autoupdate.url -replace '\$version', $latestVersion
+            if ($commitToken) { $newUrl = $newUrl -replace '\$matchCommit', $commitToken }
+            $manifestJson.url = $newUrl
         }
 
         # Now we need to get the hashes for the updated URLs

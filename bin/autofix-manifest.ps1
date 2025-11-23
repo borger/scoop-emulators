@@ -242,10 +242,16 @@ function Get-OrderedManifest {
 function ConvertTo-CanonicalVersion {
     param(
         [string]$RawVersion,
-        [object]$Manifest
+        [object]$Manifest,
+        [string]$AppName
     )
 
     if (-not $RawVersion) { return $null }
+    # Certain apps (historical or intentionally non-standard) should not be normalized.
+    # DuckStation uses its own versioning; avoid auto-normalizing its version strings.
+    if ($AppName -and $AppName -match '^duckstation') {
+        return $RawVersion.Trim()
+    }
     $v = $RawVersion.Trim()
 
     # Strip leading v and optional dot (v.1.2.3 -> 1.2.3)
@@ -947,7 +953,7 @@ try {
         }
 
         # Normalize latestVersion into canonical form (handles tags like v.0.12.5, .0.12.5, mame0282)
-        try { $latestVersion = ConvertTo-CanonicalVersion -RawVersion $latestVersion -Manifest $manifest } catch { }
+        try { $latestVersion = ConvertTo-CanonicalVersion -RawVersion $latestVersion -Manifest $manifest -AppName $appName } catch { }
         $currentVersion = $manifest.version
 
         if ($latestVersion -eq $currentVersion) {
@@ -1424,14 +1430,18 @@ try {
                         }
 
                         if ($versionValid -and $detectedVersion -ne $manifest.version) {
-                            Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
-                            $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
+                            if ($appName -and $appName -match '^duckstation') {
+                                Write-Host "  [INFO] Detected canonical version but skipping canonicalization for $appName" -ForegroundColor Yellow
+                            } else {
+                                Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                                $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
 
-                            # Rewrite manifest with updated version
-                            $sortedManifest = Get-OrderedManifest -Manifest $manifest
-                            $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
-                            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-                            [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                                # Rewrite manifest with updated version
+                                $sortedManifest = Get-OrderedManifest -Manifest $manifest
+                                $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
+                                $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                                [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                            }
                         }
                     } else {
                         Write-Host "  [WARN] checkver did not return a parseable version" -ForegroundColor Yellow
@@ -1632,14 +1642,18 @@ try {
                     }
 
                     if ($versionValid -and $detectedVersion -ne $manifest.version) {
-                        Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
-                        $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
+                        if ($appName -and $appName -match '^duckstation') {
+                            Write-Host "  [INFO] Detected canonical version but skipping canonicalization for $appName" -ForegroundColor Yellow
+                        } else {
+                            Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                            $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
 
-                        # Rewrite file to ensure version is quoted and consistent
-                        $sortedManifest = Get-OrderedManifest -Manifest $manifest
-                        $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
-                        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-                        [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                            # Rewrite file to ensure version is quoted and consistent
+                            $sortedManifest = Get-OrderedManifest -Manifest $manifest
+                            $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
+                            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                            [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                        }
                     }
                 } else {
                     Write-Host "  [WARN] checkver did not return a parseable version" -ForegroundColor Yellow
