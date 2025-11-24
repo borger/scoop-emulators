@@ -207,6 +207,81 @@ function Test-ManifestStructure {
     return $errors
 }
 
+# Test whether every download URL in the manifest is reachable via HTTP HEAD.
+function Test-ManifestDownloadAccessibility {
+    param(
+        [object]$Manifest,
+        [int]$TimeoutSec = 10
+    )
+
+    $targets = @()
+    if ($Manifest.url) {
+        $targets += @{ Type = 'generic'; Url = $Manifest.url }
+    }
+    if ($Manifest.architecture) {
+        foreach ($arch in '64bit', '32bit', 'arm64') {
+            if ($Manifest.architecture.$arch -and $Manifest.architecture.$arch.url) {
+                $targets += @{ Type = $arch; Url = $Manifest.architecture.$arch.url }
+            }
+        }
+    }
+
+    if ($targets.Count -eq 0) {
+        return @{ Success = $true; Failures = @() }
+    }
+
+    $failures = @()
+    foreach ($target in $targets) {
+        try {
+            Invoke-WebRequest -Uri $target.Url -Method Head -TimeoutSec $TimeoutSec -UseBasicParsing -Headers @{ 'User-Agent' = 'scoop-autofix/1.0' } | Out-Null
+        } catch {
+            $failures += @{ Type = $target.Type; Url = $target.Url; Error = $_.Exception.Message }
+        }
+    }
+
+    return @{ Success = ($failures.Count -eq 0); Failures = $failures }
+}
+
+# Validate any proposed fix by running update-manifest and attempting an install.
+function Validate-FixIntegrity {
+    param(
+        [string]$ManifestPath,
+        [string]$AppName
+    )
+
+    $updateScript = "$PSScriptRoot/update-manifest.ps1"
+    if (-not (Test-Path $updateScript)) {
+        Write-Host "  [WARN] update-manifest.ps1 not available for validation" -ForegroundColor Yellow
+        return $false
+    }
+
+    Write-Host "  [INFO] Running update-manifest.ps1 for $AppName" -ForegroundColor Cyan
+    $updateOutput = & $updateScript -ManifestPath $ManifestPath -Update -Force 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [WARN] update-manifest failed for $AppName" -ForegroundColor Yellow
+        Add-Issue -Title "Validation failed" -Description "update-manifest.ps1 failed:\n$updateOutput" -Severity "error"
+        return $false
+    }
+
+    if (-not (Get-Command 'scoop' -ErrorAction SilentlyContinue)) {
+        Write-Host "  [WARN] scoop is not installed; skipping installation verification" -ForegroundColor Yellow
+        return $true
+    }
+
+    Write-Host "  [INFO] Attempting 'scoop install $AppName' to verify the manifest" -ForegroundColor Cyan
+    $installOutput = ''
+    try {
+        $installOutput = & scoop install $AppName 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) { throw "scoop install failed" }
+    } catch {
+        Write-Host "  [WARN] scoop install failed for $AppName" -ForegroundColor Yellow
+        Add-Issue -Title "Install verification failed" -Description "scoop install $AppName failed:\n$installOutput" -Severity "warning"
+        return $false
+    }
+
+    return $true
+}
+
 # Helper to extract the first token that looks like a version (contains digits).
 function Get-VersionTokenFromText {
     param([string]$Text)
@@ -777,6 +852,19 @@ try {
         Write-Host "[OK] No autoupdate section needed, manifest is valid"
         exit 0
     }
+
+    $needsFix = $false
+    $downloadStatus = Test-ManifestDownloadAccessibility -Manifest $manifest
+    if ($downloadStatus.Success) {
+        Write-Host "[OK] Existing release assets download successfully; nothing to fix"
+        exit 0
+    }
+    Write-Host "[WARN] One or more release URLs are not accessible; attempting to repair the manifest" -ForegroundColor Yellow
+    foreach ($failure in $downloadStatus.Failures) {
+        Write-Host "  [INFO] Could not reach $($failure.Type) URL: $($failure.Url)" -ForegroundColor Yellow
+        if ($failure.Error) { Write-Host "    [INFO] Error: $($failure.Error)" -ForegroundColor Yellow }
+    }
+    $needsFix = $true
 
     # Try to get latest version from checkver
     $checkverScript = "$PSScriptRoot/checkver.ps1"
@@ -1445,6 +1533,13 @@ try {
                 Write-Host "  [WARN] Running checkver failed: $_" -ForegroundColor Yellow
             }
 
+            if ($needsFix) {
+                if (-not (Validate-FixIntegrity -ManifestPath $ManifestPath -AppName $appName)) {
+                    Write-Host "[FAIL] Validation failed; aborting auto-fix" -ForegroundColor Red
+                    exit 2
+                }
+            }
+
             Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
             exit 0
         }
@@ -1636,6 +1731,13 @@ try {
             }
         } catch {
             Write-Host "  [WARN] Running checkver failed: $_" -ForegroundColor Yellow
+        }
+
+        if ($needsFix) {
+            if (-not (Validate-FixIntegrity -ManifestPath $ManifestPath -AppName $appName)) {
+                Write-Host "[FAIL] Validation failed; aborting auto-fix" -ForegroundColor Red
+                exit 2
+            }
         }
 
         Write-Host "[OK] Manifest auto-fixed and saved" -ForegroundColor Green
