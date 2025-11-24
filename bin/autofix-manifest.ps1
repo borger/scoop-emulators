@@ -606,7 +606,7 @@ function Repair-VersionPattern {
                 elseif ($release.name) { $tags += $release.name }
             }
 
-            Write-Host "  Recent tags: $($tags | Select-Object -First 3 | Join-String -Separator ', ')" -ForegroundColor Gray
+            Write-Host "  Recent tags: $((($tags | Select-Object -First 3) -join ', '))" -ForegroundColor Gray
 
             # Detect version scheme patterns
             if ($tags | Where-Object { $_ -match '^\d{4}-\d{2}-\d{2}' }) {
@@ -1574,7 +1574,7 @@ try {
 
                         # Validate that detected version appears in updated URLs (to avoid spurious small numbers)
                         $versionValid = $false
-                        if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
+                            if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
                         if (-not $versionValid -and $manifest.architecture) {
                             if ($manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
                             if ($manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
@@ -1783,9 +1783,10 @@ try {
                     if (-not $versionValid) {
                         # Fallback: try to extract version from URL patterns (look for v<digits> or _v<digits>)
                         $found = $null
-                        if ($manifest.url -and ($manifest.url -match 'v\.? (?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                        if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v\.? (?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                        if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v\.? (?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            # Try to extract version from URL patterns (look for v<digits> or _v<digits>)
+                            if ($manifest.url -and ($manifest.url -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
 
                         if ($found) {
                             Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
