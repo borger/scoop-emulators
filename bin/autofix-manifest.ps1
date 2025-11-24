@@ -288,11 +288,39 @@ function Get-VersionTokenFromText {
 
   if (-not $Text) { return $null }
 
-  $tokenPattern = '(?<!\S)(?<token>[^\s]*\d[^\s]*)'
-  if ($Text -match $tokenPattern) {
-    $candidate = $matches['token']
-    if ($candidate -and ($candidate -ne "couldn't")) {
-      return $candidate
+  # Prioritized patterns to extract a reasonable version token from free text.
+  $patterns = @(
+    # ISO date
+    '(?<!\S)(?<ver>\d{4}-\d{2}-\d{2})(?!\S)',
+    # Git SHA (7-40 hex chars)
+    '(?<!\S)(?<ver>[a-f0-9]{7,40})(?!\S)',
+    # Semantic-like (requires at least one dot)
+    '(?<!\S)(?<ver>\d+(?:\.\d+)+[\w\.-_]*)',
+    # Long numeric (2+ digits)
+    '(?<!\S)(?<ver>\d{2,})(?!\S)',
+    # Fallback: single digit (last resort)
+    '(?<!\S)(?<ver>\d)(?!\S)'
+  )
+
+  foreach ($p in $patterns) {
+    if ($Text -match $p) {
+      $candidate = $matches['ver']
+      if ($candidate -and ($candidate -ne "couldn't")) {
+        return $candidate
+      }
+    }
+  }
+
+  # As a final attempt, scan tokens but reject tokens that mix letters on both sides
+  $tokens = $Text -split '\s+'
+  foreach ($t in $tokens) {
+    if ($t -match '\d') {
+      # strip trailing punctuation
+      $tok = $t.TrimEnd(':', ',', ';', '.')
+      # Accept tokens that start or end with a digit (e.g., '1.2.3' or '123beta' or 'beta123')
+      if ($tok -match '^\d' -or $tok -match '\d$') {
+        return $tok
+      }
     }
   }
 
@@ -305,11 +333,19 @@ function Test-VersionLooksValid {
 
   if (-not $v) { return $false }
 
-  # Allow common version patterns: contains digit, ISO date, or short git SHA
-  if ($v -match '\d') { return $true }
-  if ($v -match '^\d{4}-\d{2}-\d{2}$') { return $true }
-  if ($v -match '^[a-f0-9]{7}$') { return $true }
+  # Allow pure numeric versions (build numbers)
+  if ($v -match '^[0-9]+$') { return $true }
 
+  # Allow ISO dates YYYY-MM-DD
+  if ($v -match '^\d{4}-\d{2}-\d{2}$') { return $true }
+
+  # Allow git SHAs (7+ hex characters)
+  if ($v -match '^[a-f0-9]{7,40}$') { return $true }
+
+  # Allow semantic-like versions: starts and ends with a digit and contains digits and dots/hyphens/underscores
+  if ($v -match '^\d[0-9\.\-_]*\d$') { return $true }
+
+  # Reject short tokens that mix letters with digits (e.g., '3k', 'ita3k')
   return $false
 }
 
@@ -327,22 +363,39 @@ function Get-VersionFromCheckverOutput {
 
   for ($i = 0; $i -lt $lines.Count; $i++) {
     $line = $lines[$i]
+    # Look for lines that start with the app name (e.g., "vita3k: 4835")
     if ($line -match '^' + [regex]::Escape($AppName) + ':(?<tail>.*)') {
       $tail = $matches['tail']
+      # Try to extract a reasonable token from the tail and validate it
       $token = Get-VersionTokenFromText -Text $tail
-      if ($token) { return $token }
+      if ($token) {
+        # Trim common surrounding punctuation
+        $token = $token -replace '^[\s:"]+|[\s:"]+$', ''
+        if (Test-VersionLooksValid -v $token) { return $token }
+      }
 
+      # If tail didn't yield a valid token, try the next non-empty line (some checkver scripts emit version on following line)
       if ($i + 1 -lt $lines.Count) {
         $nextLine = $lines[$i + 1]
         if ($nextLine -notmatch '^\(scoop version') {
           $token = Get-VersionTokenFromText -Text $nextLine
-          if ($token) { return $token }
+          if ($token) {
+            $token = $token -replace '^[\s:"]+|[\s:"]+$', ''
+            if (Test-VersionLooksValid -v $token) { return $token }
+          }
         }
       }
     }
   }
 
-  return Get-VersionTokenFromText -Text $normalized
+  # If no app-prefixed line matched, try to extract a token from the whole output and validate it
+  $fallback = Get-VersionTokenFromText -Text $normalized
+  if ($fallback) {
+    $fallback = $fallback -replace '^[\s:"]+|[\s:"]+$', ''
+    if (Test-VersionLooksValid -v $fallback) { return $fallback }
+  }
+
+  return $null
 }
 
 # Sort manifest keys according to Scoop standards
@@ -1133,6 +1186,12 @@ try {
       }
 
       Write-Host "[OK] Manifest already up-to-date ($currentVersion)"
+      exit 0
+    }
+
+    # If downloads were reachable and we couldn't detect any newer version, avoid making changes
+    if ($downloadsOk -and -not $latestVersion) {
+      Write-Host "[OK] Existing release assets reachable and no newer version detected; nothing to fix" -ForegroundColor Green
       exit 0
     }
 
