@@ -207,6 +207,55 @@ function Test-ManifestStructure {
     return $errors
 }
 
+# Helper to extract the first token that looks like a version (contains digits).
+function Get-VersionTokenFromText {
+    param([string]$Text)
+
+    if (-not $Text) { return $null }
+
+    $tokenPattern = '(?<!\S)(?<token>[^\s]*\d[^\s]*)'
+    if ($Text -match $tokenPattern) {
+        $candidate = $matches['token']
+        if ($candidate -and ($candidate -ne "couldn't")) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+# Extract a version string from checkver output by looking for tokens that follow the app name.
+function Get-VersionFromCheckverOutput {
+    param(
+        [string]$Output,
+        [string]$AppName
+    )
+
+    if (-not $Output -or -not $AppName) { return $null }
+
+    $normalized = $Output -replace "`r", ''
+    $lines = $normalized -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -match '^' + [regex]::Escape($AppName) + ':(?<tail>.*)') {
+            $tail = $matches['tail']
+            $token = Get-VersionTokenFromText -Text $tail
+            if ($token) { return $token }
+
+            if ($i + 1 -lt $lines.Count) {
+                $nextLine = $lines[$i + 1]
+                if ($nextLine -notmatch '^\(scoop version') {
+                    $token = Get-VersionTokenFromText -Text $nextLine
+                    if ($token) { return $token }
+                }
+            }
+        }
+    }
+
+    return Get-VersionTokenFromText -Text $normalized
+}
+
 # Sort manifest keys according to Scoop standards
 function Get-OrderedManifest {
     param([object]$Manifest)
@@ -845,39 +894,9 @@ try {
 
     # Parse version from checkver output if not already obtained
     if (-not $latestVersion) {
-        # Extract version from checkver output: "appname: version (scoop version is old_version)"
-        # We want the first version, not the one in parentheses (which is the local version)
-        if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
-            $latestVersion = $matches[1]
+        $latestVersion = Get-VersionFromCheckverOutput -Output $checkverOutput -AppName $appName
+        if ($latestVersion) {
             Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
-        } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
-            # Fallback for when "(scoop version is...)" is missing (e.g. new app?)
-            $potentialVersion = $matches[1]
-            if ($potentialVersion -ne "couldn't") {
-                # Avoid matching "couldn't match"
-                $latestVersion = $potentialVersion
-                Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
-            }
-        }
-
-        if (-not $latestVersion) {
-            # Fallback: Extract the version line after "appname:"
-            $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-
-            for ($i = 0; $i -lt $lines.Count; $i++) {
-                if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
-                    # Next non-empty line should be the version
-                    if ($i + 1 -lt $lines.Count) {
-                        $versionLine = $lines[$i + 1]
-                        # Check if this looks like a version (not "(scoop version is...)")
-                        if ($versionLine -notmatch '^\(scoop version') {
-                            $latestVersion = $versionLine
-                            Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
-                            break
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -973,13 +992,7 @@ try {
                 try {
                     if (Test-Path $checkverScript) {
                         $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
-                        $detectedVersion = $null
-                        if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
-                            $detectedVersion = $matches[1]
-                        } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
-                            $potential = $matches[1]
-                            if ($potential -ne "couldn't") { $detectedVersion = $potential }
-                        }
+                        $detectedVersion = Get-VersionFromCheckverOutput -Output $checkverOutput -AppName $appName
 
                         if ($detectedVersion) {
                             $detectedVersion = $detectedVersion -replace '^v', ''
@@ -1380,26 +1393,7 @@ try {
                     $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
                     # Try to extract version from checkver output
-                    $detectedVersion = $null
-                    if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
-                        $detectedVersion = $matches[1]
-                    } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
-                        $potential = $matches[1]
-                        if ($potential -ne "couldn't") { $detectedVersion = $potential }
-                    } else {
-                        $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                        for ($i = 0; $i -lt $lines.Count; $i++) {
-                            if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
-                                if ($i + 1 -lt $lines.Count) {
-                                    $versionLine = $lines[$i + 1]
-                                    if ($versionLine -notmatch '^\(scoop version') {
-                                        $detectedVersion = $versionLine
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    $detectedVersion = Get-VersionFromCheckverOutput -Output $checkverOutput -AppName $appName
 
                     if ($detectedVersion) {
                         $detectedVersion = $detectedVersion -replace '^v', ''
@@ -1560,26 +1554,7 @@ try {
                 Write-Host "  [INFO] Running checkver to determine canonical version..." -ForegroundColor Cyan
                 $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
-                $detectedVersion = $null
-                if ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)\s*\(scoop version is") {
-                    $detectedVersion = $matches[1]
-                } elseif ($checkverOutput -match "$([regex]::Escape($appName)):\s*(\S+)") {
-                    $potential = $matches[1]
-                    if ($potential -ne "couldn't") { $detectedVersion = $potential }
-                } else {
-                    $lines = $checkverOutput -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                    for ($i = 0; $i -lt $lines.Count; $i++) {
-                        if ($lines[$i] -match '^' + [regex]::Escape($appName) + ':') {
-                            if ($i + 1 -lt $lines.Count) {
-                                $versionLine = $lines[$i + 1]
-                                if ($versionLine -notmatch '^\(scoop version') {
-                                    $detectedVersion = $versionLine
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
+                $detectedVersion = Get-VersionFromCheckverOutput -Output $checkverOutput -AppName $appName
 
                 if ($detectedVersion) {
                     $detectedVersion = $detectedVersion -replace '^v', ''
