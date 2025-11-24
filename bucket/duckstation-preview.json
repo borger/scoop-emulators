@@ -1,5 +1,5 @@
 {
-    "version": "2025-11-24-b5392ee",
+    "version": "2025-11-24-21daf6c",
     "description": "Sony PlayStation 1 emulator",
     "homepage": "https://github.com/stenzek/duckstation/",
     "license": {
@@ -13,7 +13,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip",
-            "hash": "d858071bb960013a220897598875a9e05d377ce1351f112e0a55fd8eb1050192"
+            "hash": "b4b68ba309111c307a4e95d537f2d87045016643846b88c21a2c1a710b581e02"
         }
     },
     "installer": {
