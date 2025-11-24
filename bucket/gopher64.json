@@ -28,7 +28,9 @@
         "architecture": {
             "64bit": {
                 "url": "https://github.com/gopher64/gopher64/releases/download/v$version/gopher64-windows-x86_64.exe",
-                "hash": "sha256|$sha256"
+                "hash": {
+                    "url": "https://github.com/gopher64/gopher64/releases/download/v$version/gopher64-windows-x86_64.exe.sha256"
+                }
             }
         }
     }
