@@ -1,23 +1,6 @@
 on:
-  schedule:
-    # Run twice daily to fix broken manifests
-    - cron: '0 0,12 * * *'
-  workflow_dispatch:
-    inputs:
-      manifests:
-        description: 'Comma-separated list of manifest base names to fix (leave empty to process all or use excavator artifact)'
-        required: false
-        default: ''
-      dry_run:
-        description: 'If true, run autofix but do not commit or push changes'
-        required: false
-        default: 'false'
-  # Trigger on push to bucket if manifests change
-  push:
-    paths:
-      - 'bucket/*.json'
-  # Trigger when excavator completes (especially on failure)
   workflow_run:
+    # Only run after the Excavator workflow completes
     workflows: [Excavator]
     types: [completed]
 
@@ -162,8 +145,9 @@ jobs:
         run: |
           $bucketPath = "${{ github.workspace }}/bucket"
           $scriptsPath = "${{ github.workspace }}/bin"
-          $manualInput = "${{ github.event.inputs.manifests }}"
-          $dryRun = "${{ github.event.inputs.dry_run }}"
+          # No manual inputs available when triggered by workflow_run from Excavator
+          $manualInput = ""
+          $dryRun = "false"
 
           # Prefer manual inputs (from workflow_dispatch) when provided, otherwise use excavator artifacts
           if ($manualInput -and $manualInput.Trim() -ne '') {
@@ -209,7 +193,6 @@ jobs:
           Write-Host "Fixed: $fixedCount manifest(s)" -ForegroundColor Cyan
 
       - name: Commit and push changes
-        if: ${{ github.event.inputs.dry_run != 'true' }}
         shell: pwsh
         run: |
           git config user.name "Scoop Auto-Updater"
@@ -230,7 +213,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit skipped (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
+        if: false
         shell: pwsh
         run: |
           Write-Host "Dry run: changes were not committed or pushed" -ForegroundColor Yellow
