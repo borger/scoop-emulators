@@ -56,29 +56,33 @@ jobs:
               return;
             }
 
-            const download = await github.rest.actions.downloadArtifact({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              artifact_id: matchArtifact.id,
-              archive_format: 'zip',
-            });
+            try {
+              const download = await github.rest.actions.downloadArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: matchArtifact.id,
+                archive_format: 'zip',
+              });
 
-            const path = require('path');
-            const fs = require('fs');
+              const path = require('path');
+              const fs = require('fs');
 
-            // Use GITHUB_WORKSPACE reliably instead of raw template expansion and build
-            // an absolute path with path.join to avoid accidental path mangling on Windows.
-            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-            const outPath = path.join(workspace, 'broken-manifests.zip');
+              // Use GITHUB_WORKSPACE reliably instead of raw template expansion and build
+              // an absolute path with path.join to avoid accidental path mangling on Windows.
+              const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+              const outPath = path.join(workspace, 'broken-manifests.zip');
 
-            // The download response may contain the raw ArrayBuffer/Buffer or an object
-            // with nested data depending on runner/Octokit version. Normalize it.
-            let payload = download.data;
-            if (payload && payload.data) { payload = payload.data; }
+              // The download response may contain the raw ArrayBuffer/Buffer or an object
+              // with nested data depending on runner/Octokit version. Normalize it.
+              let payload = download.data;
+              if (payload && payload.data) { payload = payload.data; }
 
-            const buffer = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
-            fs.writeFileSync(outPath, buffer);
-            console.log(`Downloaded broken-manifests artifact to ${outPath}`);
+              const buffer = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
+              fs.writeFileSync(outPath, buffer);
+              console.log(`Downloaded broken-manifests artifact to ${outPath}`);
+            } catch (err) {
+              console.error('Failed to download or write broken-manifests artifact:', err);
+            }
 
       - name: Extract and parse broken manifests
         id: parse-errors
