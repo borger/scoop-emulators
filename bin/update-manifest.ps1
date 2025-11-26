@@ -74,6 +74,10 @@ Requires Scoop to be installed and available in PATH.
 
 $ErrorActionPreference = 'Stop'
 
+# Load shared release/hash helpers
+$lib = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
+if (Test-Path $lib) { . $lib }
+
 function Get-GitHubReleaseAssets {
     param(
         [string]$Owner,
@@ -82,73 +86,19 @@ function Get-GitHubReleaseAssets {
     )
 
     $apiUrl = "https://api.github.com/repos/$Owner/$Repo/releases/$TagName"
-    Write-Verbose "[INFO] Fetching GitHub release assets from: $apiUrl"
+    Write-Verbose ('[INFO] Fetching GitHub release assets from: {0}' -f $apiUrl)
 
     try {
         $response = Invoke-WebRequest -Uri $apiUrl -ErrorAction Stop
         $releaseInfo = $response.Content | ConvertFrom-Json
         return $releaseInfo.assets
     } catch {
-        Write-Verbose "[WARN] Could not fetch GitHub release assets: $_"
+        Write-Verbose ('[WARN] Could not fetch GitHub release assets: {0}' -f $_)
         return $null
     }
 }
 
-function Get-ReleaseChecksum {
-    param(
-        [object[]]$Assets,
-        [string]$TargetAssetName
-    )
-
-    if (-not $Assets) {
-        return $null
-    }
-
-    # Look for checksum files
-    $checksumPatterns = @('*.sha256', '*.sha256sum', '*.sha256.txt', '*.checksum', '*.hashes', '*.DIGEST', '*.md5', '*.md5sum')
-    $checksumAssets = @()
-
-    foreach ($pattern in $checksumPatterns) {
-        $checksumAssets += @($Assets | Where-Object { $_.name -like $pattern })
-    }
-
-    if ($checksumAssets.Count -eq 0) {
-        return $null
-    }
-
-    # Download and parse the checksum file
-    foreach ($checksumAsset in $checksumAssets) {
-        try {
-            $ProgressPreference = 'SilentlyContinue'
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop
-
-            # Parse the checksum file
-            $content = Get-Content -Path $tempFile -Raw
-            $lines = $content -split "`n" | Where-Object { $_ -match '\S' }
-
-            foreach ($line in $lines) {
-                # Match common formats: "hash filename" or "filename hash"
-                if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
-                    $hash = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[1] } else { $matches[2] }
-                    $filename = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[2] } else { $matches[1] }
-
-                    # Check if this matches the target asset
-                    if ($filename -like "*$($TargetAssetName)*" -or $TargetAssetName -like "*$filename*") {
-                        Write-Verbose "[OK] Found SHA256 from GitHub release: $hash"
-                        Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
-                        return $hash
-                    }
-                }
-            }
-            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
-        } catch {
-            Write-Verbose "[WARN] Failed to parse checksum file: $_"
-        }
-    }
-
-    return $null
-}
+## Use shared Get-ReleaseChecksum from bin/lib-releasehelpers.ps1
 
 try {
     # Check if file exists
@@ -178,7 +128,7 @@ try {
         exit -1
     }
 
-    Write-Verbose "[OK] Manifest has both 'checkver' and 'autoupdate' sections"
+    Write-Verbose '[OK] Manifest has both ''checkver'' and ''autoupdate'' sections'
 
     $currentVersion = $manifest.version
     Write-Verbose "Current version: $currentVersion"
@@ -227,7 +177,7 @@ try {
     Write-Host "Found version: $latestVersion (current: $currentVersion)"
 
     if ($latestVersion -eq $currentVersion -and !$Force) {
-        Write-Host "[OK] Manifest is already up to date"
+        Write-Host '[OK] Manifest is already up to date'
         exit 0
     }
 
@@ -303,27 +253,7 @@ try {
             }
         }
 
-        # Function to download and hash a file
-        function Get-RemoteFileHash {
-            param([string]$Url, [string]$Algorithm = "SHA256")
-
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            try {
-                Write-Verbose "Downloading: $Url"
-                $ProgressPreference = 'SilentlyContinue'
-                Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop | Out-Null
-
-                $hash = (Get-FileHash -Path $tempFile -Algorithm $Algorithm).Hash
-                return $hash
-            } catch {
-                Write-Warning "Failed to download/hash $Url : $($_.Exception.Message)"
-                return $null
-            } finally {
-                if (Test-Path $tempFile) {
-                    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-                }
-            }
-        }
+        # Use Get-RemoteFileHash from bin/lib-releasehelpers.ps1
 
         if ($manifestJson.architecture.'64bit'.url) {
             $url64 = $manifestJson.architecture.'64bit'.url
@@ -334,9 +264,9 @@ try {
                 $fileName = Split-Path -Leaf $url64
                 $manifestJson.architecture.'64bit'.hash = [ordered]@{
                     "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
-                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
+                    'jsonpath' = ('$.assets[?(@.name == ''{0}'')].digest' -f $fileName)
                 }
-                Write-Verbose "[OK] 64bit hash configured for API lookup: $fileName"
+                Write-Verbose ('[OK] 64bit hash configured for API lookup: {0}' -f $fileName)
             } else {
                 # Fall back to static hash
                 # Try to get checksum from GitHub release first
@@ -353,7 +283,7 @@ try {
 
                 if ($hash64) {
                     $manifestJson.architecture.'64bit'.hash = $hash64
-                    Write-Verbose "[OK] 64bit hash updated: $hash64"
+                    Write-Verbose ('[OK] 64bit hash updated: {0}' -f $hash64)
                 }
             }
         }
@@ -367,9 +297,9 @@ try {
                 $fileName = Split-Path -Leaf $url32
                 $manifestJson.architecture.'32bit'.hash = [ordered]@{
                     "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
-                    "jsonpath" = "\$.assets[?(@.name == '$fileName')].digest"
+                    'jsonpath' = ('$.assets[?(@.name == ''{0}'')].digest' -f $fileName)
                 }
-                Write-Verbose "[OK] 32bit hash configured for API lookup: $fileName"
+                Write-Verbose ('[OK] 32bit hash configured for API lookup: {0}' -f $fileName)
             } else {
                 # Fall back to static hash
                 # Try to get checksum from GitHub release first
@@ -386,7 +316,7 @@ try {
 
                 if ($hash32) {
                     $manifestJson.architecture.'32bit'.hash = $hash32
-                    Write-Verbose "[OK] 32bit hash updated: $hash32"
+                    Write-Verbose ('[OK] 32bit hash updated: {0}' -f $hash32)
                 }
             }
         }
@@ -409,7 +339,7 @@ try {
 
             if ($hashGeneric) {
                 $manifestJson.hash = $hashGeneric
-                Write-Verbose "[OK] Generic hash updated: $hashGeneric"
+                Write-Verbose ('[OK] Generic hash updated: {0}' -f $hashGeneric)
             }
         }
 
@@ -420,12 +350,12 @@ try {
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
 
-        Write-Host "[OK] Manifest version updated from $oldVersion to $latestVersion"
-        Write-Host "[OK] Architecture URLs and hashes updated"
+        Write-Host ('[OK] Manifest version updated from {0} to {1}' -f $oldVersion, $latestVersion)
+        Write-Host '[OK] Architecture URLs and hashes updated'
 
         exit 0
     } else {
-        Write-Host "[INFO] Run with -Update switch to apply the update"
+        Write-Host '[INFO] Run with -Update switch to apply the update'
         exit 0
     }
 } catch {

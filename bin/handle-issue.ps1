@@ -79,7 +79,7 @@ function Get-IssueDetails {
         $response = Invoke-WebRequest -Uri $apiUrl -Headers $headers -ErrorAction Stop
         return $response.Content | ConvertFrom-Json
     } catch {
-        Write-Host "[FAIL] Failed to get issue details: $_" -ForegroundColor Red
+        Write-Host ('[FAIL] Failed to get issue details: {0}' -f $_) -ForegroundColor Red
         return $null
     }
 }
@@ -100,7 +100,7 @@ function Add-IssueComment {
         $null = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return $true
     } catch {
-        Write-Host "[WARN] Failed to post comment: $_" -ForegroundColor Yellow
+        Write-Host ('[WARN] Failed to post comment: {0}' -f $_) -ForegroundColor Yellow
         return $false
     }
 }
@@ -133,7 +133,7 @@ function New-PullRequest {
         $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return ($response.Content | ConvertFrom-Json).number
     } catch {
-        Write-Host "[WARN] Failed to create PR: $_" -ForegroundColor Yellow
+        Write-Host ('[WARN] Failed to create PR: {0}' -f $_) -ForegroundColor Yellow
         return $null
     }
 }
@@ -142,7 +142,7 @@ function New-PullRequest {
 $issue = Get-IssueDetails -IssueNum $IssueNumber -Repo $GitHubRepo -Token $GitHubToken
 
 if (!$issue) {
-    Write-Host "[FAIL] Could not retrieve issue details" -ForegroundColor Red
+    Write-Host '[FAIL] Could not retrieve issue details' -ForegroundColor Red
     exit -1
 }
 
@@ -151,20 +151,19 @@ Write-Host "Issue Body: $($issue.body)" -ForegroundColor Gray
 
 # Check if this is a manifest request
 if (Test-ManifestRequest -Issue $issue) {
-    Write-Host "`n[INFO] Detected manifest request - triggering automated creation" -ForegroundColor Cyan
+    Write-Host ([Environment]::NewLine + '[INFO] Detected manifest request - triggering automated creation') -ForegroundColor Cyan
 
     $manifestScript = Join-Path (Split-Path $PSScriptRoot) "create-emulator-manifest.ps1"
 
     try {
-        Write-Host "[INFO] Executing manifest creation script..." -ForegroundColor Cyan
+        Write-Host '[INFO] Executing manifest creation script...' -ForegroundColor Cyan
 
         & $manifestScript -IssueNumber $IssueNumber -GitHubToken $GitHubToken -AutoApprove
 
-        Write-Host "`n[OK] Manifest created successfully from issue #$IssueNumber" -ForegroundColor Green
+        Write-Host ([Environment]::NewLine + ('[OK] Manifest created successfully from issue #{0}' -f $IssueNumber)) -ForegroundColor Green
         exit 0
-    }
-    catch {
-        Write-Host "`n[ERROR] Failed to create manifest from issue: $_" -ForegroundColor Red
+    } catch {
+        Write-Host ([Environment]::NewLine + ('[ERROR] Failed to create manifest from issue: {0}' -f $_.Exception.Message)) -ForegroundColor Red
 
         # Post error comment to issue
         $errorComment = @"
@@ -197,9 +196,9 @@ foreach ($match in $manifestMatches.Matches) {
 $manifestsToFix = $manifestsToFix | Select-Object -Unique
 
 if ($manifestsToFix.Count -eq 0) {
-    $comment = "[WARN] Could not identify manifest names from issue. Please mention manifest names explicitly (e.g., 'app-name.json' or 'Fix app-name')."
+    $comment = '[WARN] Could not identify manifest names from issue. Please include manifest names explicitly (e.g., ''app-name.json'' or ''Fix app-name'').'
     Add-IssueComment -IssueNum $IssueNumber -Body $comment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
-    Write-Host "[WARN] No manifests identified" -ForegroundColor Yellow
+    Write-Host '[WARN] No manifests identified' -ForegroundColor Yellow
     exit -1
 }
 
@@ -213,7 +212,7 @@ foreach ($manifest in $manifestsToFix) {
     $manifestPath = "$BucketPath/$manifest.json"
 
     if (!(Test-Path $manifestPath)) {
-        Write-Host "[WARN] Manifest not found: $manifestPath" -ForegroundColor Yellow
+        Write-Host ('[WARN] Manifest not found: {0}' -f $manifestPath) -ForegroundColor Yellow
         $autoFixResults[$manifest] = "NOT_FOUND"
         continue
     }
@@ -223,10 +222,10 @@ foreach ($manifest in $manifestsToFix) {
     try {
         & $autofixScript -ManifestPath $manifestPath -NotifyOnIssues | Out-Null
         $autoFixResults[$manifest] = "SUCCESS"
-        Write-Host "  [OK] Auto-fix succeeded for $manifest" -ForegroundColor Green
+        Write-Host ('  [OK] Auto-fix succeeded for {0}' -f $manifest) -ForegroundColor Green
     } catch {
         $autoFixResults[$manifest] = "FAILED"
-        Write-Host "  [FAIL] Auto-fix failed for $manifest``: $_" -ForegroundColor Red
+        Write-Host ('  [FAIL] Auto-fix failed for {0}: {1}' -f $manifest, $_.Exception.Message) -ForegroundColor Red
     }
 }
 
@@ -235,7 +234,7 @@ $anySucceeded = $autoFixResults.Values -contains "SUCCESS"
 
 if ($anySucceeded) {
     # Create commit and PR for successful auto-fixes
-    Write-Host "`n[OK] Some manifests were auto-fixed. Creating PR..." -ForegroundColor Green
+    Write-Host ([Environment]::NewLine + '[OK] Some manifests were auto-fixed. Creating PR...') -ForegroundColor Green
 
     $successList = ($autoFixResults.GetEnumerator() | Where-Object { $_.Value -eq "SUCCESS" } | ForEach-Object { $_.Key }) -join ", "
     $branchName = "issue-$IssueNumber-autofix-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
@@ -260,7 +259,7 @@ Closes #${IssueNumber}
     $prNumber = New-PullRequest -Title $prTitle -Body $prBody -HeadBranch $branchName -BaseBranch "master" -Repo $GitHubRepo -Token $GitHubToken
 
     if ($prNumber) {
-        Write-Host "[OK] PR #$prNumber created for auto-fixed manifests" -ForegroundColor Green
+        Write-Host ('[OK] PR #{0} created for auto-fixed manifests' -f $prNumber) -ForegroundColor Green
 
         # Post comment to issue
         $issueComment = @"
@@ -285,7 +284,7 @@ cc: @beyondmeat
     }
 } else {
     # All auto-fixes failed - request Copilot
-    Write-Host "`n[FAIL] Auto-fix failed for all manifests. Requesting Copilot assistance..." -ForegroundColor Red
+    Write-Host ([Environment]::NewLine + '[FAIL] Auto-fix failed for all manifests. Requesting Copilot assistance...') -ForegroundColor Red
 
     $copilotComment = @"
 ## Copilot Assistance Required
@@ -305,5 +304,5 @@ cc: @copilot
     Add-IssueComment -IssueNum $IssueNumber -Body $copilotComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
 }
 
-Write-Host "`n[OK] Issue #$IssueNumber has been processed" -ForegroundColor Green
+Write-Host ([Environment]::NewLine + ('[OK] Issue #{0} has been processed' -f $IssueNumber)) -ForegroundColor Green
 exit 0

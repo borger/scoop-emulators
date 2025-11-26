@@ -131,7 +131,7 @@ $validationTasks = @(
 )
 
 if ($PSVersionTable.PSVersion.Major -ge 7) {
-    Write-Host "`n[1-2/3] Running validation checks in parallel (PS 7+)..." -ForegroundColor Yellow
+    Write-Host ([Environment]::NewLine + '[1-2/3] Running validation checks in parallel (PS 7+)...') -ForegroundColor Yellow
 
     $taskResults = $validationTasks | ForEach-Object -Parallel {
         $task = $_
@@ -152,13 +152,13 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
         $results[$res.Id].Status = $res.Status
         $results[$res.Id].Output = $res.Output
         if ($res.Status -eq "PASS") {
-            Write-Host "  [OK] $($res.Id) passed" -ForegroundColor Green
+            Write-Host ('  [OK] {0} passed' -f $res.Id) -ForegroundColor Green
         } else {
-            Write-Host "  [FAIL] $($res.Id) failed" -ForegroundColor Red
+            Write-Host ('  [FAIL] {0} failed' -f $res.Id) -ForegroundColor Red
         }
     }
 } else {
-    Write-Host "`n[1-2/3] Running validation checks sequentially (PS 5.1)..." -ForegroundColor Yellow
+    Write-Host ([Environment]::NewLine + '[1-2/3] Running validation checks sequentially (PS 5.1)...') -ForegroundColor Yellow
 
     foreach ($task in $validationTasks) {
         Write-Host "Running $($task.Label)..." -NoNewline
@@ -166,25 +166,25 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
             & $task.Command @($task.Arguments) *>$null
             if ($LASTEXITCODE -ne 0) { throw "Exited with code $LASTEXITCODE" }
             $results[$task.Id].Status = "PASS"
-            Write-Host " [OK]" -ForegroundColor Green
+            Write-Host ' [OK]' -ForegroundColor Green
         } catch {
             $results[$task.Id].Status = "FAIL"
             $results[$task.Id].Output = $_.Exception.Message
-            Write-Host " [FAIL]" -ForegroundColor Red
+            Write-Host ' [FAIL]' -ForegroundColor Red
         }
     }
 }
 
 # 3. Install
-Write-Host "[3/3] Running installation test..." -ForegroundColor Yellow
+Write-Host '[3/3] Running installation test...' -ForegroundColor Yellow
 try {
     & "$binDir/check-manifest-install.ps1" -ManifestPath $ManifestPath | Out-Null
     $results.CheckInstall.Status = "PASS"
-    Write-Host "  [OK] Installation test passed" -ForegroundColor Green
+    Write-Host '  [OK] Installation test passed' -ForegroundColor Green
 } catch {
     $results.CheckInstall.Status = "FAIL"
     $results.CheckInstall.Output = $_.Exception.Message
-    Write-Host "  [FAIL] Installation failed" -ForegroundColor Red
+    Write-Host '  [FAIL] Installation failed' -ForegroundColor Red
 }
 
 # Evaluate
@@ -209,7 +209,7 @@ $report = @"
 Publish-PRComment -Body $report | Out-Null
 
 if ($allPassed) {
-    Write-Host "`n[SUCCESS] All checks passed." -ForegroundColor Green
+    Write-Host ([Environment]::NewLine + '[SUCCESS] All checks passed.') -ForegroundColor Green
 
     if ($IsUserPR) {
         Write-Host "User PR: Tagging maintainers." -ForegroundColor Cyan
@@ -227,7 +227,7 @@ if ($allPassed) {
     }
     exit 0
 } else {
-    Write-Host "`n[FAILURE] Validation failed." -ForegroundColor Red
+    Write-Host ([Environment]::NewLine + '[FAILURE] Validation failed.') -ForegroundColor Red
 
     $fixRequest = @"
 ## ⚠️ Validation Failed

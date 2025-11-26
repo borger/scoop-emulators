@@ -109,6 +109,10 @@ $ErrorActionPreference = 'Stop'
 # Set TLS 1.2 (required for GitHub API)
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
+# Load centralized release/hash helpers
+$lib = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
+if (Test-Path $lib) { . $lib }
+
 # Issue tracking for notification system
 $issues = @()
 function Add-Issue {
@@ -243,7 +247,7 @@ function Test-ManifestDownloadAccessibility {
 }
 
 # Validate any proposed fix by running update-manifest and attempting an install.
-function Validate-FixIntegrity {
+function Test-FixIntegrity {
     param(
         [string]$ManifestPath,
         [string]$AppName
@@ -251,30 +255,31 @@ function Validate-FixIntegrity {
 
     $updateScript = "$PSScriptRoot/update-manifest.ps1"
     if (-not (Test-Path $updateScript)) {
-        Write-Host "  [WARN] update-manifest.ps1 not available for validation" -ForegroundColor Yellow
+        Write-Host '  [WARN] update-manifest.ps1 not available for validation' -ForegroundColor Yellow
         return $false
     }
 
-    Write-Host "  [INFO] Running update-manifest.ps1 for $AppName" -ForegroundColor Cyan
+    Write-Host ('  [INFO] Running update-manifest.ps1 for {0}' -f $AppName) -ForegroundColor Cyan
     $updateOutput = & $updateScript -ManifestPath $ManifestPath -Update -Force 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  [WARN] update-manifest failed for $AppName" -ForegroundColor Yellow
+    # $LASTEXITCODE may not be set for PowerShell scripts; check both it and $? for robustness
+    if ($LASTEXITCODE -ne 0 -or -not $?) {
+        Write-Host ('  [WARN] update-manifest failed for {0}' -f $AppName) -ForegroundColor Yellow
         Add-Issue -Title "Validation failed" -Description "update-manifest.ps1 failed:\n$updateOutput" -Severity "error"
         return $false
     }
 
     if (-not (Get-Command 'scoop' -ErrorAction SilentlyContinue)) {
-        Write-Host "  [WARN] scoop is not installed; skipping installation verification" -ForegroundColor Yellow
+        Write-Host '  [WARN] scoop is not installed; skipping installation verification' -ForegroundColor Yellow
         return $true
     }
 
-    Write-Host "  [INFO] Attempting 'scoop install $AppName' to verify the manifest" -ForegroundColor Cyan
+    Write-Host ('  [INFO] Attempting ''scoop install {0}'' to verify the manifest' -f $AppName) -ForegroundColor Cyan
     $installOutput = ''
     try {
         $installOutput = & scoop install $AppName 2>&1 | Out-String
         if ($LASTEXITCODE -ne 0) { throw "scoop install failed" }
     } catch {
-        Write-Host "  [WARN] scoop install failed for $AppName" -ForegroundColor Yellow
+        Write-Host ('  [WARN] scoop install failed for {0}' -f $AppName) -ForegroundColor Yellow
         Add-Issue -Title "Install verification failed" -Description "scoop install $AppName failed:\n$installOutput" -Severity "warning"
         return $false
     }
@@ -503,8 +508,10 @@ function ConvertTo-CanonicalVersion {
             foreach ($c in $candidates) {
                 if ($Manifest.url -and $Manifest.url -match [regex]::Escape($c)) { return $candidate }
                 if ($Manifest.architecture) {
-                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($c)) { return $candidate }
-                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($c)) { return $candidate }
+                    $tmp64 = Get-ArchUrl -Manifest $Manifest -Arch '64bit'
+                    if ($tmp64 -and ($tmp64 -match [regex]::Escape($c))) { return $candidate }
+                    $tmp32 = Get-ArchUrl -Manifest $Manifest -Arch '32bit'
+                    if ($tmp32 -and ($tmp32 -match [regex]::Escape($c))) { return $candidate }
                 }
             }
         }
@@ -517,10 +524,14 @@ function ConvertTo-CanonicalVersion {
                 if ($Manifest.url -and $Manifest.url -match [regex]::Escape($candidate)) { return $candidate }
                 if ($Manifest.url -and $Manifest.url -match [regex]::Escape($withSuffix)) { return $candidate }
                 if ($Manifest.architecture) {
-                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($candidate)) { return $candidate }
-                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($candidate)) { return $candidate }
-                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($withSuffix)) { return $withSuffix }
-                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($withSuffix)) { return $withSuffix }
+                    $tmp64 = Get-ArchUrl -Manifest $Manifest -Arch '64bit'
+                    if ($tmp64 -and ($tmp64 -match [regex]::Escape($candidate))) { return $candidate }
+                    $tmp32 = Get-ArchUrl -Manifest $Manifest -Arch '32bit'
+                    if ($tmp32 -and ($tmp32 -match [regex]::Escape($candidate))) { return $candidate }
+                    $tmp64 = Get-ArchUrl -Manifest $Manifest -Arch '64bit'
+                    if ($tmp64 -and ($tmp64 -match [regex]::Escape($withSuffix))) { return $withSuffix }
+                    $tmp32 = Get-ArchUrl -Manifest $Manifest -Arch '32bit'
+                    if ($tmp32 -and ($tmp32 -match [regex]::Escape($withSuffix))) { return $withSuffix }
                 }
             }
             return $candidate
@@ -564,8 +575,10 @@ function ConvertTo-CanonicalVersion {
             foreach ($c in $candidates) {
                 if ($Manifest.url -and $Manifest.url -match [regex]::Escape($c)) { return $candidate }
                 if ($Manifest.architecture) {
-                    if ($Manifest.architecture.'64bit' -and $Manifest.architecture.'64bit'.url -and $Manifest.architecture.'64bit'.url -match [regex]::Escape($c)) { return $candidate }
-                    if ($Manifest.architecture.'32bit' -and $Manifest.architecture.'32bit'.url -and $Manifest.architecture.'32bit'.url -match [regex]::Escape($c)) { return $candidate }
+                    $tmp64 = Get-ArchUrl -Manifest $Manifest -Arch '64bit'
+                    if ($tmp64 -and ($tmp64 -match [regex]::Escape($c))) { return $candidate }
+                    $tmp32 = Get-ArchUrl -Manifest $Manifest -Arch '32bit'
+                    if ($tmp32 -and ($tmp32 -match [regex]::Escape($c))) { return $candidate }
                 }
             }
         }
@@ -610,21 +623,21 @@ function Repair-VersionPattern {
 
             # Detect version scheme patterns
             if ($tags | Where-Object { $_ -match '^\d{4}-\d{2}-\d{2}' }) {
-                Write-Host "  [INFO] Detected date-based versioning (YYYY-MM-DD)" -ForegroundColor Cyan
+                Write-Host '  [INFO] Detected date-based versioning (YYYY-MM-DD)' -ForegroundColor Cyan
                 return "date"
             } elseif ($tags | Where-Object { $_ -match '^v?\d+\.\d+\.\d+' }) {
-                Write-Host "  [INFO] Detected semantic versioning" -ForegroundColor Cyan
+                Write-Host '  [INFO] Detected semantic versioning' -ForegroundColor Cyan
                 return "semantic"
             } elseif ($tags | Where-Object { $_ -match '^\d+$' }) {
-                Write-Host "  [INFO] Detected numeric-only versioning" -ForegroundColor Cyan
+                Write-Host '  [INFO] Detected numeric-only versioning' -ForegroundColor Cyan
                 return "numeric"
             } else {
-                Write-Host "  [INFO] Detected custom versioning scheme" -ForegroundColor Cyan
+                Write-Host '  [INFO] Detected custom versioning scheme' -ForegroundColor Cyan
                 return "custom"
             }
         }
     } catch {
-        Write-Host "  [WARN] Could not analyze recent releases: $_" -ForegroundColor Yellow
+        Write-Host ('  [WARN] Could not analyze recent releases: {0}' -f $_) -ForegroundColor Yellow
     }
 
     return $null
@@ -657,19 +670,19 @@ function Find-ReleaseByPatternMatch {
                 $_.name -match [regex]::Escape($TargetVersion)
             }
             if ($partialMatch) {
-                Write-Host "  [INFO] Found release with partial version match: $($partialMatch[0].tag_name)" -ForegroundColor Cyan
+                Write-Host ('  [INFO] Found release with partial version match: {0}' -f $partialMatch[0].tag_name) -ForegroundColor Cyan
                 return $partialMatch[0]
             }
 
             # Get latest release if no match found
             $latestRelease = $releases | Where-Object { !$_.prerelease -and !$_.draft } | Select-Object -First 1
             if ($latestRelease) {
-                Write-Host "  [WARN] No exact match found; using latest release: $($latestRelease.tag_name)" -ForegroundColor Yellow
+                Write-Host ('  [WARN] No exact match found; using latest release: {0}' -f $latestRelease.tag_name) -ForegroundColor Yellow
                 return $latestRelease
             }
         }
     } catch {
-        Write-Host "  [WARN] Pattern matching failed: $_" -ForegroundColor Yellow
+        Write-Host ('  [WARN] Pattern matching failed: {0}' -f $_) -ForegroundColor Yellow
     }
 
     return $null
@@ -713,7 +726,7 @@ function Repair-CheckverPattern {
 
 # Support multiple Git platforms
 function Get-ReleaseAsset {
-    param([string]$Repo, [string]$Version, [string]$Platform = "github")
+    param([string]$Repo, [string]$Version, [string]$Platform = "github", [string]$Base = $null)
 
     try {
         if ($Platform -eq "github") {
@@ -730,16 +743,25 @@ function Get-ReleaseAsset {
                 @{ name = $_.filename; browser_download_url = $_.url }
             }
         } elseif ($Platform -eq "gitea") {
-            $apiUrl = "https://$repo/api/v1/repos/$repo/releases/tags/$Version"
+            # For Gitea we expect either a Base host (e.g., https://gitea.example) + Repo path (owner/repo)
+            if ($Base) {
+                $apiUrl = "$Base/api/v1/repos/$Repo/releases/tags/$Version"
+            } elseif ($Repo -match 'https?://') {
+                # Repo already contains a URL like https://host/owner/repo
+                $trimmed = $Repo -replace '/+$', ''
+                $apiUrl = "$trimmed/api/v1/repos/$Repo/releases/tags/$Version"
+            } else {
+                # Can't construct a gitea API URL without base; try a best-effort default which will likely fail
+                $apiUrl = "https://$Repo/api/v1/repos/$Repo/releases/tags/$Version"
+            }
             $release = Invoke-RestMethod -Uri $apiUrl -ErrorAction SilentlyContinue -UseBasicParsing
 
-            # Convert Gitea response
-            return $release.assets | ForEach-Object {
-                @{ name = $_.name; browser_download_url = $_.browser_download_url }
+            if ($release -and $release.assets) {
+                return $release.assets | ForEach-Object { @{ name = $_.name; browser_download_url = $_.browser_download_url } }
             }
         }
     } catch {
-        Write-Host "  [WARN] $Platform API error: $_" -ForegroundColor Yellow
+        Write-Host ('  [WARN] {0} API error: {1}' -f $Platform, $_) -ForegroundColor Yellow
     }
 
     return @()
@@ -757,7 +779,7 @@ function Test-HashMismatch {
         $actualHash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash
 
         if ($actualHash -ne $StoredHash) {
-            Write-Host "    [WARN] Hash mismatch detected!" -ForegroundColor Yellow
+            Write-Host '    [WARN] Hash mismatch detected!' -ForegroundColor Yellow
             Write-Host "      Expected: $StoredHash" -ForegroundColor Yellow
             Write-Host "      Actual:   $actualHash" -ForegroundColor Yellow
             return @{ Mismatch = $true; ActualHash = $actualHash }
@@ -765,7 +787,7 @@ function Test-HashMismatch {
 
         return @{ Mismatch = $false; ActualHash = $actualHash }
     } catch {
-        Write-Host "    [WARN] Hash verification failed: $_" -ForegroundColor Yellow
+        Write-Host ('    [WARN] Hash verification failed: {0}' -f $_) -ForegroundColor Yellow
         return $null
     } finally {
         if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
@@ -773,82 +795,13 @@ function Test-HashMismatch {
 }
 
 # Get hash from GitHub release checksum file
-function Get-ReleaseChecksum {
-    param(
-        [object[]]$Assets,
-        [string]$TargetAssetName
-    )
-
-    if (-not $Assets) {
-        return $null
-    }
-
-    # Look for checksum files
-    $checksumPatterns = @('*.sha256', '*.sha256sum', '*.sha256.txt', '*.checksum', '*.hashes', '*.DIGEST', '*.md5', '*.md5sum')
-    $checksumAssets = @()
-
-    foreach ($pattern in $checksumPatterns) {
-        $checksumAssets += @($Assets | Where-Object { $_.name -like $pattern })
-    }
-
-    if ($checksumAssets.Count -eq 0) {
-        return $null
-    }
-
-    # Download and parse the checksum file
-    foreach ($checksumAsset in $checksumAssets) {
-        try {
-            $ProgressPreference = 'SilentlyContinue'
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing
-
-            # Parse the checksum file
-            $content = Get-Content -Path $tempFile -Raw
-            $lines = $content -split "`n" | Where-Object { $_ -match '\S' }
-
-            foreach ($line in $lines) {
-                # Match common formats: "hash filename" or "filename hash"
-                if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
-                    $hash = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[1] } else { $matches[2] }
-                    $filename = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[2] } else { $matches[1] }
-
-                    # Check if this matches the target asset
-                    if ($filename -like "*$($TargetAssetName)*" -or $TargetAssetName -like "*$filename*") {
-                        Write-Verbose "[OK] Found SHA256 from GitHub release: $hash"
-                        Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
-                        return $hash
-                    }
-                }
-            }
-            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
-        } catch {
-            Write-Verbose "[WARN] Failed to parse checksum file: $_"
-        }
-    }
-
-    return $null
-}
+## Use Get-ReleaseChecksum from bin/lib-releasehelpers.ps1
 
 # Download a file and compute its SHA256 hash
-function Get-RemoteFileHash {
-    param([string]$Url)
-
-    $tempFile = [System.IO.Path]::GetTempFileName()
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing | Out-Null
-        $hash = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
-        return $hash
-    } catch {
-        Write-Warning "Failed to download $Url : $_"
-        return $null
-    } finally {
-        if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
-    }
-}
+## Use Get-RemoteFileHash / ConvertTo-FileHash from bin/lib-releasehelpers.ps1
 
 # Normalize MAME-style version tags (e.g., 'mame0282' -> '0.282')
-function Normalize-MameVersion {
+function Convert-MameVersion {
     param([string]$Version)
 
     if ($Version -notmatch '^mame(?<digits>\d+)(?<suffix>[a-zA-Z]*)$') {
@@ -898,6 +851,37 @@ function Get-RepositoryInfo {
     return $info
 }
 
+# Helpers for safe access/modification of architecture entries
+function Initialize-ArchObject {
+    param([object]$Manifest, [string]$Arch)
+    if (-not $Manifest.architecture) { $Manifest.architecture = @{} }
+    if (-not $Manifest.architecture.$Arch) { $Manifest.architecture.$Arch = @{} }
+}
+
+function Get-ArchUrl {
+    param([object]$Manifest, [string]$Arch)
+    if ($Manifest -and $Manifest.architecture -and $Manifest.architecture.$Arch -and $Manifest.architecture.$Arch.url) { return $Manifest.architecture.$Arch.url }
+    return $null
+}
+
+function Set-ArchUrl {
+    param([object]$Manifest, [string]$Arch, [string]$Url)
+    Initialize-ArchObject -Manifest $Manifest -Arch $Arch
+    $Manifest.architecture.$Arch.url = $Url
+}
+
+function Get-ArchHash {
+    param([object]$Manifest, [string]$Arch)
+    if ($Manifest -and $Manifest.architecture -and $Manifest.architecture.$Arch -and $Manifest.architecture.$Arch.hash) { return $Manifest.architecture.$Arch.hash }
+    return $null
+}
+
+function Set-ArchHash {
+    param([object]$Manifest, [string]$Arch, [string]$Hash)
+    Initialize-ArchObject -Manifest $Manifest -Arch $Arch
+    $Manifest.architecture.$Arch.hash = $Hash
+}
+
 try {
     if (!(Test-Path $ManifestPath)) {
         Write-Error "Manifest not found: $ManifestPath"
@@ -915,8 +899,8 @@ try {
 
     # If manifest explicitly uses the 'nightly' channel, do not run checkver — maintain dates/labels exactly
     $skipCheckver = $false
-    if ($manifest.PSObject.Properties.Match('version').Count -and ($manifest.version -eq 'nightly')) {
-        Write-Host '[INFO] Manifest uses ' -NoNewline; Write-Host "'nightly'" -NoNewline; Write-Host ' channel; skipping checkver detection' -ForegroundColor Cyan
+    if ($manifest.PSObject.Properties.Match('version').Count -and ($manifest.version -eq 'nightly' -or $manifest.version -eq 'dev')) {
+        Write-Host '[INFO] Manifest uses ' -NoNewline; Write-Host "'$($manifest.version)'" -NoNewline; Write-Host ' channel; skipping checkver detection' -ForegroundColor Cyan
         $skipCheckver = $true
     }
 
@@ -939,7 +923,7 @@ try {
     if ($structureErrors) {
         Write-Host "Manifest structure issues detected:" -ForegroundColor Yellow
         foreach ($errorMsg in $structureErrors) {
-            Write-Host "  [WARN] $errorMsg" -ForegroundColor Yellow
+            Write-Host ('  [WARN] {0}' -f $errorMsg) -ForegroundColor Yellow
             Add-Issue -Title "Structure Error" -Description $errorMsg -Severity "error"
         }
     }
@@ -959,8 +943,8 @@ try {
     } else {
         Write-Host '[WARN] One or more release URLs are not accessible; attempting to repair the manifest' -ForegroundColor Yellow
         foreach ($failure in $downloadStatus.Failures) {
-            Write-Host "  [INFO] Could not reach $($failure.Type) URL: $($failure.Url)" -ForegroundColor Yellow
-            if ($failure.Error) { Write-Host "    [INFO] Error: $($failure.Error)" -ForegroundColor Yellow }
+            Write-Host ('  [INFO] Could not reach {0} URL: {1}' -f $failure.Type, $failure.Url) -ForegroundColor Yellow
+            if ($failure.Error) { Write-Host ('    [INFO] Error: {0}' -f $failure.Error) -ForegroundColor Yellow }
         }
         $needsFix = $true
     }
@@ -986,11 +970,11 @@ try {
                 $latestVersion = if ($latestRelease.tag_name) { $latestRelease.tag_name } else { $latestRelease.name }
                 $latestVersion = $latestVersion -replace '^v', '' -replace '^\.', ''
                 if ($latestVersion) {
-                    Write-Host "  [INFO] Found version from GitHub Releases: $latestVersion" -ForegroundColor Cyan
+                    Write-Host ('  [INFO] Found version from GitHub Releases: {0}' -f $latestVersion) -ForegroundColor Cyan
                 }
             }
         } catch {
-            Write-Host "  [WARN] Failed to check GitHub Releases: $_" -ForegroundColor Yellow
+            Write-Host ('  [WARN] Failed to check GitHub Releases: {0}' -f $_) -ForegroundColor Yellow
         }
     } elseif ($repoInfo.Platform -eq "gitlab" -and $repoInfo.Path) {
         Write-Host "Checking GitLab Releases for $($repoInfo.Path)..."
@@ -1000,10 +984,10 @@ try {
             $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
             if ($releases -and $releases.Count -gt 0) {
                 $latestVersion = $releases[0].tag_name -replace '^v', '' -replace '^\.', ''
-                Write-Host "  [INFO] Found version from GitLab Releases: $latestVersion" -ForegroundColor Cyan
+                Write-Host ('  [INFO] Found version from GitLab Releases: {0}' -f $latestVersion) -ForegroundColor Cyan
             }
         } catch {
-            Write-Host "  [WARN] Failed to check GitLab Releases: $_" -ForegroundColor Yellow
+            Write-Host ('  [WARN] Failed to check GitLab Releases: {0}' -f $_) -ForegroundColor Yellow
         }
     } elseif ($repoInfo.Platform -eq "gitea" -and $repoInfo.Path -and $repoInfo.Base) {
         Write-Host "Checking Gitea Releases for $($repoInfo.Path)..."
@@ -1012,10 +996,10 @@ try {
             $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
             if ($releases -and $releases.Count -gt 0) {
                 $latestVersion = $releases[0].tag_name -replace '^v', '' -replace '^\.', ''
-                Write-Host "  [INFO] Found version from Gitea Releases: $latestVersion" -ForegroundColor Cyan
+                Write-Host ('  [INFO] Found version from Gitea Releases: {0}' -f $latestVersion) -ForegroundColor Cyan
             }
         } catch {
-            Write-Host "  [WARN] Failed to check Gitea Releases: $_" -ForegroundColor Yellow
+            Write-Host ('  [WARN] Failed to check Gitea Releases: {0}' -f $_) -ForegroundColor Yellow
         }
     }
 
@@ -1045,13 +1029,13 @@ try {
                         "regex"    = "v([0-9.]+)"
                     }
                     $checkverRepaired = $true
-                    Write-Host "  [OK] Repaired checkver config to use API-based detection" -ForegroundColor Green
+                    Write-Host '  [OK] Repaired checkver config to use API-based detection' -ForegroundColor Green
 
                     $latestVersion = $latestRelease.tag_name -replace '^v', '' -replace '^\.', ''
-                    Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+                    Write-Host ('  [INFO] Using version from checkver: {0}' -f $latestVersion) -ForegroundColor Gray
                 }
             } catch {
-                Write-Host "  [WARN] Could not repair checkver: $_" -ForegroundColor Yellow
+                Write-Host ('  [WARN] Could not repair checkver: {0}' -f $_) -ForegroundColor Yellow
             }
         }
     }
@@ -1060,7 +1044,7 @@ try {
     if (-not $latestVersion) {
         $latestVersion = Get-VersionFromCheckverOutput -Output $checkverOutput -AppName $appName
         if ($latestVersion) {
-            Write-Host "  [INFO] Using version from checkver: $latestVersion" -ForegroundColor Gray
+            Write-Host ('  [INFO] Using version from checkver: {0}' -f $latestVersion) -ForegroundColor Gray
         }
     }
 
@@ -1085,7 +1069,7 @@ try {
                     }
                 }
             } catch {
-                Write-Host "  [WARN] API fallback also failed: $_" -ForegroundColor Yellow
+                Write-Host ('  [WARN] API fallback also failed: {0}' -f $_) -ForegroundColor Yellow
             }
         }
     }
@@ -1105,12 +1089,12 @@ try {
                     $apiUrl = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
                     $rel = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
                     if ($rel) {
-                        if ($rel.tag_name) { $latestVersion = $rel.tag_name -replace '^v', '' -replace '^\.', '' ; Write-Host "  [OK] Using latest release tag: $latestVersion" -ForegroundColor Green }
-                        elseif ($rel.name) { $latestVersion = $rel.name; Write-Host "  [OK] Using latest release name: $latestVersion" -ForegroundColor Green }
+                        if ($rel.tag_name) { $latestVersion = $rel.tag_name -replace '^v', '' -replace '^\.', '' ; Write-Host ('  [OK] Using latest release tag: {0}' -f $latestVersion) -ForegroundColor Green }
+                            elseif ($rel.name) { $latestVersion = $rel.name; Write-Host ('  [OK] Using latest release name: {0}' -f $latestVersion) -ForegroundColor Green }
                     }
                 }
             } catch {
-                Write-Host "  [WARN] Could not fetch latest release tag: $_" -ForegroundColor Yellow
+                Write-Host ('  [WARN] Could not fetch latest release tag: {0}' -f $_) -ForegroundColor Yellow
             }
         }
 
@@ -1147,10 +1131,10 @@ try {
 
                         if ($detectedVersion) {
                             $detectedVersion = $detectedVersion -replace '^v', ''
-                            $detectedVersion = Normalize-MameVersion -Version $detectedVersion
+                            $detectedVersion = Convert-MameVersion -Version $detectedVersion
 
                             if ($detectedVersion -ne $manifest.version) {
-                                Write-Host "  [OK] Canonical version from checkver: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                                Write-Host ('  [OK] Canonical version from checkver: {0} (was {1})' -f $detectedVersion, $manifest.version) -ForegroundColor Green
                                 $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
                                 $sortedManifest = Get-OrderedManifest -Manifest $manifest
                                 $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
@@ -1162,7 +1146,7 @@ try {
                         }
                     }
                 } catch {
-                    Write-Host "  [WARN] checkver canonicalization failed: $_" -ForegroundColor Yellow
+                    Write-Host ('  [WARN] checkver canonicalization failed: {0}' -f $_) -ForegroundColor Yellow
                 }
             }
 
@@ -1190,15 +1174,11 @@ try {
         $urlPatterns = @()
 
         # Collect all URLs from manifest
-        if ($manifest.url) {
-            $urlPatterns += @{ type = "generic"; url = $manifest.url }
-        }
-        if ($manifest.architecture.'64bit'.url) {
-            $urlPatterns += @{ type = "64bit"; url = $manifest.architecture.'64bit'.url }
-        }
-        if ($manifest.architecture.'32bit'.url) {
-            $urlPatterns += @{ type = "32bit"; url = $manifest.architecture.'32bit'.url }
-        }
+        if ($manifest.url) { $urlPatterns += @{ type = 'generic'; url = $manifest.url } }
+        $a64 = Get-ArchUrl -Manifest $manifest -Arch '64bit'
+        if ($a64) { $urlPatterns += @{ type = '64bit'; url = $a64 } }
+        $a32 = Get-ArchUrl -Manifest $manifest -Arch '32bit'
+        if ($a32) { $urlPatterns += @{ type = '32bit'; url = $a32 } }
 
         foreach ($urlPattern in $urlPatterns) {
             $oldUrl = $urlPattern.url
@@ -1216,21 +1196,21 @@ try {
                 try {
                     $response = Invoke-WebRequest -Uri $newUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
                     if ($response.StatusCode -eq 200) {
-                        Write-Host "  [OK] Fixed URL found with version substitution: $newUrl" -ForegroundColor Green
+                        Write-Host ('  [OK] Fixed URL found with version substitution: {0}' -f $newUrl) -ForegroundColor Green
 
                         # Update manifest with new URL
                         if ($arch -eq "generic") {
                             $manifest.url = $newUrl
                         } elseif ($arch -eq "64bit") {
-                            $manifest.architecture.'64bit'.url = $newUrl
+                            Set-ArchUrl -Manifest $manifest -Arch '64bit' -Url $newUrl
                         } elseif ($arch -eq "32bit") {
-                            $manifest.architecture.'32bit'.url = $newUrl
+                            Set-ArchUrl -Manifest $manifest -Arch '32bit' -Url $newUrl
                         }
 
                         continue
                     }
                 } catch {
-                    Write-Host "  [INFO] Version-substituted URL not accessible"
+                    Write-Host '  [INFO] Version-substituted URL not accessible'
                 }
             }
 
@@ -1239,34 +1219,31 @@ try {
                 try {
                     $response = Invoke-WebRequest -Uri $oldUrl -Method Head -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
                     if ($response.StatusCode -eq 200) {
-                        Write-Host "  [OK] Current URL still valid"
+                        Write-Host '  [OK] Current URL still valid'
                         $urlValid = $true
 
-                        # Verify hash if it exists
-                        $hashField = if ($arch -eq "generic") { "hash" } else { "hash" }
-                        if ($manifest.PSObject.Properties.Name -contains $hashField) {
-                            $currentHash = if ($arch -eq "generic") { $manifest.hash } else { $manifest.architecture.$arch.hash }
-                            if ($currentHash) {
-                                $hashResult = Test-HashMismatch -Url $oldUrl -StoredHash $currentHash
-                                if ($hashResult -and $hashResult.Mismatch) {
-                                    Write-Host "    [OK] Auto-fixing hash mismatch" -ForegroundColor Green
-                                    if ($arch -eq "generic") {
-                                        $manifest.hash = $hashResult.ActualHash.ToLower()
-                                    } else {
-                                        $manifest.architecture.$arch.hash = $hashResult.ActualHash.ToLower()
-                                    }
+                        # Verify hash if it exists (top-level or architecture-specific)
+                        $currentHash = if ($arch -eq "generic") { $manifest.hash } else { Get-ArchHash -Manifest $manifest -Arch $arch }
+                        if ($currentHash) {
+                            $hashResult = Test-HashMismatch -Url $oldUrl -StoredHash $currentHash
+                            if ($hashResult -and $hashResult.Mismatch) {
+                                Write-Host '    [OK] Auto-fixing hash mismatch' -ForegroundColor Green
+                                if ($arch -eq "generic") {
+                                    $manifest.hash = $hashResult.ActualHash.ToLower()
+                                } else {
+                                    Set-ArchHash -Manifest $manifest -Arch $arch -Hash $hashResult.ActualHash.ToLower()
                                 }
                             }
                         }
-                        continue
                     }
+                    continue
                 } catch {
-                    Write-Host "  [FAIL] Current URL returned error: $($_.Exception.Message)"
+                    Write-Host ('  [FAIL] Current URL returned error: {0}' -f $_.Exception.Message)
                 }
             }
 
             if (!$urlValid) {
-                Write-Host "  [FAIL] URL is not accessible - attempting to fix"
+                Write-Host '  [FAIL] URL is not accessible - attempting to fix'
             }
 
             # If URL is not valid, try version-substituted URL first (already tried above, but logic flow continues)
@@ -1275,20 +1252,20 @@ try {
             # Try to find via repository API (GitHub, GitLab, Gitea)
             if (!$repoInfo.Platform -or !$repoInfo.Path) {
                 # Fallback: try to extract from alternate config locations if not already found
-                Write-Host "  [WARN] Repository not configured in checkver; cannot lookup assets" -ForegroundColor Yellow
+                Write-Host '  [WARN] Repository not configured in checkver; cannot lookup assets' -ForegroundColor Yellow
                 continue
             }
 
             Write-Host "  Attempting $($repoInfo.Platform) API lookup for version: $latestVersion..."
 
             try {
-                $assets = Get-ReleaseAsset -Repo $repoInfo.Path -Version $latestVersion -Platform $repoInfo.Platform
+                $assets = Get-ReleaseAsset -Repo $repoInfo.Path -Version $latestVersion -Platform $repoInfo.Platform -Base $repoInfo.Base
 
                 # If release not found with exact version, attempt pattern matching
                 if (!$assets -or $assets.Count -eq 0) {
-                    Write-Host "  [WARN] Release tag '$latestVersion' not found, attempting pattern match..." -ForegroundColor Yellow
+                    Write-Host ('  [WARN] Release tag ''{0}'' not found, attempting pattern match...' -f $latestVersion) -ForegroundColor Yellow
 
-                    $release = Find-ReleaseByPatternMatch -RepoPath $repoPath -TargetVersion $latestVersion -Platform $repoPlatform
+                    $release = Find-ReleaseByPatternMatch -RepoPath $repoInfo.Path -TargetVersion $latestVersion -Platform $repoInfo.Platform
 
                     if ($release) {
                         # Update latestVersion to the found release
@@ -1298,25 +1275,25 @@ try {
                             $latestVersion = $release.name
                         }
 
-                        Write-Host "  [OK] Updated version to: $latestVersion" -ForegroundColor Green
+                        Write-Host ('  [OK] Updated version to: {0}' -f $latestVersion) -ForegroundColor Green
 
                         # Try to get assets from the matched release
-                        $assets = Get-ReleaseAsset -Repo $repoPath -Version $release.tag_name -Platform $repoPlatform
+                        $assets = Get-ReleaseAsset -Repo $repoInfo.Path -Version $release.tag_name -Platform $repoInfo.Platform -Base $repoInfo.Base
 
                         # If still no assets but we have release info, try alternative version formats
                         if (!$assets -or $assets.Count -eq 0) {
                             # Try version without 'v' prefix
                             $versionAlt = $release.tag_name -replace '^v', '' -replace '^\.', ''
                             if ($versionAlt -ne $release.tag_name) {
-                                $assets = Get-ReleaseAsset -Repo $repoPath -Version $versionAlt -Platform $repoPlatform
+                                $assets = Get-ReleaseAsset -Repo $repoInfo.Path -Version $versionAlt -Platform $repoInfo.Platform -Base $repoInfo.Base
                             }
                             # Try version with 'v' prefix
                             if ((!$assets -or $assets.Count -eq 0) -and $release.tag_name -notmatch '^v') {
-                                $assets = Get-ReleaseAsset -Repo $repoPath -Version "v$($release.tag_name)" -Platform $repoPlatform
+                                $assets = Get-ReleaseAsset -Repo $repoInfo.Path -Version "v$($release.tag_name)" -Platform $repoInfo.Platform -Base $repoInfo.Base
                             }
                         }
                     } else {
-                        Write-Host "  [WARN] No release found matching version pattern" -ForegroundColor Yellow
+                        Write-Host '  [WARN] No release found matching version pattern' -ForegroundColor Yellow
                         Add-Issue -Title "Release Not Found" -Description "Could not find release for version $latestVersion or similar" -Severity "warning"
                     }
                 }
@@ -1375,14 +1352,14 @@ try {
 
                     if ($asset) {
                         $fixedUrl = $asset.browser_download_url
-                        Write-Host "  [OK] API found asset for ${arch}: $($asset.name)" -ForegroundColor Green
+                        Write-Host ('  [OK] API found asset for {0}: {1}' -f $arch, $asset.name) -ForegroundColor Green
 
                         if ($arch -eq "generic") {
                             $manifest.url = $fixedUrl
                         } elseif ($arch -eq "64bit") {
-                            $manifest.architecture.'64bit'.url = $fixedUrl
+                            Set-ArchUrl -Manifest $manifest -Arch '64bit' -Url $fixedUrl
                         } elseif ($arch -eq "32bit") {
-                            $manifest.architecture.'32bit'.url = $fixedUrl
+                            Set-ArchUrl -Manifest $manifest -Arch '32bit' -Url $fixedUrl
                         }
 
                         # Try to get checksum from GitHub release first
@@ -1401,18 +1378,18 @@ try {
                             if ($arch -eq "generic") {
                                 $manifest.hash = $hash.ToLower()
                             } else {
-                                $manifest.architecture.$arch.hash = $hash.ToLower()
+                                Set-ArchHash -Manifest $manifest -Arch $arch -Hash $hash.ToLower()
                             }
-                            Write-Host "  [OK] Updated hash for ${arch} asset" -ForegroundColor Green
+                            Write-Host ('  [OK] Updated hash for {0} asset' -f $arch) -ForegroundColor Green
                         }
                     } else {
-                        Write-Host "  [WARN] No matching Windows asset found in release for $arch" -ForegroundColor Yellow
+                        Write-Host ('  [WARN] No matching Windows asset found in release for {0}' -f $arch) -ForegroundColor Yellow
                     }
                 } else {
-                    Write-Host "  [WARN] Could not retrieve assets from $repoPlatform API" -ForegroundColor Yellow
+                        Write-Host ('  [WARN] Could not retrieve assets from {0} API' -f $repoPlatform) -ForegroundColor Yellow
                 }
             } catch {
-                Write-Host "  [WARN] API lookup failed: $_"
+                Write-Host ('  [WARN] API lookup failed: {0}' -f $_)
                 Add-Issue -Title "URL Resolution Failed" -Description "Could not resolve download URL for $appName $arch" -Severity "warning"
             }
         }
@@ -1438,8 +1415,10 @@ try {
 
         $hashTargets = @()
         if ($manifest.url) { $hashTargets += @{ Name = 'Generic'; Obj = $manifest; Url = $manifest.url } }
-        if ($manifest.architecture.'64bit'.url) { $hashTargets += @{ Name = '64bit'; Obj = $manifest.architecture.'64bit'; Url = $manifest.architecture.'64bit'.url } }
-        if ($manifest.architecture.'32bit'.url) { $hashTargets += @{ Name = '32bit'; Obj = $manifest.architecture.'32bit'; Url = $manifest.architecture.'32bit'.url } }
+        $tmp64 = Get-ArchUrl -Manifest $manifest -Arch '64bit'
+        if ($tmp64) { $hashTargets += @{ Name = '64bit'; Obj = $manifest.architecture.'64bit'; Url = $tmp64 } }
+        $tmp32 = Get-ArchUrl -Manifest $manifest -Arch '32bit'
+        if ($tmp32) { $hashTargets += @{ Name = '32bit'; Obj = $manifest.architecture.'32bit'; Url = $tmp32 } }
 
         $forceRewrite = $false
 
@@ -1462,7 +1441,7 @@ try {
                     $targetObj | Add-Member -MemberType NoteProperty -Name "hash" -Value $hashValue
                     $forceRewrite = $true
                 }
-                Write-Host "  [OK] $targetName hash configured for API lookup: $fileName"
+                Write-Host ('  [OK] {0} hash configured for API lookup: {1}' -f $targetName, $fileName)
             } else {
                 # Fall back to static hash
                 $newHash = $null
@@ -1479,12 +1458,12 @@ try {
                     } else {
                         $targetObj | Add-Member -MemberType NoteProperty -Name "hash" -Value $newHash
                         $forceRewrite = $true
-                        Write-Host "  [INFO] Added missing hash field, will rewrite manifest" -ForegroundColor Gray
+                        Write-Host '  [INFO] Added missing hash field, will rewrite manifest' -ForegroundColor Gray
                     }
-                    Write-Host "  [OK] $targetName hash updated"
+                    Write-Host ('  [OK] {0} hash updated' -f $targetName)
                 } else {
                     if ($targetName -ne 'Generic') {
-                        Write-Host "  [WARN] Could not get $targetName hash"
+                        Write-Host ('  [WARN] Could not get {0} hash' -f $targetName)
                     }
                 }
             }
@@ -1499,7 +1478,7 @@ try {
         # If we added new fields (like hash), we must rewrite the file using ConvertTo-Json
         # because regex replacement can't easily insert new lines in the right place
         if ($forceRewrite) {
-            Write-Host "  [INFO] Rewriting manifest to include new fields..." -ForegroundColor Cyan
+            Write-Host '  [INFO] Rewriting manifest to include new fields...' -ForegroundColor Cyan
 
             # Sort keys before saving
             $sortedManifest = Get-OrderedManifest -Manifest $manifest
@@ -1511,21 +1490,22 @@ try {
             # Format the JSON to match Scoop standards
             $formatScript = "$PSScriptRoot/formatjson.ps1"
             if (Test-Path $formatScript) {
-                Write-Host "  [INFO] Formatting manifest..." -ForegroundColor Cyan
+                Write-Host '  [INFO] Formatting manifest...' -ForegroundColor Cyan
                 try {
                     $output = & $formatScript -App $appName 2>&1
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-Host "  [WARN] Formatting failed: $output" -ForegroundColor Yellow
+                    # formatjson.ps1 is a PS script; prefer checking $? (and $LASTEXITCODE as extra) to detect failure
+                    if ($LASTEXITCODE -ne 0 -or -not $?) {
+                        Write-Host ('  [WARN] Formatting failed: {0}' -f $output) -ForegroundColor Yellow
                     }
                 } catch {
-                    Write-Host "  [WARN] Formatting script error: $_" -ForegroundColor Yellow
+                    Write-Host ('  [WARN] Formatting script error: {0}' -f $_) -ForegroundColor Yellow
                 }
             }
 
             # After saving, run checkver to ensure version is canonical according to checkver
             try {
                 if (Test-Path $checkverScript) {
-                    Write-Host "  [INFO] Running checkver to determine canonical version..." -ForegroundColor Cyan
+                    Write-Host '  [INFO] Running checkver to determine canonical version...' -ForegroundColor Cyan
                     $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
                     # Try to extract version from checkver output
@@ -1538,32 +1518,34 @@ try {
                         $versionValid = $false
                         if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
                         if (-not $versionValid -and $manifest.architecture) {
-                            if ($manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
-                            if ($manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                            $tmp64 = Get-ArchUrl -Manifest $manifest -Arch '64bit'
+                            if ($tmp64 -and ($tmp64 -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                            $tmp32 = Get-ArchUrl -Manifest $manifest -Arch '32bit'
+                            if ($tmp32 -and ($tmp32 -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
                         }
 
                         if (-not $versionValid) {
                             # Fallback: try to extract version from URL patterns (look for v<digits> or _v<digits>)
                             $found = $null
                             if ($manifest.url -and ($manifest.url -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                            if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                            if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                            if (-not $found) { $tmp64 = Get-ArchUrl -Manifest $manifest -Arch '64bit'; if ($tmp64 -and ($tmp64 -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] } }
+                            if (-not $found) { $tmp32 = Get-ArchUrl -Manifest $manifest -Arch '32bit'; if ($tmp32 -and ($tmp32 -match 'v\.\?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] } }
 
                             if ($found) {
-                                Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
+                                Write-Host ('  [WARN] Checkver returned ''{0}'' which doesn''t match URLs; using version parsed from URL: {1}' -f $detectedVersion, $found) -ForegroundColor Yellow
                                 $detectedVersion = $found
                                 $versionValid = $true
                             } else {
-                                Write-Host "  [WARN] checkver returned '$detectedVersion' which doesn't match updated URLs; ignoring" -ForegroundColor Yellow
+                                Write-Host ('  [WARN] checkver returned ''{0}'' which doesn''t match updated URLs; ignoring' -f $detectedVersion) -ForegroundColor Yellow
                                 $versionValid = $false
                             }
                         }
 
                         if ($versionValid -and $detectedVersion -ne $manifest.version) {
                             if ($appName -and $appName -match '^duckstation') {
-                                Write-Host "  [INFO] Detected canonical version but skipping canonicalization for $appName" -ForegroundColor Yellow
+                                Write-Host ('  [INFO] Detected canonical version but skipping canonicalization for {0}' -f $appName) -ForegroundColor Yellow
                             } else {
-                                Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                                Write-Host ('  [OK] Using canonical version: {0} (was {1})' -f $detectedVersion, $manifest.version) -ForegroundColor Green
                                 $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
 
                                 # Rewrite manifest with updated version
@@ -1574,15 +1556,15 @@ try {
                             }
                         }
                     } else {
-                        Write-Host "  [WARN] checkver did not return a parseable version" -ForegroundColor Yellow
+                        Write-Host '  [WARN] checkver did not return a parseable version' -ForegroundColor Yellow
                     }
                 }
             } catch {
-                Write-Host "  [WARN] Running checkver failed: $_" -ForegroundColor Yellow
+                Write-Host ('  [WARN] Running checkver failed: {0}' -f $_) -ForegroundColor Yellow
             }
 
             if ($needsFix) {
-                if (-not (Validate-FixIntegrity -ManifestPath $ManifestPath -AppName $appName)) {
+                if (-not (Test-FixIntegrity -ManifestPath $ManifestPath -AppName $appName)) {
                     Write-Host '[FAIL] Validation failed; aborting auto-fix' -ForegroundColor Red
                     exit 2
                 }
@@ -1604,11 +1586,11 @@ try {
 
             if ($updatedContent -match $quotedPattern) {
                 $updatedContent = $updatedContent -replace $quotedPattern, "`"version`": `"$latestVersion`""
-                Write-Host "  [OK] Updated quoted version in manifest text" -ForegroundColor Green
+                Write-Host '  [OK] Updated quoted version in manifest text' -ForegroundColor Green
             } elseif ($updatedContent -match $unquotedPattern) {
                 # Handle numeric/unquoted version
                 $updatedContent = $updatedContent -replace $unquotedPattern, "`"version`": `"$latestVersion`""
-                Write-Host "  [OK] Updated unquoted numeric version in manifest text (now quoted)" -ForegroundColor Green
+                Write-Host '  [OK] Updated unquoted numeric version in manifest text (now quoted)' -ForegroundColor Green
             }
         }
 
@@ -1629,14 +1611,16 @@ try {
                     $newHash = $manifest.hash
                 }
             } elseif ($arch -eq "64bit") {
-                if ($manifest.architecture.'64bit'.url -ne $pattern.url) {
-                    $newUrl = $manifest.architecture.'64bit'.url
-                    $newHash = $manifest.architecture.'64bit'.hash
+                $tmpUrl = Get-ArchUrl -Manifest $manifest -Arch '64bit'
+                if ($tmpUrl -and $tmpUrl -ne $pattern.url) {
+                    $newUrl = $tmpUrl
+                    $newHash = Get-ArchHash -Manifest $manifest -Arch '64bit'
                 }
             } elseif ($arch -eq "32bit") {
-                if ($manifest.architecture.'32bit'.url -ne $pattern.url) {
-                    $newUrl = $manifest.architecture.'32bit'.url
-                    $newHash = $manifest.architecture.'32bit'.hash
+                $tmpUrl = Get-ArchUrl -Manifest $manifest -Arch '32bit'
+                if ($tmpUrl -and $tmpUrl -ne $pattern.url) {
+                    $newUrl = $tmpUrl
+                    $newHash = Get-ArchHash -Manifest $manifest -Arch '32bit'
                 }
             }
 
@@ -1658,6 +1642,7 @@ try {
 
             # Create a pattern to find the URL and its corresponding hash
             $urlPattern = [regex]::Escape($oldUrl)
+            # use single-quoted regex string to stay PS5.1-safe when it contains character classes
             $hashPattern = '"hash":\s*"([a-f0-9]+)"'
 
             # Find the line with this URL
@@ -1694,45 +1679,47 @@ try {
         # After targeted text replacements, run checkver to canonicalize version
         try {
             if (Test-Path $checkverScript) {
-                Write-Host "  [INFO] Running checkver to determine canonical version..." -ForegroundColor Cyan
+                Write-Host '  [INFO] Running checkver to determine canonical version...' -ForegroundColor Cyan
                 $checkverOutput = & $checkverScript -App $appName -Dir $BucketPath 2>&1 | Out-String
 
                 $detectedVersion = Get-VersionFromCheckverOutput -Output $checkverOutput -AppName $appName
 
                 if ($detectedVersion) {
                     $detectedVersion = $detectedVersion -replace '^v', ''
-                    $detectedVersion = Normalize-MameVersion -Version $detectedVersion
+                    $detectedVersion = Convert-MameVersion -Version $detectedVersion
 
                     # Validate that detected version appears in updated URLs (to avoid spurious small numbers)
                     $versionValid = $false
                     if ($manifest.url -and ($manifest.url -match [regex]::Escape($detectedVersion) -or $manifest.url -match [regex]::Escape("v$detectedVersion"))) { $versionValid = $true }
                     if (-not $versionValid -and $manifest.architecture) {
-                        if ($manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
-                        if ($manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                        $tmp64 = Get-ArchUrl -Manifest $manifest -Arch '64bit'
+                        if ($tmp64 -and ($tmp64 -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
+                        $tmp32 = Get-ArchUrl -Manifest $manifest -Arch '32bit'
+                        if ($tmp32 -and ($tmp32 -match [regex]::Escape($detectedVersion))) { $versionValid = $true }
                     }
 
                     if (-not $versionValid) {
                         # Try to extract version from URL patterns (look for v<digits> or _v<digits>)
                         $found = $null
                         if ($manifest.url -and ($manifest.url -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                        if (-not $found -and $manifest.architecture.'64bit' -and $manifest.architecture.'64bit'.url -and ($manifest.architecture.'64bit'.url -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
-                        if (-not $found -and $manifest.architecture.'32bit' -and $manifest.architecture.'32bit'.url -and ($manifest.architecture.'32bit'.url -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] }
+                        if (-not $found) { $tmp64 = Get-ArchUrl -Manifest $manifest -Arch '64bit'; if ($tmp64 -and ($tmp64 -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] } }
+                        if (-not $found) { $tmp32 = Get-ArchUrl -Manifest $manifest -Arch '32bit'; if ($tmp32 -and ($tmp32 -match 'v\.?(?<ver>\d[\d\.\-_]*)')) { $found = $matches['ver'] } }
 
                         if ($found) {
-                            Write-Host "  [WARN] Checkver returned '$detectedVersion' which doesn't match URLs; using version parsed from URL: $found" -ForegroundColor Yellow
+                            Write-Host ('  [WARN] Checkver returned ''{0}'' which doesn''t match URLs; using version parsed from URL: {1}' -f $detectedVersion, $found) -ForegroundColor Yellow
                             $detectedVersion = $found
                             $versionValid = $true
                         } else {
-                            Write-Host "  [WARN] checkver returned '$detectedVersion' which doesn't match updated URLs; ignoring" -ForegroundColor Yellow
+                            Write-Host ('  [WARN] checkver returned ''{0}'' which doesn''t match updated URLs; ignoring' -f $detectedVersion) -ForegroundColor Yellow
                             $versionValid = $false
                         }
                     }
 
                     if ($versionValid -and $detectedVersion -ne $manifest.version) {
                         if ($appName -and $appName -match '^duckstation') {
-                            Write-Host "  [INFO] Detected canonical version but skipping canonicalization for $appName" -ForegroundColor Yellow
+                            Write-Host ('  [INFO] Detected canonical version but skipping canonicalization for {0}' -f $appName) -ForegroundColor Yellow
                         } else {
-                            Write-Host "  [OK] Using canonical version: $detectedVersion (was $($manifest.version))" -ForegroundColor Green
+                            Write-Host ('  [OK] Using canonical version: {0} (was {1})' -f $detectedVersion, $manifest.version) -ForegroundColor Green
                             $manifest.version = ([string]$detectedVersion) -replace '^\.+', ''
 
                             # Rewrite file to ensure version is quoted and consistent
@@ -1743,15 +1730,15 @@ try {
                         }
                     }
                 } else {
-                    Write-Host "  [WARN] checkver did not return a parseable version" -ForegroundColor Yellow
+                    Write-Host '  [WARN] checkver did not return a parseable version' -ForegroundColor Yellow
                 }
             }
         } catch {
-            Write-Host "  [WARN] Running checkver failed: $_" -ForegroundColor Yellow
+            Write-Host ('  [WARN] Running checkver failed: {0}' -f $_) -ForegroundColor Yellow
         }
 
         if ($needsFix) {
-            if (-not (Validate-FixIntegrity -ManifestPath $ManifestPath -AppName $appName)) {
+            if (-not (Test-FixIntegrity -ManifestPath $ManifestPath -AppName $appName)) {
                 Write-Host '[FAIL] Validation failed; aborting auto-fix' -ForegroundColor Red
                 exit 2
             }

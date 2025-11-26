@@ -52,8 +52,21 @@ param(
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'Continue'
 
+# Default manifest key order used when exporting/sorting manifests
+$DEFAULT_MANIFEST_KEY_ORDER = @(
+    'version', 'description', 'homepage', 'license', 'notes', 'depends', 'suggest',
+    'identifier', 'url', 'hash', 'architecture', 'extract_dir', 'extract_to',
+    'pre_install', 'installer', 'post_install', 'env_add_path', 'env_set',
+    'bin', 'shortcuts', 'persist', 'uninstaller', 'checkver', 'autoupdate',
+    '64bit', '32bit', 'arm64'
+)
+
 # Set security protocol for all web requests
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
+# Load shared helper functions (checksum/hash) if available
+$libPath = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
+if (Test-Path $libPath) { . $libPath }
 
 # Helper function for colored output (maintains Write-Host functionality with warning suppression)
 function Write-Status {
@@ -116,7 +129,27 @@ function Request-ManifestDetails {
 
     # Use provided values if given, otherwise use defaults
     $finalDesc = if ($ProvidedDescription) { $ProvidedDescription } else { $Manifest['description'] }
-    $finalShortcut = if ($ProvidedShortcutName) { $ProvidedShortcutName } else { $Manifest['shortcuts'][0][1] }
+
+    # Determine a safe default shortcut label. Manifests may store shortcuts
+    # as a nested array (e.g., @(@("exe", "Label"))) or a flat value.
+    $finalShortcut = ''
+    if ($ProvidedShortcutName) {
+        $finalShortcut = $ProvidedShortcutName
+    } elseif ($Manifest -and $Manifest.Contains('shortcuts') -and $Manifest['shortcuts']) {
+        $shortcutsObj = $Manifest['shortcuts']
+        if ($shortcutsObj -is [System.Array]) {
+            if ($shortcutsObj.Count -gt 0) {
+                $first = $shortcutsObj[0]
+                if ($first -is [System.Array]) {
+                    if ($first.Count -ge 2) { $finalShortcut = $first[1] } elseif ($first.Count -ge 1) { $finalShortcut = $first[0] }
+                } else {
+                    if ($shortcutsObj.Count -ge 2) { $finalShortcut = $shortcutsObj[1] } else { $finalShortcut = $shortcutsObj[0] }
+                }
+            }
+        } else {
+            $finalShortcut = $shortcutsObj.ToString()
+        }
+    }
 
     # If user provided persist folders, use only those; otherwise use detected items
     if ($ProvidedPersistFolders -and $ProvidedPersistFolders.Count -gt 0) {
@@ -126,15 +159,8 @@ function Request-ManifestDetails {
     }
     $finalPersist = @($finalPersist) | Where-Object { $_ }
 
-    # Normalize compact numeric dates (YYYYMMDD) into dashed format YYYY-MM-DD
-    if ($versionToUse -and ($versionToUse -match '^[0-9]{8}$')) {
-        try {
-            $versionToUse = ([datetime]::ParseExact($versionToUse, 'yyyyMMdd', $null)).ToString('yyyy-MM-dd')
-            "Normalized numeric date version to dashed format: $versionToUse" | Write-Status -Level Info
-        } catch {
-            # If parse fails, leave version as-is
-        }
-    }
+    # No version normalization here — version handling belongs near where the
+    # repository/version is discovered. Avoid referencing outer-scope variables.
 
     return @{
         Description  = $finalDesc
@@ -1117,7 +1143,7 @@ function Find-Executable {
     }
 
     if ($executables.Count -eq 1) {
-        "Found executable: $($executables[0].Name)" | Write-Status -Level OK
+        ('Found executable: {0}' -f $executables[0].Name) | Write-Status -Level OK
         return $executables[0]
     }
 
@@ -1161,7 +1187,7 @@ function Find-Executable {
         $secondScore = $sortedExecutables[1].Score
 
         if (($topScore -ge 50) -and ($topScore - $secondScore -ge 20)) {
-            "Found likely main executable: $($sortedExecutables[0].Name)" | Write-Status -Level OK
+            ('Found likely main executable: {0}' -f $sortedExecutables[0].Name) | Write-Status -Level OK
             return $sortedExecutables[0].Executable
         }
     }
@@ -1174,7 +1200,7 @@ function Find-Executable {
     for ($i = 0; $i -lt $displayCount; $i++) {
         $item = $sortedExecutables[$i]
         $isDefault = if ($i -eq 0) { ' [DEFAULT - press Enter]' } else { '' }
-        "  [$($i + 1)] $($item.Name) (Score: $($item.Score))$isDefault" | Write-Status -Level Info
+        ('  [{0}] {1} (Score: {2}){3}' -f ($i + 1), $item.Name, $item.Score, $isDefault) | Write-Status -Level Info
     }
 
     # Check for non-interactive mode (for testing/automation)
@@ -1199,12 +1225,12 @@ function Find-Executable {
         } until ($selectedIndex -ge 0 -and $selectedIndex -lt $displayCount)
     } else {
         # Non-interactive mode: use default (first item)
-        "Using default selection in non-interactive mode: $($sortedExecutables[0].Name)" | Write-Status -Level OK
+        ('Using default selection in non-interactive mode: {0}' -f $sortedExecutables[0].Name) | Write-Status -Level OK
         $selectedIndex = 0
     }
     '' | Write-Status
 
-    "Selected: $($sortedExecutables[$selectedIndex].Name)" | Write-Status -Level OK
+    ('Selected: {0}' -f $sortedExecutables[$selectedIndex].Name) | Write-Status -Level OK
     return $sortedExecutables[$selectedIndex].Executable
 }
 
@@ -1293,25 +1319,25 @@ function Invoke-ManifestValidation {
     foreach ($test in $scriptsToRun) {
         $scriptPath = Join-Path $PSScriptRoot $test.Script
         if (-not (Test-Path $scriptPath)) {
-            "[WARN] $($test.Name) not found, skipping..." | Write-Status -Level Warn
+            ('[WARN] {0} not found, skipping...' -f $test.Name) | Write-Status -Level Warn
             $results += @{ Name = $test.Name; Status = 'SKIP'; Message = 'Script not found' }
             continue
         }
 
-        "Running $($test.Name)..." | Write-Status -Level Info
+        ("Running {0}..." -f $test.Name) | Write-Status -Level Info
         try {
             $argArray = $test.Args
             $output = & $scriptPath @argArray 2>&1
             if ($LASTEXITCODE -eq 0) {
-                "[OK] $($test.Name) passed" | Write-Status -Level OK
+                ('[OK] {0} passed' -f $test.Name) | Write-Status -Level OK
                 $results += @{ Name = $test.Name; Status = 'PASS'; Message = '' }
             } else {
-                "[FAIL] $($test.Name) failed" | Write-Status -Level Error
+                ('[FAIL] {0} failed' -f $test.Name) | Write-Status -Level Error
                 $results += @{ Name = $test.Name; Status = 'FAIL'; Message = ($output | Out-String) }
                 $allPassed = $false
             }
         } catch {
-            "[FAIL] $($test.Name) threw error: $_" | Write-Status -Level Error
+            ('[FAIL] {0} threw error: {1}' -f $test.Name, $_) | Write-Status -Level Error
             $results += @{ Name = $test.Name; Status = 'FAIL'; Message = $_.Exception.Message }
             $allPassed = $false
         }
@@ -1325,64 +1351,7 @@ function Invoke-ManifestValidation {
 
 #endregion
 
-function Get-ReleaseChecksum {
-    [CmdletBinding()]
-    param(
-        [object[]]$Assets,
-        [string]$TargetAssetName
-    )
-
-    $checksumPatterns = @('*.sha256', '*.sha256sum', '*.sha256.txt', '*.checksum', '*.hashes', '*.DIGEST')
-    $checksumAssets = @()
-
-    foreach ($pattern in $checksumPatterns) {
-        $checksumAssets += @($Assets | Where-Object { $_.name -like $pattern })
-    }
-
-    if ($checksumAssets.Count -gt 0) {
-        foreach ($checksumAsset in $checksumAssets) {
-            try {
-                $downloadUrl = if ($checksumAsset.browser_download_url) { $checksumAsset.browser_download_url } else { $checksumAsset.url }
-
-                # Download content directly without temp file
-                $content = Invoke-RestMethod -Uri $downloadUrl -ErrorAction Stop
-
-                if ($content -isnot [string]) {
-                    $content = $content | Out-String
-                }
-
-                $lines = $content -split "`n" | Where-Object { $_ -match '\S' }
-
-                foreach ($line in $lines) {
-                    if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
-                        $hash = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[1] } else { $matches[2] }
-                        $filename = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[2] } else { $matches[1] }
-
-                        # Clean up filename (remove * and whitespace)
-                        $filename = $filename.Trim().Trim('*')
-
-                        if ($filename -like "*$($TargetAssetName)*" -or $TargetAssetName -like "*$filename*") {
-                            "Found SHA256 from release: $hash" | Write-Status -Level OK
-                            return $hash
-                        }
-                    }
-                }
-            } catch {
-                "Failed to parse checksum file: $_" | Write-Status -Level Warn
-            }
-        }
-    }
-
-    return $null
-}
-
-function ConvertTo-FileHash {
-    [CmdletBinding()]
-    param([string]$FilePath)
-
-    $hash = Get-FileHash -Path $FilePath -Algorithm SHA256
-    return $hash.Hash
-}
+## checksum/hash helpers moved to bin/lib-releasehelpers.ps1
 
 #endregion
 
@@ -1607,7 +1576,7 @@ function Get-ManifestCheckver {
 
                 # Construct a regex that matches the version in the release name
                 # We use a simplified regex if the prefix/suffix are complex, focusing on the hash
-                $re = "$prefix([a-f0-9]{7,9})$suffix"
+                $re = $prefix + '([a-f0-9]{7,9})' + $suffix
                 if ($RepositoryInfo.ReleaseName -match 'Nightly: ([a-f0-9]+)') {
                     $re = 'Nightly: ([a-f0-9]+)'
                 }
@@ -1655,8 +1624,8 @@ function Get-ManifestCheckver {
             $tagName = $RepositoryInfo.TagName
             if ($tagName -match '^(?<prefix>[a-zA-Z-_]+)(?<version>\d+\.\d+(\.\d+)?)$') {
                 $prefix = [regex]::Escape($matches['prefix'])
-                $checkver['re'] = "$prefix([\d\.]+)"
-                "Generated checkver regex for tag '$tagName': $($checkver['re'])" | Write-Status -Level OK
+                $checkver['re'] = $prefix + '([\d\.]+)'
+                ('Generated checkver regex for tag ''{0}'': {1}' -f $tagName, $checkver['re']) | Write-Status -Level OK
             }
 
             return $checkver
@@ -1666,7 +1635,7 @@ function Get-ManifestCheckver {
             $projectPath = "$($RepositoryInfo.Owner)%2F$($RepositoryInfo.Repo)"
             return @{
                 'url' = "https://gitlab.com/api/v4/projects/$projectPath/repository/commits"
-                'jp'  = "$[0].short_id"
+                'jp'  = '$[0].short_id'
             }
         } else {
             return @{ 'gitlab' = $RepositoryInfo.RepoUrl }
@@ -1960,7 +1929,7 @@ function New-ScoopManifest {
         }
 
         $exeName = $ExecutableName -replace '\.exe$', ''
-        $shortcutLabel = "$Platform [$abbrev][$exeName]"
+        $shortcutLabel = $Platform + ' [' + $abbrev + '][' + $exeName + ']'
     } else {
         $appName = $ExecutableName -replace '\.exe$', ''
         $shortcutLabel = $appName
@@ -1987,13 +1956,7 @@ function New-ScoopManifest {
 
     $manifest['autoupdate'] = Get-ManifestAutoupdate -RepositoryInfo $RepositoryInfo -ArchitectureAssets $ArchitectureAssets -BuildType $BuildType -ExtractDir $ExtractDir
 
-    $orderedKeys = @(
-        'version', 'description', 'homepage', 'license', 'notes', 'depends', 'suggest',
-        'identifier', 'url', 'hash', 'architecture', 'extract_dir', 'extract_to',
-        'pre_install', 'installer', 'post_install', 'env_add_path', 'env_set',
-        'bin', 'shortcuts', 'persist', 'uninstaller', 'checkver', 'autoupdate',
-        '64bit', '32bit', 'arm64'
-    )
+    $orderedKeys = $DEFAULT_MANIFEST_KEY_ORDER
 
     $orderedManifest = [ordered]@{}
     foreach ($key in $orderedKeys) {
@@ -2048,16 +2011,19 @@ function ConvertTo-JsonValue {
                 $subIndent = ' ' * ($Indent + 4)
                 if ($item -is [array]) {
                     $subElements = $item | ForEach-Object { ConvertTo-JsonValue -Value $_ -Indent ($Indent + 8) }
-                    "$subIndent[`n$subIndent  $($subElements -join ",`n$subIndent  ")`n$subIndent]"
+                    $joined = $subElements -join "`n$subIndent  "
+                    return $subIndent + '[' + "`n" + $subIndent + '  ' + $joined + "`n" + $subIndent + ']'
                 } else {
                     "$subIndent$(ConvertTo-JsonValue -Value $item -Indent ($Indent + 4))"
                 }
             }
-            return "[`n$($subItems -join ",`n")`n$indentStr]"
+            $joined = $subItems -join ",`n"
+            return '[' + "`n" + $joined + "`n" + $indentStr + ']'
         }
 
         $items = $Value | ForEach-Object { "$indentStr  $(ConvertTo-JsonValue -Value $_ -Indent ($Indent + 2))" }
-        return "[`n$($items -join ",`n")`n$indentStr]"
+        $joined = $items -join ",`n"
+        return '[' + "`n" + $joined + "`n" + $indentStr + ']'
     }
 
     if ($Value -is [hashtable] -or $Value -is [System.Collections.Specialized.OrderedDictionary]) {
@@ -2094,13 +2060,7 @@ function Export-Manifest {
     $jsonPath = Join-Path $OutputDirectory "$cleanedName.json"
 
     $lines = @('{')
-    $keyOrder = @(
-        'version', 'description', 'homepage', 'license', 'notes', 'depends', 'suggest',
-        'identifier', 'url', 'hash', 'architecture', 'extract_dir', 'extract_to',
-        'pre_install', 'installer', 'post_install', 'env_add_path', 'env_set',
-        'bin', 'shortcuts', 'persist', 'uninstaller', 'checkver', 'autoupdate',
-        '64bit', '32bit', 'arm64'
-    )
+    $keyOrder = $DEFAULT_MANIFEST_KEY_ORDER
 
     $processedKeys = @()
     $allKeys = $Manifest.Keys
@@ -2186,7 +2146,7 @@ function New-PullRequest {
     "Pushing branch and creating PR..." | Write-Status -Level Info
     git push -u origin $branchName
 
-    $body = "Added manifest for [$AppName]($RepoUrl) version $Version.`n`nAuto-generated by create-manifest.ps1."
+    $body = ('Added manifest for [{0}]({1}) version {2}`n`nAuto-generated by create-manifest.ps1.' -f $AppName, $RepoUrl, $Version)
     gh pr create --title "feat($AppName): add manifest for $AppName" --body $body --web
 }
 
@@ -2390,10 +2350,10 @@ try {
 
                     # Remove control characters and trim whitespace
                     $name = ($name -replace '[\p{C}]', '').Trim()
-                    "  [$($i + 1)] '$name'" | Write-Status -Level Info
+                    ('  [{0}] ''{1}''' -f ($i + 1), $name) | Write-Status -Level Info
                 }
 
-                $response = Read-Host "Enter numbers separated by commas (e.g. 1,3) or 'all'/'none' [Default: none]"
+                $response = Read-Host 'Enter numbers separated by commas (e.g. 1,3) or ''all''/''none'' [Default: none]'
 
                 if ($response -match '(?i)^all$') {
                     $selectedAux = $auxBinaries
@@ -2456,17 +2416,17 @@ try {
 
         $releaseChecksum = Get-ReleaseChecksum -Assets $repoInfo.Assets -TargetAssetName $asset.name
         if ($releaseChecksum) {
-            "[$arch] Using checksum from release files" | Write-Status -Level OK
+            ('[{0}] Using checksum from release files' -f $arch) | Write-Status -Level OK
             $asset | Add-Member -MemberType NoteProperty -Name 'Checksum' -Value $releaseChecksum -Force
             $asset | Add-Member -MemberType NoteProperty -Name 'HasChecksumFile' -Value $true -Force
         } else {
             if ($asset.name -eq $primaryAsset.name) {
-                "[$arch] Calculating hash from downloaded file..." | Write-Status -Level Info
+                ('[{0}] Calculating hash from downloaded file...' -f $arch) | Write-Status -Level Info
                 $calculatedHash = ConvertTo-FileHash -FilePath $downloadPath
                 $asset | Add-Member -MemberType NoteProperty -Name 'Checksum' -Value $calculatedHash -Force
                 $asset | Add-Member -MemberType NoteProperty -Name 'HasChecksumFile' -Value $false -Force
             } else {
-                "[$arch] No checksum file found and asset not downloaded - skipping hash verification for non-primary architecture" | Write-Status -Level Warn
+                ('[{0}] No checksum file found and asset not downloaded - skipping hash verification for non-primary architecture' -f $arch) | Write-Status -Level Warn
                 # For non-primary assets without checksum files, we can't easily get the hash without downloading
                 # In a real scenario we might want to download these too, but for now we'll skip or mark as missing
             }
@@ -2553,7 +2513,18 @@ try {
 
     # Update manifest with details
     $manifest['description'] = $manifestDetails.Description
-    $manifest['shortcuts'][0][1] = $manifestDetails.ShortcutName
+    # Ensure shortcuts structure exists and update label safely.
+    if ($manifest.Contains('shortcuts') -and $manifest['shortcuts'] -and $manifest['shortcuts'][0]) {
+        $first = $manifest['shortcuts'][0]
+        if ($first -is [System.Array] -or $first -is [object[]]) {
+            if ($first.Count -ge 2) { $manifest['shortcuts'][0][1] = $manifestDetails.ShortcutName } else { $manifest['shortcuts'][0] = @($first[0], $manifestDetails.ShortcutName) }
+        } else {
+            # Replace with nested pair [exe, label]
+            $manifest['shortcuts'] = , @($executableName, $manifestDetails.ShortcutName)
+        }
+    } else {
+        $manifest['shortcuts'] = , @($executableName, $manifestDetails.ShortcutName)
+    }
 
     # Update persist to always be an array
     if ($manifestDetails.PersistItems.Count -gt 0) {
@@ -2664,7 +2635,7 @@ try {
 
     if ($issueInfo -and $GitHubToken) {
         try {
-            $errorComment = "[FAIL] Failed to create manifest: $($_.Exception.Message)"
+            $errorComment = '[FAIL] Failed to create manifest: ' + $_.Exception.Message
             Update-IssueComment -IssueNumber $issueInfo.IssueNumber -Token $GitHubToken -Comment $errorComment -Labels @('needs-investigation') -Confirm:$false
         } catch {
             'Could not update GitHub issue with error info' | Write-Status -Level Warn

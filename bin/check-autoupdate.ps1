@@ -33,7 +33,7 @@ function Test-UrlAccessibility {
 
     # Skip placeholders
     if ($Url -match '\$\w+') {
-        Write-Verbose "[SKIP] URL contains placeholders: $Url"
+        Write-Verbose ('[SKIP] URL contains placeholders: {0}' -f $Url)
         return $true
     }
 
@@ -106,11 +106,11 @@ try {
 
     $failed = $false
     foreach ($check in $checks) {
-        Write-Host "Checking [$($check.Arch)] $($check.Url)..." -NoNewline
+        Write-Host ('Checking [{0}] {1}...' -f $check.Arch, $check.Url) -NoNewline
         if (Test-UrlAccessibility -Url $check.Url) {
-            Write-Host " [OK]" -ForegroundColor Green
+            Write-Host ' [OK]' -ForegroundColor Green
         } else {
-            Write-Host " [FAIL]" -ForegroundColor Red
+            Write-Host ' [FAIL]' -ForegroundColor Red
             $failed = $true
         }
     }

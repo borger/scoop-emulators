@@ -46,9 +46,10 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
    - AVOID: emoji and Unicode checkmarks
 
 2. **File Encoding** - UTF-8 WITHOUT BOM
-   ```powershell
-   [System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::UTF8)
-   ```
+    ```powershell
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+    ```
    - DO NOT use `Set-Content` or `Out-File` (they add BOM)
    - DO NOT use `UTF8Encoding($true)`
 
@@ -64,9 +65,10 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
    - USE: `if` statements instead
 
 5. **JSON Trailing Newline** - Always add `+ "`n"`
-   ```powershell
-   [System.IO.File]::WriteAllText($path, $json + "`n", [System.Text.Encoding]::UTF8)
-   ```
+    ```powershell
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $json + "`n", $utf8NoBom)
+    ```
 
 6. **Windows 11 Environment** - Commands should be windows compatible
    - AVOID: Unix utilities like `head`, `tail`, `grep`, `sed`, `awk`
@@ -98,6 +100,33 @@ All three must pass. PRs auto-merge on pass, escalate to @beyondmeat on failure.
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)  # NO BOM!
 ```
+
+### Additional PS5.1 rules learned
+- Always test PowerShell scripts using Windows PowerShell 5.1 (powershell.exe -NoProfile). Do not rely only on PowerShell 7 (pwsh) during development or CI for scripts that must run on Windows host environments.
+- Before running or committing changes to a PowerShell script, validate its PS5.1 syntax with the AST parser. Example:
+```powershell
+# Parse and check for syntax errors (PowerShell 5.1)
+$content = [System.IO.File]::ReadAllText('c:\path\to\script.ps1')
+$null = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$null, [ref]$null)
+Write-Host 'Parse OK'
+```
+- Avoid double-quoted strings that contain bracketed tokens (e.g. "[OK] ...") or regex character classes like "[a-f0-9]". PowerShell 5.1 can interpret `[ ... ]` inside double quotes as an array/type index and raise parse errors. Use single quotes for such literal strings or split interpolation across multiple Write-Host calls.
+- When embedding regular expressions or character classes, prefer single-quoted strings (e.g. '[a-f0-9]') so the parser does not misinterpret the bracketed expression.
+
+### Manifest data safety
+
+- Always null-check nested manifest fields before reading or writing (e.g., test `$manifest.architecture` and `$manifest.architecture.'64bit'` before accessing `.url` or `.hash`). Missing checks cause runtime errors for manifests without `architecture` sections — prefer helper guards or short-circuit tests.
+- When modifying nested manifest fields, ensure the parent object exists before assignment (e.g., create `$manifest.architecture` and `$manifest.architecture.'64bit'` as needed) to avoid runtime exceptions when adding new fields.
+
+### Script testing checklist (for PS scripts changes)
+- Run AST parse check (see example above) using powershell.exe -NoProfile
+- Run a representative manifest through `autofix-manifest.ps1` using PowerShell 5.1:
+```powershell
+powershell -NoProfile -Command "& 'c:\\path\\to\\bin\\autofix-manifest.ps1' -ManifestPath 'c:\\path\\to\\bucket\\melonds.json'"
+```
+- Run `Scoop-Bucket.Tests.ps1` to validate the full suite
+- Verify file writes use UTF-8 without BOM (`New-Object System.Text.UTF8Encoding $false`)
+- If adding platform APIs (e.g. Gitea), ensure the API call builder has both base (host) and repository path — prefer passing a base host + repo path rather than assuming a single combined string.
 
 ### Critical: Trailing Whitespace
 **EVERY LINE MUST END WITH A CHARACTER, NOT SPACES OR TABS!** This includes:
@@ -243,7 +272,7 @@ or with regex:
 ### update-manifest.ps1
 - Auto-update version and SHA256 hashes
 - Process: checkver → download files → calculate hashes → update manifest
-- **Critical:** Always uses `[System.Text.Encoding]::UTF8` for file writing
+- **Critical:** Always write files using UTF-8 WITHOUT BOM (use `New-Object System.Text.UTF8Encoding $false`) to avoid breaking workflows
 
 ### autofix-manifest.ps1
 - Repair common issues: 404 errors, URL patterns, checkver config, hashes
