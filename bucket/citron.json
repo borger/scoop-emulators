@@ -6,7 +6,7 @@
   "architecture": {
     "64bit": {
       "url": "https://github.com/Zephyron-Dev/Citron-CI/releases/download/nightly-windows/Citron-windows-nightly-c5f35b071-x64.zip",
-      "hash": "40629923fe316cb6397ec3c379b57bb430dd1617baf646db4f652a28cb9a5676"
+      "hash": "fe55911934e6b864f91ea467a5bec16af51a2376a573c40fc7401b443fbd35e1"
     }
   },
   "pre_install": [
