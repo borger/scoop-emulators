@@ -23,6 +23,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: '1'
 
+      - name: Update citron nightly
+        shell: pwsh
+        run: |
+          Write-Host "Updating citron manually since excavator skips nightlies"
+          .\bin\update-manifest.ps1 -ManifestPath bucket/citron.json -Update
+          if ($LASTEXITCODE -eq 0) {
+            # Check if there were changes
+            $changes = git diff --name-only bucket/citron.json
+            if ($changes) {
+              git add bucket/citron.json
+              git commit -m "feat(citron): update to latest nightly"
+            } else {
+              Write-Host "No changes for citron"
+            }
+          } else {
+            Write-Host "Update failed for citron"
+          }
+
       - name: Capture excavator output
         shell: pwsh
         run: |
