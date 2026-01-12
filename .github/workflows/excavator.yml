@@ -15,14 +15,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check for new versions
-        id: excavator
-        uses: ScoopInstaller/GithubActions@main
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKIP_UPDATED: '1'
-
       - name: Update citron nightly
         shell: pwsh
         run: |
@@ -32,14 +24,22 @@ jobs:
             # Check if there were changes
             $changes = git diff --name-only bucket/citron.json
             if ($changes) {
-              git add bucket/citron.json
-              git commit -m "feat(citron): update to latest nightly"
+              Write-Host "Citron was updated, changes detected"
+              # Don't commit here - let the main excavator handle PR creation
             } else {
               Write-Host "No changes for citron"
             }
           } else {
             Write-Host "Update failed for citron"
           }
+
+      - name: Check for new versions
+        id: excavator
+        uses: ScoopInstaller/GithubActions@main
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_UPDATED: '1'
 
       - name: Capture excavator output
         shell: pwsh
