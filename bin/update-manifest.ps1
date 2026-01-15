@@ -78,6 +78,46 @@ $ErrorActionPreference = 'Stop'
 $lib = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
 if (Test-Path $lib) { . $lib }
 
+function ConvertTo-JsonValue {
+    param(
+        [object]$Value,
+        [int]$Indent = 0
+    )
+
+    $indentStr = ' ' * $Indent
+
+    if ($null -eq $Value) { return 'null' }
+
+    if ($Value -is [string]) {
+        $escaped = $Value.Replace('\\', '\\\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n').Replace("`t", '\t')
+        return "`"$escaped`""
+    }
+
+    if ($Value -is [bool]) { if ($Value) { return 'true' } else { return 'false' } }
+
+    if ($Value -is [int] -or $Value -is [long] -or $Value -is [double]) { return $Value.ToString() }
+
+    if ($Value -is [array]) {
+        if ($Value.Count -eq 0) { return '[]' }
+        $items = $Value | ForEach-Object { "$indentStr  $(ConvertTo-JsonValue -Value $_ -Indent ($Indent + 2))" }
+        $joined = $items -join ",`n"
+        return '[' + "`n" + $joined + "`n" + $indentStr + ']'
+    }
+
+    if ($Value -is [hashtable] -or $Value -is [System.Collections.Specialized.OrderedDictionary]) {
+        if ($Value.Count -eq 0) { return '{}' }
+        $subItems = @()
+        foreach ($k in $Value.Keys) {
+            $v = $Value[$k]
+            $jsonVal = ConvertTo-JsonValue -Value $v -Indent ($Indent + 2)
+            $subItems += "$indentStr  `"$k`": $jsonVal"
+        }
+        return "{`n$($subItems -join ",`n")`n$indentStr}"
+    }
+
+    return "`"$Value`""
+}
+
 function Get-GitHubReleaseAssets {
     param(
         [string]$Owner,
@@ -349,6 +389,11 @@ try {
         # Write JSON with UTF-8 encoding without BOM
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+
+        # Format the JSON properly
+        $bucketDir = Split-Path $ManifestPath -Parent
+        $appName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
+        & "C:\Users\se7en\scoop\apps\scoop\current\bin\formatjson.ps1" -Dir $bucketDir -App $appName
 
         Write-Host ('[OK] Manifest version updated from {0} to {1}' -f $oldVersion, $latestVersion)
         Write-Host '[OK] Architecture URLs and hashes updated'
