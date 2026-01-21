@@ -78,44 +78,24 @@ $ErrorActionPreference = 'Stop'
 $lib = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
 if (Test-Path $lib) { . $lib }
 
-function ConvertTo-JsonValue {
-    param(
-        [object]$Value,
-        [int]$Indent = 0
-    )
-
-    $indentStr = ' ' * $Indent
-
-    if ($null -eq $Value) { return 'null' }
-
-    if ($Value -is [string]) {
-        $escaped = $Value.Replace('\\', '\\\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n').Replace("`t", '\t')
-        return "`"$escaped`""
-    }
-
-    if ($Value -is [bool]) { if ($Value) { return 'true' } else { return 'false' } }
-
-    if ($Value -is [int] -or $Value -is [long] -or $Value -is [double]) { return $Value.ToString() }
-
-    if ($Value -is [array]) {
-        if ($Value.Count -eq 0) { return '[]' }
-        $items = $Value | ForEach-Object { "$indentStr  $(ConvertTo-JsonValue -Value $_ -Indent ($Indent + 2))" }
-        $joined = $items -join ",`n"
-        return '[' + "`n" + $joined + "`n" + $indentStr + ']'
-    }
-
-    if ($Value -is [hashtable] -or $Value -is [System.Collections.Specialized.OrderedDictionary]) {
-        if ($Value.Count -eq 0) { return '{}' }
-        $subItems = @()
-        foreach ($k in $Value.Keys) {
-            $v = $Value[$k]
-            $jsonVal = ConvertTo-JsonValue -Value $v -Indent ($Indent + 2)
-            $subItems += "$indentStr  `"$k`": $jsonVal"
+function Get-FormatJsonPath {
+    $scoopHome = $env:SCOOP_HOME
+    if (-not $scoopHome) {
+        try {
+            $scoopHome = scoop prefix scoop
+        } catch {
+            $scoopHome = $null
         }
-        return "{`n$($subItems -join ",`n")`n$indentStr}"
     }
 
-    return "`"$Value`""
+    if ($scoopHome) {
+        $formatJsonPath = Join-Path $scoopHome 'bin\formatjson.ps1'
+        if (Test-Path $formatJsonPath) {
+            return $formatJsonPath
+        }
+    }
+
+    return $null
 }
 
 function Get-GitHubReleaseAssets {
@@ -393,7 +373,12 @@ try {
         # Format the JSON properly
         $bucketDir = Split-Path $ManifestPath -Parent
         $appName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
-        & "C:\Users\se7en\scoop\apps\scoop\current\bin\formatjson.ps1" -Dir $bucketDir -App $appName
+        $formatJsonPath = Get-FormatJsonPath
+        if ($formatJsonPath) {
+            & $formatJsonPath -Dir $bucketDir -App $appName
+        } else {
+            Write-Verbose 'formatjson.ps1 not found; leaving JSON as-is'
+        }
 
         Write-Host ('[OK] Manifest version updated from {0} to {1}' -f $oldVersion, $latestVersion)
         Write-Host '[OK] Architecture URLs and hashes updated'
