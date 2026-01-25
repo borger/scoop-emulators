@@ -1,12 +1,12 @@
 {
-    "version": "79afcfad2",
+    "version": "2b18a97e1",
     "description": "Nintendo Switch Emulator",
     "homepage": "https://github.com/Zephyron-Dev/Citron-CI",
     "license": "GPL-3.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/Zephyron-Dev/Citron-CI/releases/download/nightly-windows/Citron-windows-nightly-79afcfad2-x64.zip",
-            "hash": "a656b2d3a968137a6d22e2432693346675115d01d2d6ca9fb14c1f4db6586ed2"
+            "url": "https://github.com/Zephyron-Dev/Citron-CI/releases/download/nightly-windows/Citron-windows-nightly-2b18a97e1-x64.zip",
+            "hash": "9887e3e26dffef0cd43073907895ba65341be3681d70f9e4b33c563beaa4b78d"
         }
     },
     "pre_install": [
