@@ -24,43 +24,26 @@ jobs:
           SKIP_UPDATED: '1'
 
       - name: Update citron nightly
-        id: citron_update
         shell: pwsh
         run: |
+          Write-Host "Checking citron for updates..."
           $ProgressPreference = 'SilentlyContinue'
           .\bin\update-manifest.ps1 -ManifestPath bucket\citron.json -Update
-          $changed = git diff --name-only bucket/citron.json
-          if ($changed) {
-            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-            [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "citron_changed=true`n", $utf8NoBom)
-            Write-Host 'Citron updated and changes detected'
+          if ($LASTEXITCODE -eq 0) {
+            $changed = git diff --name-only bucket/citron.json
+            if ($changed) {
+              Write-Host "Citron updated - changes detected"
+              git add bucket\citron.json
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git commit -m "feat(citron): update to latest nightly"
+              git push origin HEAD:master
+              Write-Host "Citron update committed and pushed"
+            } else {
+              Write-Host "Citron is already up to date"
+            }
           } else {
-            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-            [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "citron_changed=false`n", $utf8NoBom)
-            Write-Host 'No citron changes detected'
-          }
-
-      - name: Commit & push citron update
-        if: steps.citron_update.outputs.citron_changed == 'true'
-        shell: pwsh
-        run: |
-          $ProgressPreference = 'SilentlyContinue'
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add bucket\citron.json
-          if (git diff --staged --name-only | Where-Object { $_ -eq 'bucket/citron.json' }) {
-            git commit -m 'fix(citron): update manifest'
-            $repo = "${{ github.repository }}"
-            $token = "${{ secrets.GITHUB_TOKEN }}"
-            $ref = "${{ github.ref_name }}"
-            git push "https://x-access-token:$token@github.com/$repo" "HEAD:$ref"
-            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-            [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "citron_pushed=true`n", $utf8NoBom)
-            Write-Host 'Citron updated and pushed to' $ref
-          } else {
-            Write-Host 'No citron changes to commit'
-            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-            [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "citron_pushed=false`n", $utf8NoBom)
+            Write-Host "Citron update failed"
           }
 
       - name: Capture excavator output
