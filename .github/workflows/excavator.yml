@@ -23,29 +23,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: '1'
 
-      - name: Update citron nightly
-        shell: pwsh
-        run: |
-          Write-Host "Checking citron for updates..."
-          $ProgressPreference = 'SilentlyContinue'
-          .\bin\update-manifest.ps1 -ManifestPath bucket\citron.json -Update
-          if ($LASTEXITCODE -eq 0) {
-            $changed = git diff --name-only bucket/citron.json
-            if ($changed) {
-              Write-Host "Citron updated - changes detected"
-              git add bucket\citron.json
-              git config user.name "github-actions[bot]"
-              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-              git commit -m "feat(citron): update to latest nightly"
-              git push origin HEAD:master
-              Write-Host "Citron update committed and pushed"
-            } else {
-              Write-Host "Citron is already up to date"
-            }
-          } else {
-            Write-Host "Citron update failed"
-          }
-
       - name: Capture excavator output
         shell: pwsh
         run: |
