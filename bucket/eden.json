@@ -15,9 +15,7 @@
             "hash": "f5abaad71d9375aba746f7c091eddce3c17d2c062f1d5eeb5449400c793d8cc7"
         }
     },
-    "pre_install": [
-        "if (-not (Test-Path \"$dir\\user\")) { New-Item -ItemType Directory -Path \"$dir\\user\" | Out-Null }"
-    ],
+    "pre_install": "if (-not (Test-Path \"$dir\\user\")) { New-Item -ItemType Directory -Path \"$dir\\user\" | Out-Null }",
     "bin": "eden.exe",
     "shortcuts": [
         [
