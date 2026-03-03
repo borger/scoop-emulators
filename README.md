@@ -4,7 +4,7 @@
 
 # Emulators Scoop Bucket
 
-This is a [Scoop](http://scoop.sh) bucket for emulators. It's focused on Windows emulators and core tooling.
+This is a [Scoop](https://scoop.sh) bucket for emulators. It's focused on Windows emulators and core tooling.
 
 This bucket is curated and not intended to be a catch-all. All emulators in this bucket are maintained, have active development, and have a strong active user-base. For other emulators, games, and other apps, check out [scoop-games](https://github.com/Calinou/scoop-games) or other scoop buckets.
 
@@ -12,7 +12,7 @@ Interested in adding something? To add a new emulator, please read the [Contribu
 
 ## 1. Installing Scoop
 
-Windows 10 and Windows 11 include PowerShell installed by default. Open the start menu and type `PowerShell`. You might see both `Windows PowerShell` and [PowerShell 7 (x64)](https://docs.microsoft.com/en-us/PowerShell/scripting/install/installing-PowerShell), the latter is recommended, but the former works too.
+Windows 10 and Windows 11 include PowerShell installed by default. Open the start menu and type `PowerShell`. You might see both `Windows PowerShell` and [PowerShell 7 (x64)](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell), the latter is recommended, but the former works too.
 
 Open PowerShell and run:
 
@@ -43,7 +43,7 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | App | Systems | Variants | Homepage |
 |-----|---------|----------|----------|
 | `ares` | Multi-system | — | [ares-emu.net](https://ares-emu.net) |
-| `mame` | Arcade & more | — | [mamedev.org](http://mamedev.org) |
+| `mame` | Arcade & more | — | [mamedev.org](https://www.mamedev.org) |
 | `mednafen` | Multi-system | `dev` | [mednafen.github.io](https://mednafen.github.io/) |
 | `retroarch` | Multi-system frontend | `nightly` | [retroarch.com](https://www.retroarch.com/) |
 
@@ -57,10 +57,10 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `desmume` | DS | — | [desmume.org](https://desmume.org) |
 | `dolphin` | GameCube / Wii | `dev` | [dolphin-emu.org](https://dolphin-emu.org/) |
 | `eden` | Switch | — | [eden-emu.dev](https://eden-emu.dev/) |
-| `fceux` | NES | — | [fceux.com](http://www.fceux.com) |
+| `fceux` | NES | — | [fceux.com](https://fceux.com) |
 | `gopher64` | N64 | — | [github.com/gopher64/gopher64](https://github.com/gopher64/gopher64) |
 | `azahar` | 3DS | — | [github.com/azahar-emu/azahar](https://github.com/azahar-emu/azahar) |
-| `melonds` | DS | — | [melonds.kuribo64.net](http://melonds.kuribo64.net/) |
+| `melonds` | DS | — | [melonds.kuribo64.net](https://melonds.kuribo64.net/) |
 | `mesen` | NES / multi-system | — | [mesen.ca](https://www.mesen.ca) |
 | `mesen-s` | SNES | — | [mesen.ca](https://www.mesen.ca) |
 | `mgba` | GBA / GB / GBC | `dev` | [mgba.io](https://mgba.io/) |
@@ -68,8 +68,8 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `project64-dev` | N64 | — | [pj64-emu.com](https://www.pj64-emu.com/) |
 | `rmg` | N64 | — | [github.com/Rosalie241/RMG](https://github.com/Rosalie241/RMG) |
 | `sameboy` | GB / GBC | — | [sameboy.github.io](https://sameboy.github.io/) |
-| `snes9x` | SNES | `dev` | [snes9x.com](http://www.snes9x.com/) |
-| `visualboyadvance-m` | GB / GBC / GBA | `nightly` | [vba-m.com](https://vba-m.com) |
+| `snes9x` | SNES | `dev` | [snes9x.com](https://www.snes9x.com/) |
+| `visualboyadvance-m` | GB / GBC / GBA | `nightly` | [visualboyadvance-m.org](https://visualboyadvance-m.org) |
 
 ### PlayStation
 
@@ -132,7 +132,7 @@ scoop install mame scummvm ares
 
 Apps install to `~/scoop/apps/<app-name>/current`. Config and data persist across installs/updates and shortcuts are auto-created in the Start menu.
 
-**Custom Install Location:** There's no way to specify a custom install folder per app in Scoop, but you can create a [Junction](https://www.geeksforgeeks.org/ntfs-junction-points/) to link to a custom location. Run in Command Prompt (you may need to run as Administrator):
+**Custom Install Location:** There's no way to specify a custom install folder per app in Scoop, but you can create a [Symbolic Link](https://www.howtogeek.com/16226/complete-guide-to-symbolic-links-symlinks-on-windows-or-linux/) to link to a custom location. Run in Command Prompt as Administrator:
 
 ```cmd
 mklink /D "C:\custom\path" "%HOMEDRIVE%%HOMEPATH%\scoop\apps\<app-name>\current"
