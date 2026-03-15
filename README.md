@@ -1,6 +1,7 @@
 [![Tests](https://github.com/borger/scoop-emulators/actions/workflows/ci.yml/badge.svg)](https://github.com/borger/scoop-emulators/actions/workflows/ci.yml)
 [![Excavator](https://github.com/borger/scoop-emulators/actions/workflows/excavator.yml/badge.svg)](https://github.com/borger/scoop-emulators/actions/workflows/excavator.yml)
 [![Repo size](https://img.shields.io/github/repo-size/borger/scoop-emulators.svg)](https://github.com/borger/scoop-emulators)
+[![License](https://img.shields.io/github/license/borger/scoop-emulators.svg)](https://github.com/borger/scoop-emulators/blob/master/LICENSE)
 
 # Emulators Scoop Bucket
 
