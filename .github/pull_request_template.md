@@ -40,7 +40,7 @@ All manifests are automatically validated. These checks must pass:
   - [ ] No, but I added a `pre_install` script that enables it automatically
 - [ ] Is this a non-stable version?
   - [ ] No
-  - [ ] Yes, I added separate `bin` and `shortcut` entries (see [citra-canary](https://github.com/borger/scoop-emulators/blob/master/bucket/citra-canary.json) for an example)
+  - [ ] Yes, I added separate `bin` and `shortcut` entries (see [citra-canary](https://github.com/borger/scoop-emulators/blob/main/bucket/citra-canary.json) for an example)
 
 ## PR Process
 
