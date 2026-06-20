@@ -19,7 +19,7 @@ jobs:
     runs-on: windows-latest
     # Run on all triggers
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Log trigger reason
         shell: pwsh
@@ -37,7 +37,7 @@ jobs:
         id: download-errors
         if: github.event_name == 'workflow_run'
         continue-on-error: true
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');

@@ -58,6 +58,7 @@ The system provides two ways to create manifests:
 ### Output
 
 The script will:
+
 - Create `bucket/gopher64.json` with all configurations
 - Provide validation commands to run
 - Show the detection results (platform, version, etc.)
@@ -66,13 +67,15 @@ The script will:
 
 ### Creating a Request Issue
 
-1. Go to https://github.com/borger/scoop-emulators/issues
+1. Go to <https://github.com/borger/scoop-emulators/issues>
 2. Click "New Issue"
 3. Include the GitHub repository URL in the issue title or body:
-   ```
+
+   ```text
    Title: Add gopher64 emulator
    Body: Please add https://github.com/gopher64/gopher64
    ```
+
 4. Add the label `request-manifest` or `emulator-request`
 5. Submit the issue
 
@@ -102,7 +105,7 @@ jobs:
     if: contains(github.event.issue.labels.*.name, 'request-manifest')
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Create Manifest
         shell: pwsh
@@ -115,26 +118,31 @@ jobs:
 ## Manifest Features
 
 ### Post-Install Script
+
 - Automatically creates `portable.txt` to enable portable mode
 - Game data stored in the application directory instead of roaming profile
 
 ### Pre-Install Script
+
 - Migrates existing emulator data from:
   - `%APPDATA%\[emulator-name]`
   - `%USERPROFILE%\Documents\[emulator-name]`
 - Copies to portable_data directory for centralized storage
 
 ### Persist Configuration
+
 - `portable_data` - Emulator game data and settings
 - Auto-detected directories from runtime monitoring
 - Preserved across application updates
 
 ### Shortcuts
+
 - Creates Start Menu shortcut with platform-specific name
 - Format: `[Platform] [emu]`
 - Example: `Nintendo 64 [n64][g64]`
 
 ### Version Management
+
 - Automatic checkver configuration via GitHub API
 - Autoupdate template with `$version` and `$sha256` placeholders
 - Supports pre-release detection
@@ -170,6 +178,7 @@ After creation, validate the manifest:
 ### "No suitable Windows executable found"
 
 The script couldn't find a Windows binary. The repository might:
+
 - Not have Windows releases
 - Use different naming convention
 - Require manual build
@@ -191,6 +200,7 @@ The executable couldn't be launched during the monitoring phase.
 ### Manifest validation fails
 
 **Solution**:
+
 1. Review the manifest at `bucket/[app-name].json`
 2. Check error messages from validation scripts
 3. Use `.\bin\autofix-manifest.ps1` for automatic repairs

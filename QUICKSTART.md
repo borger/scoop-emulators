@@ -4,11 +4,11 @@
 
 ### Method 1: Create a GitHub Issue
 
-1. Go to https://github.com/borger/scoop-emulators/issues
+1. Go to <https://github.com/borger/scoop-emulators/issues>
 2. Click "New Issue"
 3. Use this format:
 
-```
+```text
 Title: Add [Emulator Name]
 
 Body:
@@ -20,6 +20,7 @@ GitHub: https://github.com/owner/repo
 5. Click "Submit new issue"
 
 **Done!** The system will automatically:
+
 - Create the manifest
 - Test it on the system
 - Update your issue with results
@@ -86,7 +87,7 @@ jobs:
     if: contains(github.event.issue.labels.*.name, 'request-manifest')
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Create Emulator Manifest
         shell: pwsh
@@ -113,6 +114,7 @@ jobs:
 **Problem:** The repository doesn't have a Windows release.
 
 **Solution:**
+
 - Check if the project supports Windows
 - Some emulators may require manual build
 - Open an issue for manual review
@@ -122,6 +124,7 @@ jobs:
 **Problem:** GitHub token is invalid or doesn't have permissions.
 
 **Solution:**
+
 ```powershell
 # When using GitHub Token, ensure it has:
 # - repo (full control of private repositories)
@@ -136,13 +139,15 @@ ${{ secrets.GITHUB_TOKEN }}
 **Problem:** Executable couldn't be executed during monitoring.
 
 **Solution:**
+
 - This is usually okay - manifest is still created
 - Monitoring shows: [WARN] Could not start executable
 - Review the manifest manually
 
-### ✅ All tests pass!
+### ✅ All tests pass
 
 **Next steps:**
+
 1. Review the created manifest file
 2. Commit with proper message
 3. Create a pull request
@@ -227,6 +232,7 @@ ${{ secrets.GITHUB_TOKEN }}
 ## Tips for Best Results
 
 ✅ **DO:**
+
 - Use official GitHub repositories
 - Let the app run fully (don't close it immediately)
 - Review the generated manifest
@@ -234,6 +240,7 @@ ${{ secrets.GITHUB_TOKEN }}
 - Test on a clean system if possible
 
 ❌ **DON'T:**
+
 - Force-close the application during monitoring
 - Skip validation tests
 - Modify generated manifest without testing
@@ -244,17 +251,20 @@ ${{ secrets.GITHUB_TOKEN }}
 ## Getting Help
 
 ### Documentation
+
 - Full guide: `MANIFEST_CREATION.md`
 - Automation summary: `AUTOMATION_SUMMARY.md`
 - This quick start: `QUICKSTART.md`
 
 ### Issues
+
 1. Open an issue on the repository
 2. Describe the problem
 3. Include the error message
 4. Attach the manifest file if created
 
 ### Manual Creation
+
 If automation fails, manifests can still be created manually by copying and modifying existing ones.
 
 ---
@@ -262,22 +272,26 @@ If automation fails, manifests can still be created manually by copying and modi
 ## Examples
 
 ### Create from URL
+
 ```powershell
 .\bin\create-emulator-manifest.ps1 -GitHubUrl "https://github.com/gopher64/gopher64"
 ```
 
 ### Create from Issue (with token)
+
 ```powershell
 $token = "ghp_xxxxxxxxxxxxxxxxxxxx"
 .\bin\create-emulator-manifest.ps1 -IssueNumber 42 -GitHubToken $token
 ```
 
 ### Skip Confirmations
+
 ```powershell
 .\bin\create-emulator-manifest.ps1 -GitHubUrl "..." -AutoApprove
 ```
 
 ### Process All Open Requests
+
 ```powershell
 .\bin\handle-issue.ps1 -GitHubToken $token
 ```
@@ -287,7 +301,8 @@ $token = "ghp_xxxxxxxxxxxxxxxxxxxx"
 ## Success Indicators
 
 ✅ All tests pass:
-```
+
+```text
 [OK] Repository: owner/repo
 [OK] Found Windows executable
 [OK] Downloaded to: ...
@@ -296,7 +311,8 @@ $token = "ghp_xxxxxxxxxxxxxxxxxxxx"
 ```
 
 ✅ Validation succeeds:
-```
+
+```text
 [OK] checkver: 1.1.10
 [OK] autoupdate: valid
 [OK] installation: success

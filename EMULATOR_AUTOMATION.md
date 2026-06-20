@@ -28,6 +28,7 @@ The system will automatically create the manifest and update your issue!
 ```
 
 That's it! The script will:
+
 - Download the latest release
 - Test the application
 - Detect the platform
@@ -36,36 +37,44 @@ That's it! The script will:
 ## Features
 
 ✅ **Automatic Platform Detection**
+
 - Recognizes 20+ emulator types
 - Generates platform-specific shortcuts
 
 ✅ **Portable Mode Support**
+
 - Creates portable.txt on install
 - Stores game data with the application
 
 ✅ **Data Migration**
+
 - Migrates from AppData/Documents
 - Centralizes data in portable_data directory
 
 ✅ **Version Management**
+
 - Automatic version checking via GitHub
 - Autoupdate with hash calculation
 
 ✅ **Runtime Monitoring**
+
 - Detects files created during execution
 - Automatically includes in persist configuration
 
 ✅ **GitHub Integration**
+
 - Process manifest requests via issues
 - Updates issues with results
 
 ## Files Included
 
 ### Scripts
+
 - **`bin/create-emulator-manifest.ps1`** - Main automation script (588 lines)
 - **`bin/handle-issue.ps1`** - Enhanced with manifest request detection
 
 ### Documentation
+
 - **`QUICKSTART.md`** - Get started in 10 minutes
 - **`MANIFEST_CREATION.md`** - Comprehensive feature guide
 - **`AUTOMATION_SUMMARY.md`** - System overview
@@ -75,16 +84,19 @@ That's it! The script will:
 ## Usage Examples
 
 ### Create from GitHub URL
+
 ```powershell
 .\bin\create-emulator-manifest.ps1 -GitHubUrl "https://github.com/gopher64/gopher64"
 ```
 
 ### Create from GitHub Issue
+
 ```powershell
 .\bin\create-emulator-manifest.ps1 -IssueNumber 42 -GitHubToken "ghp_token"
 ```
 
 ### Skip Confirmation Prompts
+
 ```powershell
 .\bin\create-emulator-manifest.ps1 -GitHubUrl "..." -AutoApprove
 ```
@@ -92,6 +104,7 @@ That's it! The script will:
 ## What Gets Created
 
 A complete manifest with:
+
 - ✅ Version information
 - ✅ Platform-specific description
 - ✅ License information
@@ -120,7 +133,7 @@ jobs:
     if: contains(github.event.issue.labels.*.name, 'request-manifest')
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Create Manifest
         shell: pwsh
@@ -134,7 +147,8 @@ jobs:
 
 The system auto-detects:
 
-**Nintendo**
+## Nintendo
+
 - N64 (gopher64, mupen64)
 - GameCube/Wii (dolphin)
 - Wii U (cemu)
@@ -144,13 +158,15 @@ The system auto-detects:
 - Game Boy (sameboy, visualboyadvance)
 - Super Nintendo (snes9x, bsnes)
 
-**Sony**
+## Sony
+
 - PlayStation 1 (duckstation, pcsx)
 - PlayStation 2 (pcsx2)
 - PlayStation 3 (rpcs3)
 - PlayStation Portable (ppsspp)
 
-**Other**
+## Other
+
 - Sega Genesis, Dreamcast (flycast, redream)
 - Microsoft Xbox, Xbox 360 (xenia)
 - Arcade (MAME)
@@ -186,24 +202,29 @@ The system auto-detects:
 ## System Benefits
 
 ✨ **Time Saving**
+
 - Manifest creation in 5-10 minutes
 - Automatic testing and validation
 
 📦 **Consistency**
+
 - All manifests follow same structure
 - Standard configurations across bucket
 
 🎮 **User-Friendly**
+
 - Portable mode by default
 - Automatic data migration
 - Clean installation experience
 
 🔄 **Maintainable**
+
 - Automatic version updates
 - Hash auto-calculation
 - GitHub-based change tracking
 
 🤝 **Community Friendly**
+
 - Users can request emulators via issues
 - No need for user technical knowledge
 - Transparent automation

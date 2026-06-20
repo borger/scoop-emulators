@@ -89,7 +89,7 @@ jobs:
     if: contains(github.event.issue.labels.*.name, 'request-manifest')
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Create Manifest
         shell: pwsh
