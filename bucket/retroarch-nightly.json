@@ -23,8 +23,8 @@
     },
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\\retroarch.cfg\")) { Move-Item \"$dir\\retroarch.default.cfg\" \"$dir\\retroarch.cfg\" }",
-        "'favorites', 'history' | ForEach-Object {",
-        "    if (!(Test-Path \"$persist_dir\\content_$_.lpl\")) { New-Item \"$dir\\content_$_.lpl\" | Out-Null }",
+        "foreach ($type in @('favorites', 'history')) {",
+        "    if (!(Test-Path \"$persist_dir\\content_$type.lpl\")) { New-Item \"$dir\\content_$type.lpl\" | Out-Null }",
         "}"
     ],
     "bin": [

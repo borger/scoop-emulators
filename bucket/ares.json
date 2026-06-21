@@ -41,8 +41,8 @@
     ],
     "uninstaller": {
         "script": [
-            "'settings.bml' | ForEach-Object {",
-            "    Copy-Item \"$dir\\$_\" \"$persist_dir\\$_.bak\" -Force",
+            "if (Test-Path \"$dir\\settings.bml\") {",
+            "    Copy-Item \"$dir\\settings.bml\" \"$persist_dir\\settings.bml.bak\" -Force",
             "}"
         ]
     },

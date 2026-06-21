@@ -39,8 +39,8 @@
     ],
     "uninstaller": {
         "script": [
-            "'2ship2harkinian.json' | ForEach-Object {",
-            "   Copy-Item -Force \"$dir\\$_\" \"$persist_dir\\$_.bak\"",
+            "if (Test-Path \"$dir\\2ship2harkinian.json\") {",
+            "    Copy-Item -Force \"$dir\\2ship2harkinian.json\" \"$persist_dir\\2ship2harkinian.json.bak\"",
             "}"
         ]
     },
