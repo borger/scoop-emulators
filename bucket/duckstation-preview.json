@@ -1,5 +1,5 @@
 {
-    "version": "20260620-gf7ce14e",
+    "version": "20260621-g64f0689",
     "description": "Sony PlayStation 1 emulator",
     "homepage": "https://github.com/stenzek/duckstation/",
     "license": {
@@ -22,10 +22,8 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip",
-            "hash": "82350b8554ad849cc40232fa46b1d9da22aeea2c24d0567d712231b54cc90754",
-            "post_install": [
-                "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null"
-            ],
+            "hash": "f23e0ed10e85ccebdcbcaf96619b6fbe13c0187033ab5ce11872f4d1d1d535ce",
+            "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
             "bin": [
                 [
                     "duckstation-qt-x64-ReleaseLTCG.exe",
@@ -35,10 +33,8 @@
         },
         "arm64": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-arm64-release.zip",
-            "hash": "446b1d4c2aa6103ea577a73e11648e544e40e448bf9ab6abeacf7c7bb5027718",
-            "post_install": [
-                "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null"
-            ],
+            "hash": "b4aba4da9a234c48fadda8453c1561a45ab33402b6fb6b05b1426ad1383a0c07",
+            "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
             "bin": [
                 [
                     "duckstation-qt-ARM64-ReleaseLTCG.exe",
