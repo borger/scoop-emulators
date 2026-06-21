@@ -31,6 +31,7 @@ foreach ($m in $manifests) {
     $results += [PSCustomObject]@{ manifest = $m.Name; app = $app; path = $mf; status = $status; exitcode = $exit; snippet = $snippet }
 }
 $reportPath = Join-Path (Get-Location) 'autofix-report.json'
-$results | ConvertTo-Json -Depth 6 | Out-File -FilePath $reportPath -Encoding utf8
+$jsonString = ($results | ConvertTo-Json -Depth 6) + "`r`n"
+[System.IO.File]::WriteAllText($reportPath, $jsonString)
 Write-Host "REPORT_SAVED: $reportPath"
 Write-Host "Done."

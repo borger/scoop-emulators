@@ -29,13 +29,11 @@ Validation results for each manifest hash.
 https://github.com/borger/scoop-emulators
 #>
 
-if (!$env:SCOOP_HOME) {
-    try {
-        $env:SCOOP_HOME = Convert-Path (scoop prefix scoop)
-    } catch {
-        $env:SCOOP_HOME = "$env:USERPROFILE\scoop\apps\scoop\current"
-    }
-}
-$checkhashes = "$env:SCOOP_HOME/bin/checkhashes.ps1"
+$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/lib-releasehelpers.ps1"
+
+$scoopHome = Get-ScoopHome
+$checkhashes = "$scoopHome/bin/checkhashes.ps1"
 $dir = "$PSScriptRoot/../bucket" # checks the parent dir
 & $checkhashes -Dir $dir @Args
+

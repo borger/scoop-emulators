@@ -64,5 +64,6 @@ Get-ChildItem -Path $bucket -Filter '*.json' | Sort-Object Name | ForEach-Object
     }
 }
 
-$results | ConvertTo-Json -Depth 10 | Set-Content -Path $outFile -Encoding UTF8
+$jsonString = ($results | ConvertTo-Json -Depth 10) + "`r`n"
+[System.IO.File]::WriteAllText($outFile, $jsonString)
 Write-Host "Report written to $outFile"

@@ -48,9 +48,7 @@
         "   }",
         "}"
     ],
-    "post_install": [
-        "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null"
-    ],
+    "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
     "shortcuts": [
         [
             "duckstation-qt-x64-ReleaseLTCG.exe",

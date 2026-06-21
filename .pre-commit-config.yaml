@@ -7,3 +7,13 @@ repos:
 
       - id: mixed-line-ending
         args: [--fix=crlf]
+
+  - repo: local
+    hooks:
+      - id: formatjson
+        name: Format JSON manifests
+        entry: pwsh -ExecutionPolicy Bypass -File bin/formatjson.ps1
+        language: system
+        files: ^bucket/.*\.json$
+        pass_filenames: false
+

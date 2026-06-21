@@ -100,3 +100,13 @@ function ConvertTo-FileHash {
     $hash = Get-FileHash -Path $FilePath -Algorithm SHA256
     return $hash.Hash.ToLower()
 }
+
+function Get-ScoopHome {
+    if ($env:SCOOP_HOME) { return $env:SCOOP_HOME }
+    try {
+        $path = Convert-Path (scoop prefix scoop)
+        if ($path) { return $path }
+    } catch {}
+    return "$env:USERPROFILE\scoop\apps\scoop\current"
+}
+

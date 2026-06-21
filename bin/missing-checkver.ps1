@@ -25,7 +25,11 @@ List of manifest names that are missing checkver configuration.
 https://github.com/borger/scoop-emulators
 #>
 
-if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
-$missing_checkver = "$env:SCOOP_HOME/bin/missing-checkver.ps1"
+$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/lib-releasehelpers.ps1"
+
+$scoopHome = Get-ScoopHome
+$missing_checkver = "$scoopHome/bin/missing-checkver.ps1"
 $dir = "$PSScriptRoot/../bucket" # checks the parent dir
 & $missing_checkver -Dir $dir @Args
+

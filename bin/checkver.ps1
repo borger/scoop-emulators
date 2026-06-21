@@ -33,8 +33,11 @@ param(
     [string]$Dir = $null
 )
 
-if (!$env:SCOOP_HOME) { $env:SCOOP_HOME = Convert-Path (scoop prefix scoop) }
-$checkverScript = "$env:SCOOP_HOME/bin/checkver.ps1"
+$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/lib-releasehelpers.ps1"
+
+$scoopHome = Get-ScoopHome
+$checkverScript = "$scoopHome/bin/checkver.ps1"
 $bucketDir = if ($Dir) { $Dir } else { "$PSScriptRoot/../bucket" }
 
 # Capture output from Scoop's checkver which uses Write-Host
