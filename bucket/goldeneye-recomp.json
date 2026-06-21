@@ -15,8 +15,11 @@
     "shortcuts": [
         [
             "GoldenEye.exe",
-            "GoldenEye Recomp"
+            "GoldenEye 64 [n64][ge64]"
         ]
+    ],
+    "persist": [
+        "assets"
     ],
     "checkver": {
         "github": "https://github.com/SunJaycy/GoldenEye-Recomp",

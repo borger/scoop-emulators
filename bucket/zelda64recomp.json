@@ -14,11 +14,10 @@
         }
     },
     "post_install": "Set-Content -Value $null -Path \"$dir\\portable.txt\"",
-    "bin": "Zelda64Recompiled.exe",
     "shortcuts": [
         [
             "Zelda64Recompiled.exe",
-            "Zelda 64 Recompiled[win][oot][mm]"
+            "The Legend of Zelda 64 [oot][mm]"
         ]
     ],
     "checkver": "github",
