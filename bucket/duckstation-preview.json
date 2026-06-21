@@ -13,10 +13,10 @@
     "suggest": {
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
-        "shortcuts": [
+    "shortcuts": [
         [
             "duckstation-qt-x64-ReleaseLTCG.exe",
-            "Sony PlayStation [ps1][duckstation] (dev)"
+            "Sony PlayStation [ps1][duckstation] (preview)"
         ]
     ],
     "architecture": {
