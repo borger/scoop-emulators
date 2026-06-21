@@ -45,9 +45,13 @@
         ]
     },
     "checkver": {
-        "github": "https://github.com/HarbourMasters/2ship2harkinian/",
-        "regex": "(?<majorName>(\\w+))\\s(?<minorName>(\\w+))\\s(?<version>([\\d\\.]+))",
-        "replace": "${version}"
+        "url": "https://api.github.com/repos/HarbourMasters/2ship2harkinian/releases/latest",
+        "script": [
+            "$release = Invoke-RestMethod $url",
+            "$parts = $release.name -split '\\s+'",
+            "return \"$($release.tag_name) $($parts[0]) $($parts[1])\""
+        ],
+        "regex": "(?<version>[\\d.]+) (?<majorName>\\w+) (?<minorName>\\w+)"
     },
     "autoupdate": {
         "architecture": {

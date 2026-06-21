@@ -285,6 +285,10 @@ The handle-issue script can automatically find and process all open request issu
    - Always run validation tests before committing
    - Fixes issues early in the process
 
+5. **Handling Non-Standard Release Formats**
+   - If release tags contain custom prefixes (e.g. `Goldeneye1.2.4` for version `1.2.4`), prefer defining the `autoupdate` URL using `$version` directly (e.g., `Goldeneye$version`) rather than relying on `$matchTag`. Some local validation tools (like `check-manifest-install.ps1`) only perform simple substitutions on `$version` when testing URLs, and `$matchTag` will trigger 404 validation errors.
+   - For ports/recompilation builds, archive folder structures and executable names often change across versions. Always verify the directory tree of the downloaded release assets to specify the correct `extract_dir` and `bin` entry.
+
 ## Contributing
 
 When submitting manifests created with this tool:

@@ -1,0 +1,763 @@
+﻿[
+    {
+        "manifest":  "2ship2harkinian.json",
+        "app":  "2ship2harkinian",
+        "token":  "24",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "2ship2harkinian:",
+                        "24",
+                        "(scoop version is 4.0.2)",
+                        "autoupdate available"
+                    ]
+    },
+    {
+        "manifest":  "ares.json",
+        "app":  "ares",
+        "token":  "148",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "ares:",
+                        "148"
+                    ]
+    },
+    {
+        "manifest":  "azahar.json",
+        "app":  "azahar",
+        "token":  "2125.1.2",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "azahar:",
+                        "2125.1.2"
+                    ]
+    },
+    {
+        "manifest":  "banjo-recompiled.json",
+        "app":  "banjo-recompiled",
+        "token":  "1.0.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "banjo-recompiled:",
+                        "1.0.1"
+                    ]
+    },
+    {
+        "manifest":  "bsnes.json",
+        "app":  "bsnes",
+        "token":  "115",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "bsnes:",
+                        "115"
+                    ]
+    },
+    {
+        "manifest":  "bsnes-hd-beta.json",
+        "app":  "bsnes-hd-beta",
+        "token":  "10.6",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "bsnes-hd-beta:",
+                        "10.6"
+                    ]
+    },
+    {
+        "manifest":  "bsnes-mt.json",
+        "app":  "bsnes-mt",
+        "token":  "1.3.4",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "bsnes-mt:",
+                        "1.3.4"
+                    ]
+    },
+    {
+        "manifest":  "bsnes-nightly.json",
+        "app":  "bsnes-nightly",
+        "token":  "2026-05-23",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "bsnes-nightly:",
+                        "2026-05-23"
+                    ]
+    },
+    {
+        "manifest":  "cemu.json",
+        "app":  "cemu",
+        "token":  "2.6",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "cemu:",
+                        "2.6"
+                    ]
+    },
+    {
+        "manifest":  "cemu-dev.json",
+        "app":  "cemu-dev",
+        "token":  "2.6",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "cemu-dev:",
+                        "2.6"
+                    ]
+    },
+    {
+        "manifest":  "cxbx-reloaded.json",
+        "app":  "cxbx-reloaded",
+        "token":  "20260419185636-585c49a",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "cxbx-reloaded:",
+                        "20260419185636-585c49a"
+                    ]
+    },
+    {
+        "manifest":  "dolphin.json",
+        "app":  "dolphin",
+        "token":  null,
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "dolphin:",
+                        "The remote server returned an error: (403) Forbidden.",
+                        "URL https://dolphin-emu.org/download/ is not valid"
+                    ]
+    },
+    {
+        "manifest":  "dolphin-dev.json",
+        "app":  "dolphin-dev",
+        "token":  null,
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "dolphin-dev:",
+                        "The remote server returned an error: (403) Forbidden.",
+                        "URL https://dolphin-emu.org/download/ is not valid"
+                    ]
+    },
+    {
+        "manifest":  "duckstation.json",
+        "app":  "duckstation",
+        "token":  "20260614-g7d19968",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "duckstation:",
+                        "20260614-g7d19968"
+                    ]
+    },
+    {
+        "manifest":  "duckstation-preview.json",
+        "app":  "duckstation-preview",
+        "token":  "20260620-gf7ce14e",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "duckstation-preview:",
+                        "20260620-gf7ce14e"
+                    ]
+    },
+    {
+        "manifest":  "eden.json",
+        "app":  "eden",
+        "token":  "0.2.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "eden:",
+                        "0.2.1"
+                    ]
+    },
+    {
+        "manifest":  "eden-nightly.json",
+        "app":  "eden-nightly",
+        "token":  "1781982768.7b97ec4594",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "eden-nightly:",
+                        "1781982768.7b97ec4594"
+                    ]
+    },
+    {
+        "manifest":  "fceux.json",
+        "app":  "fceux",
+        "token":  "2.6.6",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "fceux:",
+                        "2.6.6"
+                    ]
+    },
+    {
+        "manifest":  "flycast.json",
+        "app":  "flycast",
+        "token":  "2.6",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "flycast:",
+                        "2.6"
+                    ]
+    },
+    {
+        "manifest":  "goldeneye-recomp.json",
+        "app":  "goldeneye-recomp",
+        "token":  "1.2.4",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "goldeneye-recomp:",
+                        "1.2.4"
+                    ]
+    },
+    {
+        "manifest":  "gopher64.json",
+        "app":  "gopher64",
+        "token":  "1.1.28",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "gopher64:",
+                        "1.1.28"
+                    ]
+    },
+    {
+        "manifest":  "mame.json",
+        "app":  "mame",
+        "token":  "0.288",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mame:",
+                        "0.288"
+                    ]
+    },
+    {
+        "manifest":  "mednafen.json",
+        "app":  "mednafen",
+        "token":  "1.32.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mednafen:",
+                        "1.32.1"
+                    ]
+    },
+    {
+        "manifest":  "mednafen-dev.json",
+        "app":  "mednafen-dev",
+        "token":  "1.32.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mednafen-dev:",
+                        "1.32.1"
+                    ]
+    },
+    {
+        "manifest":  "mednaffe.json",
+        "app":  "mednaffe",
+        "token":  "0.9.3",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mednaffe:",
+                        "0.9.3"
+                    ]
+    },
+    {
+        "manifest":  "melonds.json",
+        "app":  "melonds",
+        "token":  "1.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "melonds:",
+                        "1.1"
+                    ]
+    },
+    {
+        "manifest":  "mesen.json",
+        "app":  "mesen",
+        "token":  "2.2.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mesen:",
+                        "2.2.1"
+                    ]
+    },
+    {
+        "manifest":  "mesen-s.json",
+        "app":  "mesen-s",
+        "token":  "0.4.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mesen-s:",
+                        "0.4.0"
+                    ]
+    },
+    {
+        "manifest":  "mgba.json",
+        "app":  "mgba",
+        "token":  "0.10.5",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mgba:",
+                        "0.10.5"
+                    ]
+    },
+    {
+        "manifest":  "mgba-dev.json",
+        "app":  "mgba-dev",
+        "token":  "9076-20260617",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mgba-dev:",
+                        "9076-20260617"
+                    ]
+    },
+    {
+        "manifest":  "mupen64plus.json",
+        "app":  "mupen64plus",
+        "token":  "2.6.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "mupen64plus:",
+                        "2.6.0"
+                    ]
+    },
+    {
+        "manifest":  "pcsx2.json",
+        "app":  "pcsx2",
+        "token":  "2.6.3",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "pcsx2:",
+                        "2.6.3"
+                    ]
+    },
+    {
+        "manifest":  "pcsx2-dev.json",
+        "app":  "pcsx2-dev",
+        "token":  "2.7.423",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "pcsx2-dev:",
+                        "2.7.423"
+                    ]
+    },
+    {
+        "manifest":  "ppsspp.json",
+        "app":  "ppsspp",
+        "token":  "2",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "ppsspp:",
+                        "2",
+                        "(scoop version is 1.20.4)",
+                        "autoupdate available"
+                    ]
+    },
+    {
+        "manifest":  "ppsspp-dev.json",
+        "app":  "ppsspp-dev",
+        "token":  "1.20.4",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "ppsspp-dev:",
+                        "1.20.4-424-g676724ee5e"
+                    ]
+    },
+    {
+        "manifest":  "project64-dev.json",
+        "app":  "project64-dev",
+        "token":  "4.0.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "project64-dev:",
+                        "4.0.0-6721-955e68c"
+                    ]
+    },
+    {
+        "manifest":  "ps3-system-software.json",
+        "app":  "ps3-system-software",
+        "token":  "4.93",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "ps3-system-software:",
+                        "4.93"
+                    ]
+    },
+    {
+        "manifest":  "redream.json",
+        "app":  "redream",
+        "token":  "1.5.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "redream:",
+                        "1.5.0"
+                    ]
+    },
+    {
+        "manifest":  "redream-dev.json",
+        "app":  "redream-dev",
+        "token":  "1.5.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "redream-dev:",
+                        "1.5.0-1133-g03c2ae9"
+                    ]
+    },
+    {
+        "manifest":  "retroarch.json",
+        "app":  "retroarch",
+        "token":  "1.22.2",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "retroarch:",
+                        "1.22.2"
+                    ]
+    },
+    {
+        "manifest":  "retroarch-nightly.json",
+        "app":  "retroarch-nightly",
+        "token":  null,
+        "valid":  false,
+        "hasAppLine":  false,
+        "appLineTail":  null,
+        "snippet":  {
+
+                    }
+    },
+    {
+        "manifest":  "rmg.json",
+        "app":  "rmg",
+        "token":  "0.9.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "rmg:",
+                        "0.9.0"
+                    ]
+    },
+    {
+        "manifest":  "rpcs3.json",
+        "app":  "rpcs3",
+        "token":  "0.0.41",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "rpcs3:",
+                        "0.0.41-19499"
+                    ]
+    },
+    {
+        "manifest":  "sameboy.json",
+        "app":  "sameboy",
+        "token":  "1.0.3",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "sameboy:",
+                        "1.0.3"
+                    ]
+    },
+    {
+        "manifest":  "scummvm.json",
+        "app":  "scummvm",
+        "token":  "2026.3.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "scummvm:",
+                        "2026.3.0"
+                    ]
+    },
+    {
+        "manifest":  "scummvm-nightly.json",
+        "app":  "scummvm-nightly",
+        "token":  null,
+        "valid":  false,
+        "hasAppLine":  false,
+        "appLineTail":  null,
+        "snippet":  {
+
+                    }
+    },
+    {
+        "manifest":  "shadps4.json",
+        "app":  "shadps4",
+        "token":  "224",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "shadps4:",
+                        "224"
+                    ]
+    },
+    {
+        "manifest":  "shadps4-dev.json",
+        "app":  "shadps4-dev",
+        "token":  "20260620060657-cead95c",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "shadps4-dev:",
+                        "20260620060657-cead95c",
+                        "(scoop version is 20260620130657-cead95c)",
+                        "autoupdate available"
+                    ]
+    },
+    {
+        "manifest":  "shipwright.json",
+        "app":  "shipwright",
+        "token":  "9.2.3",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "shipwright:",
+                        "9.2.3"
+                    ]
+    },
+    {
+        "manifest":  "sm64coopdx.json",
+        "app":  "sm64coopdx",
+        "token":  "1.5.1",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "sm64coopdx:",
+                        "1.5.1"
+                    ]
+    },
+    {
+        "manifest":  "snes9x.json",
+        "app":  "snes9x",
+        "token":  "1.63",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "snes9x:",
+                        "1.63"
+                    ]
+    },
+    {
+        "manifest":  "snes9x-dev.json",
+        "app":  "snes9x-dev",
+        "token":  "1.63",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "snes9x-dev:",
+                        "1.63-1587"
+                    ]
+    },
+    {
+        "manifest":  "spaghettikart.json",
+        "app":  "spaghettikart",
+        "token":  "1.0.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "spaghettikart:",
+                        "1.0.0"
+                    ]
+    },
+    {
+        "manifest":  "starship.json",
+        "app":  "starship",
+        "token":  "2.0.0",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "starship:",
+                        "2.0.0"
+                    ]
+    },
+    {
+        "manifest":  "steam-rom-manager.json",
+        "app":  "steam-rom-manager",
+        "token":  "2.5.34",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "steam-rom-manager:",
+                        "2.5.34"
+                    ]
+    },
+    {
+        "manifest":  "visualboyadvance-m.json",
+        "app":  "visualboyadvance-m",
+        "token":  "2.2.3",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "visualboyadvance-m:",
+                        "2.2.3"
+                    ]
+    },
+    {
+        "manifest":  "visualboyadvance-m-nightly.json",
+        "app":  "visualboyadvance-m-nightly",
+        "token":  null,
+        "valid":  false,
+        "hasAppLine":  false,
+        "appLineTail":  null,
+        "snippet":  {
+
+                    }
+    },
+    {
+        "manifest":  "vita3k.json",
+        "app":  "vita3k",
+        "token":  "4056-5b040dc",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "vita3k:",
+                        "4056-5b040dc"
+                    ]
+    },
+    {
+        "manifest":  "xemu.json",
+        "app":  "xemu",
+        "token":  "0.8.136",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "xemu:",
+                        "0.8.136"
+                    ]
+    },
+    {
+        "manifest":  "xemu-dev.json",
+        "app":  "xemu-dev",
+        "token":  "0.8.136",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "xemu-dev:",
+                        "0.8.136-5-g67cc79e663"
+                    ]
+    },
+    {
+        "manifest":  "xenia.json",
+        "app":  "xenia",
+        "token":  "1.0.2844",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "xenia:",
+                        "1.0.2844"
+                    ]
+    },
+    {
+        "manifest":  "xenia-canary.json",
+        "app":  "xenia-canary",
+        "token":  "20260619182635-e7d0e45",
+        "valid":  false,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "xenia-canary:",
+                        "20260619182635-e7d0e45"
+                    ]
+    },
+    {
+        "manifest":  "zelda64recomp.json",
+        "app":  "zelda64recomp",
+        "token":  "1.2.2",
+        "valid":  true,
+        "hasAppLine":  true,
+        "appLineTail":  null,
+        "snippet":  [
+                        "zelda64recomp:",
+                        "1.2.2"
+                    ]
+    }
+]
