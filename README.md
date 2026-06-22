@@ -54,10 +54,10 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 |-----|---------|----------|----------|
 | `bsnes` | SNES | `nightly` | [github.com/bsnes-emu/bsnes](https://github.com/bsnes-emu/bsnes) |
 | `bsnes-hd-beta` | SNES (HD mode7 fork) | — | [github.com/DerKoun/bsnes-hd](https://github.com/DerKoun/bsnes-hd) |
+| `bsnes-mt` | SNES (pixel-perfect fork) | — | [tanalin.com/en/projects/bsnes-mt](https://tanalin.com/en/projects/bsnes-mt/) |
 | `cemu` | Wii U | `dev` | [cemu.info](https://cemu.info) |
-| `desmume` | DS | — | [desmume.org](https://desmume.org) |
 | `dolphin` | GameCube / Wii | `dev` | [dolphin-emu.org](https://dolphin-emu.org/) |
-| `eden` | Switch | — | [eden-emu.dev](https://eden-emu.dev/) |
+| `eden` | Switch | `nightly` | [eden-emu.dev](https://eden-emu.dev/) |
 | `fceux` | NES | — | [fceux.com](https://fceux.com) |
 | `gopher64` | N64 | — | [github.com/gopher64/gopher64](https://github.com/gopher64/gopher64) |
 | `azahar` | 3DS | — | [github.com/azahar-emu/azahar](https://github.com/azahar-emu/azahar) |
@@ -81,7 +81,7 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `ppsspp` | PSP | `dev` | [ppsspp.org](https://www.ppsspp.org) |
 | `rpcs3` | PS3 | — | [rpcs3.net](https://rpcs3.net/) |
 | `ps3-system-software` | PS3 firmware | — | [playstation.com](https://www.playstation.com/en-us/support/hardware/ps3/system-software/) |
-| `shadps4` | PS4 | — | [shadps4.net](https://shadps4.net/) |
+| `shadps4` | PS4 | `dev` | [shadps4.net](https://shadps4.net/) |
 | `vita3k` | PS Vita | — | [vita3k.org](https://vita3k.org) |
 
 ### Sega
@@ -95,7 +95,8 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 
 | App | Systems | Variants | Homepage |
 |-----|---------|----------|----------|
-| `xemu` | Xbox | — | [xemu.app](https://xemu.app) |
+| `cxbx-reloaded` | Xbox | — | [cxbx-reloaded.co.uk](https://cxbx-reloaded.co.uk/) |
+| `xemu` | Xbox | `dev` | [xemu.app](https://xemu.app) |
 | `xenia` | Xbox 360 | `canary` | [xenia.jp](https://xenia.jp) |
 
 ### PC / Engine ports
@@ -109,6 +110,8 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | App | Description | Homepage |
 |-----|-------------|----------|
 | `2ship2harkinian` | Majora's Mask PC port | [github.com/HarbourMasters/2ship2harkinian](https://github.com/HarbourMasters/2ship2harkinian) |
+| `banjo-recompiled` | Banjo-Kazooie PC port | [github.com/BanjoRecomp/BanjoRecomp](https://github.com/BanjoRecomp/BanjoRecomp) |
+| `goldeneye-recomp` | GoldenEye 007 PC port | [github.com/SunJaycy/GoldenEye-Recomp](https://github.com/SunJaycy/GoldenEye-Recomp) |
 | `shipwright` | Ocarina of Time PC port | [shipofharkinian.com](https://www.shipofharkinian.com) |
 | `spaghettikart` | Mario Kart 64 PC port | [github.com/HarbourMasters/SpaghettiKart](https://github.com/HarbourMasters/SpaghettiKart) |
 | `starship` | Star Fox 64 PC port | [github.com/HarbourMasters/Starship](https://github.com/HarbourMasters/Starship) |
