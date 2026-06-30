@@ -240,8 +240,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit skipped (dry run)
-        if: false
-        shell: pwsh
-        run: |
-          Write-Host "Dry run: changes were not committed or pushed" -ForegroundColor Yellow
+
