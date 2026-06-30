@@ -9,35 +9,16 @@ on:
 name: Review and Verify
 
 jobs:
-  handle_pr:
-    name: Handle Pull Request
+  scoop_handler:
+    name: Scoop Action Handler
     runs-on: windows-latest
-    if: github.event_name == 'pull_request_target'
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issues' && (github.event.action == 'opened' || (github.event.action == 'labeled' && contains(github.event.issue.labels.*.name, 'verify')))) ||
+      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/verify'))
     steps:
       - uses: actions/checkout@v7
-      - name: PR Handler
-        uses: ScoopInstaller/GithubActions@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  handle_issue:
-    name: Handle Issue
-    runs-on: windows-latest
-    if: github.event_name == 'issues' && (github.event.action == 'opened' || (github.event.action == 'labeled' && contains(github.event.issue.labels.*.name, 'verify')))
-    steps:
-      - uses: actions/checkout@v7
-      - name: Issue Handler
-        uses: ScoopInstaller/GithubActions@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  handle_comment:
-    name: Handle Issue Comment
-    runs-on: windows-latest
-    if: github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/verify')
-    steps:
-      - uses: actions/checkout@v7
-      - name: Comment Handler
+      - name: Handler
         uses: ScoopInstaller/GithubActions@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

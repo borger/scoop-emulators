@@ -15,6 +15,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache Scoop
+        uses: actions/cache@v6
+        id: scoop-cache
+        with:
+          path: ~\scoop
+          key: ${{ runner.os }}-scoop-${{ hashFiles('.github/workflows/excavator.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-scoop-
+
+      - name: Setup Scoop Environment
+        if: steps.scoop-cache.outputs.cache-hit == 'true'
+        shell: pwsh
+        run: |
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          $env:SCOOP_HOME = "$env:SCOOP\apps\scoop\current"
+          "SCOOP=$env:SCOOP" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:PATH = "$env:SCOOP\shims;$env:PATH"
+          "PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Check for new versions
         id: excavator
         uses: ScoopInstaller/GithubActions@main

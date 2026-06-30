@@ -114,7 +114,17 @@ jobs:
             "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           }
 
+      - name: Cache Scoop
+        uses: actions/cache@v6
+        id: scoop-cache
+        with:
+          path: ~\scoop
+          key: ${{ runner.os }}-scoop-${{ hashFiles('.github/workflows/auto-fix.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-scoop-
+
       - name: Install Scoop
+        if: steps.scoop-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           # Install Scoop package manager
