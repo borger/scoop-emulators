@@ -1,5 +1,5 @@
 {
-    "version": "20260629211343-9588ce2",
+    "version": "9588ce2",
     "description": "Microsoft Xbox 360 emulator",
     "homepage": "https://github.com/xenia-canary/xenia-canary",
     "license": {
@@ -50,20 +50,13 @@
         "xenia-canary.config.toml"
     ],
     "checkver": {
-        "url": "https://github.com/xenia-canary/xenia-canary/releases.atom",
-        "script": [
-            "$xml = [xml]$page",
-            "$updated = ($xml.feed.entry | Where-Object {$_.title -ne 'canary_experimental'} | Sort-Object -Descending { $_.updated })[0].updated",
-            "$title = ($xml.feed.entry | Where-Object {$_.title -ne 'canary_experimental'} | Sort-Object -Descending { $_.updated })[0].title",
-            "Write-Output \"$updated $title\""
-        ],
-        "regex": "(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})T(?<hour>\\d{2}):(?<minute>\\d{2}):(?<second>\\d{2})Z (?<commit>[a-f0-9]+)_canary_experimental",
-        "replace": "${year}${month}${day}${hour}${minute}${second}-${commit}"
+        "github": "https://github.com/xenia-canary/xenia-canary",
+        "regex": "releases/tag/([a-f0-9]+)"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/xenia-canary/xenia-canary/releases/download/$matchCommit/xenia_canary_windows.7z"
+                "url": "https://github.com/xenia-canary/xenia-canary/releases/download/$version/xenia_canary_windows.7z"
             }
         }
     }
