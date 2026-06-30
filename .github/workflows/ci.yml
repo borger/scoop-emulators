@@ -30,8 +30,16 @@ jobs:
         with:
           repository: ScoopInstaller/Scoop
           path: 'scoop_core'
-      - name: Init and Test
-        shell: ${{ matrix.shell }}
+      - name: Init and Test (PowerShell)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
+          .\scoop_core\test\bin\init.ps1
+          .\my_bucket\bin\test.ps1
+      - name: Init and Test (pwsh)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\scoop_core\test\bin\init.ps1
