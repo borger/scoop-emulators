@@ -74,7 +74,14 @@ try {
             if ($manifest.autoupdate -and $manifest.autoupdate.architecture) {
                 foreach ($arch in $manifest.autoupdate.architecture.PSObject.Properties.Name) {
                     $u = $manifest.autoupdate.architecture.$arch.url
-                    if ($u) { $urls += ($u -replace '\$version', [string]$manifest.version) }
+                    if ($u) {
+                        if ($u -match '\$match') {
+                            $resolvedUrl = $manifest.architecture.$arch.url
+                            if ($resolvedUrl) { $urls += $resolvedUrl }
+                        } else {
+                            $urls += ($u -replace '\$version', [string]$manifest.version)
+                        }
+                    }
                 }
             }
 
@@ -113,7 +120,14 @@ try {
                 if ($manifest.autoupdate -and $manifest.autoupdate.architecture) {
                     foreach ($arch in $manifest.autoupdate.architecture.PSObject.Properties.Name) {
                         $u = $manifest.autoupdate.architecture.$arch.url
-                        if ($u) { $urls += ($u -replace '\$version', [string]$manifest.version) }
+                        if ($u) {
+                            if ($u -match '\$match') {
+                                $resolvedUrl = $manifest.architecture.$arch.url
+                                if ($resolvedUrl) { $urls += $resolvedUrl }
+                            } else {
+                                $urls += ($u -replace '\$version', [string]$manifest.version)
+                            }
+                        }
                     }
                 }
                 if ($urls.Count -eq 0 -and $manifest.architecture) {
