@@ -17,7 +17,7 @@
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-a71d3b8cab094a3093fd06567074d31f1f387b10/rpcs3-v0.0.41-19562-a71d3b8c_win64_msvc.7z",
+            "url": "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/$matchBuild/rpcs3-v0.0.41-19562-$matchCommit_win64_msvc.7z",
             "hash": "c6ea195ea49ecb0253c5cef28150a6a245d44762b44bfd40aab645f2a02118f7"
         },
         "arm64": {
