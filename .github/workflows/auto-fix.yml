@@ -105,16 +105,24 @@ jobs:
             }
           }
 
+          $brokenManifests = @($brokenManifests | Where-Object { $_ -and $_.Trim() -ne '' })
+
           if ($brokenManifests.Count -gt 0) {
             Write-Host "Found $($brokenManifests.Count) broken manifest(s) to fix:" -ForegroundColor Yellow
             $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
             "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+            "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           } else {
-            Write-Host "No specific manifests identified, will process all" -ForegroundColor Gray
+            # No artifact (or an empty one) means excavator reported no broken
+            # manifests. Skip the run entirely rather than sweeping every manifest -
+            # a full sweep here is expensive and was never the intent.
+            Write-Host "No broken manifests reported by excavator - nothing to do" -ForegroundColor Green
             "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+            "should-run=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           }
 
       - name: Cache Scoop
+        if: steps.parse-errors.outputs.should-run == 'true'
         uses: actions/cache@v6
         id: scoop-cache
         with:
@@ -124,7 +132,7 @@ jobs:
             ${{ runner.os }}-scoop-
 
       - name: Install Scoop
-        if: steps.scoop-cache.outputs.cache-hit != 'true'
+        if: steps.parse-errors.outputs.should-run == 'true' && steps.scoop-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           # Install Scoop package manager
@@ -144,6 +152,7 @@ jobs:
           Write-Host "Scoop installed successfully" -ForegroundColor Green
 
       - name: Setup Scoop environment
+        if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
         run: |
           # Ensure Scoop environment is set up
@@ -164,11 +173,13 @@ jobs:
           "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Dependencies
+        if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
         run: |
           if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) { scoop install 7zip }
 
       - name: Auto-fix broken manifests
+        if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
         run: |
           $bucketPath = "${{ github.workspace }}/bucket"
@@ -204,8 +215,12 @@ jobs:
           Write-Host "Found $($manifests.Count) manifests to check"
 
           $fixedCount = 0
+          $skipped = @()
           foreach ($manifest in $manifests) {
             Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Processing $($manifest.BaseName)..."
+
+            # Reset before each call so a previous non-zero code can't leak forward
+            $global:LASTEXITCODE = 0
 
             # Run auto-fix script
             $result = & "$scriptsPath\autofix-manifest.ps1" -ManifestPath $manifest.FullName -BucketPath $bucketPath
@@ -214,13 +229,39 @@ jobs:
             if ($exitCode -eq 0) {
               Write-Host "[OK] Fixed: $($manifest.BaseName)" -ForegroundColor Green
               $fixedCount++
+            } else {
+              # autofix-manifest.ps1 exits non-zero when it cannot determine a safe
+              # fix (e.g. unparseable checkver, or a version that looks wrong and
+              # would corrupt the manifest). That is the script declining to act -
+              # not a CI failure. Record it and keep going.
+              Write-Host "[SKIP] $($manifest.BaseName) - no safe fix determined (exit $exitCode)" -ForegroundColor Yellow
+              $skipped += $manifest.BaseName
             }
           }
 
           Write-Host "`n=== Auto-fix process complete ===" -ForegroundColor Cyan
           Write-Host "Fixed: $fixedCount manifest(s)" -ForegroundColor Cyan
+          Write-Host "Skipped: $($skipped.Count) manifest(s)" -ForegroundColor Cyan
+
+          # Surface the outcome in the run summary instead of via a red X
+          $summary = @()
+          $summary += "### Auto-fix results"
+          $summary += ""
+          $summary += "- Fixed: **$fixedCount**"
+          $summary += "- Skipped (no safe fix): **$($skipped.Count)**"
+          if ($skipped.Count -gt 0) {
+            $summary += ""
+            $summary += "Manifests needing manual attention:"
+            $skipped | ForEach-Object { $summary += "- ``$_``" }
+          }
+          $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8 -Append
+
+          # Unfixable manifests are reported above, not treated as a build failure.
+          $global:LASTEXITCODE = 0
+          exit 0
 
       - name: Commit and push changes
+        if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
         run: |
           git config user.name "Scoop Auto-Updater"
