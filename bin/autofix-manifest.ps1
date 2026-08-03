@@ -134,6 +134,27 @@ function Get-IssueMarker {
 # Fetch open auto-fix issues. Uses the issues list endpoint rather than
 # /search/issues: search is eventually consistent and rate limited, so an hourly
 # job can file duplicates before the search index catches up.
+function Get-GitHubApiHeaders {
+    param([string]$Token)
+    return @{
+        Authorization          = "Bearer $Token"
+        Accept                 = 'application/vnd.github+json'
+        'User-Agent'           = 'scoop-emulators-autofix'
+        'X-GitHub-Api-Version' = '2022-11-28'
+    }
+}
+
+# Render an API failure with enough context to diagnose it straight from the CI
+# log - status code and URL, not just "Not Found".
+function Get-ApiErrorDetail {
+    param($ErrorRecord, [string]$Url)
+    $status = ''
+    if ($ErrorRecord.Exception.PSObject.Properties.Name -contains 'Response' -and $ErrorRecord.Exception.Response) {
+        $status = "HTTP $([int]$ErrorRecord.Exception.Response.StatusCode) on "
+    }
+    return "$status$Url - $($ErrorRecord.Exception.Message)"
+}
+
 function Get-OpenAutoFixIssues {
     param(
         [string]$Repository,
@@ -142,18 +163,20 @@ function Get-OpenAutoFixIssues {
 
     if (!$Repository -or !$Token) { return @() }
 
-    $headers = @{
-        Authorization  = "token $Token"
-        'Content-Type' = 'application/json'
-    }
-
     # Deliberately NOT filtered by the auto-fix label. GitHub creates missing
     # labels on issue creation, but if that ever fails the issue lands unlabelled
     # and a label-filtered lookup would never find it - producing exactly the
     # hourly duplicates this check exists to prevent. The body marker is the
     # authoritative key, so match on that instead.
     $apiUrl = "https://api.github.com/repos/$Repository/issues?state=open&per_page=100"
-    $result = Invoke-RestMethod -Uri $apiUrl -Method GET -Headers $headers -ErrorAction Stop
+
+    try {
+        $result = Invoke-RestMethod -Uri $apiUrl -Method GET -Headers (Get-GitHubApiHeaders -Token $Token) -ErrorAction Stop
+    } catch {
+        Write-Host '[WARN] Issue lookup failed: ' -NoNewline
+        Write-Host (Get-ApiErrorDetail -ErrorRecord $_ -Url $apiUrl) -ForegroundColor Yellow
+        throw
+    }
 
     # The issues endpoint also returns pull requests; drop them.
     return @($result | Where-Object { -not ($_.PSObject.Properties.Name -contains 'pull_request') })
@@ -170,14 +193,11 @@ function Resolve-GitHubIssue {
 
     if (!$Repository -or !$Token -or !$AppName) { return }
 
+    $issueUrl = ''
     try {
         $marker = Get-IssueMarker -AppName $AppName
         $open = Get-OpenAutoFixIssues -Repository $Repository -Token $Token
-
-        $headers = @{
-            Authorization  = "token $Token"
-            'Content-Type' = 'application/json'
-        }
+        $headers = Get-GitHubApiHeaders -Token $Token
 
         foreach ($item in $open) {
             if ($item.body -notlike "*$marker*") { continue }
@@ -188,7 +208,8 @@ function Resolve-GitHubIssue {
             Write-Host '[OK] Closed issue #' -NoNewline; Write-Host $item.number -NoNewline; Write-Host " - $AppName is healthy again" -ForegroundColor Green
         }
     } catch {
-        Write-Host '[WARN] Could not close resolved issues: ' -NoNewline; Write-Host $_ -ForegroundColor Yellow
+        Write-Host '[WARN] Could not close resolved issues: ' -NoNewline
+        Write-Host (Get-ApiErrorDetail -ErrorRecord $_ -Url $issueUrl) -ForegroundColor Yellow
     }
 }
 
@@ -231,15 +252,17 @@ function New-GitHubIssue {
         }
     } catch {
         # If the lookup fails, fall through and create the issue: a possible
-        # duplicate is preferable to silently losing the report.
-        Write-Host '[WARN] Could not check for existing issues: ' -NoNewline; Write-Host $_ -ForegroundColor Yellow
+        # duplicate is preferable to silently losing the report. The specific
+        # cause is already reported by Get-OpenAutoFixIssues.
+        Write-Host '[WARN] Duplicate check skipped; filing anyway' -ForegroundColor Yellow
     }
 
     try {
-        # Build labels array
+        # Keep the label set minimal: provenance (auto-fix) plus the problem
+        # type. "review-needed" would be redundant with assigning the issue, and
+        # a label named "@someone" notifies nobody while cluttering the repo's
+        # label list - routing to people is done with assignees below.
         $labels = @("auto-fix")
-        if ($TagCopilot) { $labels += "@copilot" }
-        if ($TagEscalation) { $labels += "review-needed"; $labels += "@beyondmeat"; $labels += "@borger" }
 
         # Add issue type labels. Names match the labels already defined on the
         # repository (and used by .github/ISSUE_TEMPLATE) so auto-filed issues
@@ -250,12 +273,17 @@ function New-GitHubIssue {
             "hash-error" { $labels += "hash-fix-needed" }
         }
 
+        # Route to people via assignees - the mechanism that actually notifies
+        # and shows up in "assigned to me" filters.
+        $assignees = @()
+        if ($TagEscalation) { $assignees = @('beyondmeat', 'borger') }
+
         # Build the checklist as a list so unused branches cannot leave blank
         # lines behind - a blank line between items makes GitHub render a loose
         # task list with inconsistent spacing.
         $nextSteps = @()
         if ($TagCopilot) { $nextSteps += '- [ ] GitHub Copilot to review and create fix PR' }
-        if ($TagEscalation) { $nextSteps += '- [ ] @beyondmeat / @borger to manually review and apply fix' }
+        if ($TagEscalation) { $nextSteps += '- [ ] Manual review and fix required (see assignees)' }
         $nextSteps += "- [ ] Run: ``.\bin\autofix-manifest.ps1 -ManifestPath bucket/$appName.json``"
         $nextSteps += '- [ ] Commit and push changes'
         $nextStepsText = $nextSteps -join "`n"
@@ -284,16 +312,15 @@ $(Get-IssueMarker -AppName $appName)
 This issue closes automatically once auto-fix sees the manifest healthy again.
 "@
 
-        $headers = @{
-            Authorization  = "token $Token"
-            "Content-Type" = "application/json"
-        }
+        $headers = Get-GitHubApiHeaders -Token $Token
 
-        $payload = @{
+        $payloadData = @{
             title  = $Title
             body   = $body
             labels = $labels
-        } | ConvertTo-Json
+        }
+        if ($assignees.Count -gt 0) { $payloadData.assignees = $assignees }
+        $payload = $payloadData | ConvertTo-Json
 
         $apiUrl = "https://api.github.com/repos/$Repository/issues"
         $response = Invoke-RestMethod -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
@@ -303,7 +330,8 @@ This issue closes automatically once auto-fix sees the manifest healthy again.
         Write-Host "  Tags: $($labels -join ', ')" -ForegroundColor Green
         return $issueNumber
     } catch {
-        Write-Host '[WARN] Failed to create GitHub issue: ' -NoNewline; Write-Host $_ -ForegroundColor Yellow
+        Write-Host '[WARN] Failed to create GitHub issue: ' -NoNewline
+        Write-Host (Get-ApiErrorDetail -ErrorRecord $_ -Url $apiUrl) -ForegroundColor Yellow
         return $false
     }
 }
@@ -1019,12 +1047,12 @@ try {
 
     # Extract Repository Info (GitHub/GitLab/Gitea)
     $repoInfo = Get-RepositoryInfo -Manifest $manifest
-    $gitHubOwner = $null; $gitHubRepo = $null
+    $upstreamOwner = $null; $upstreamRepo = $null
 
     if ($repoInfo.Platform -eq "github") {
         if ($repoInfo.Path -match '^([^/]+)/(.+)$') {
-            $gitHubOwner = $matches[1]; $gitHubRepo = $matches[2]
-            Write-Verbose "GitHub repo detected: $gitHubOwner/$gitHubRepo"
+            $upstreamOwner = $matches[1]; $upstreamRepo = $matches[2]
+            Write-Verbose "GitHub repo detected: $upstreamOwner/$upstreamRepo"
         }
     }
 
@@ -1190,13 +1218,13 @@ try {
         if ($latestVersion -match '^[a-f0-9]{7}$') {
             try {
                 # If repo not already extracted, try to parse it from checkver.url (e.g., actions/workflows URL)
-                if (-not $gitHubOwner -and -not $gitHubRepo -and $manifest.checkver -and $manifest.checkver.url -and ($manifest.checkver.url -match 'github\.com/([^/]+)/([^/]+)/?')) {
-                    $gitHubOwner = $matches[1]; $gitHubRepo = $matches[2]
+                if (-not $upstreamOwner -and -not $upstreamRepo -and $manifest.checkver -and $manifest.checkver.url -and ($manifest.checkver.url -match 'github\.com/([^/]+)/([^/]+)/?')) {
+                    $upstreamOwner = $matches[1]; $upstreamRepo = $matches[2]
                 }
 
-                if ($gitHubOwner -and $gitHubRepo -and ($manifest.autoupdate -and ($manifest.autoupdate.url -match '/releases/download' -or ($manifest.autoupdate.architecture -and ($manifest.autoupdate.architecture.'64bit'.url -match '/releases/download' -or $manifest.autoupdate.architecture.'32bit'.url -match '/releases/download')) ) -or ($manifest.checkver -and $manifest.checkver.url -and $manifest.checkver.url -match 'actions/workflows'))) {
+                if ($upstreamOwner -and $upstreamRepo -and ($manifest.autoupdate -and ($manifest.autoupdate.url -match '/releases/download' -or ($manifest.autoupdate.architecture -and ($manifest.autoupdate.architecture.'64bit'.url -match '/releases/download' -or $manifest.autoupdate.architecture.'32bit'.url -match '/releases/download')) ) -or ($manifest.checkver -and $manifest.checkver.url -and $manifest.checkver.url -match 'actions/workflows'))) {
                     Write-Host "  [INFO] checkver returned a commit SHA; querying GitHub Releases for canonical tag..." -ForegroundColor Cyan
-                    $apiUrl = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                    $apiUrl = "https://api.github.com/repos/$upstreamOwner/$upstreamRepo/releases/latest"
                     $rel = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
                     if ($rel) {
                         if ($rel.tag_name) { $latestVersion = $rel.tag_name -replace '^v', '' -replace '^\.', '' ; Write-Host ('  [OK] Using latest release tag: {0}' -f $latestVersion) -ForegroundColor Green }
@@ -1510,11 +1538,11 @@ try {
         # Try to fetch GitHub release assets if available (for checksum files)
         $releaseAssets = $null
         $hasChecksumFiles = $false
-        if ($gitHubOwner -and $gitHubRepo) {
-            $releaseAssets = Get-ReleaseAsset -Repo "$gitHubOwner/$gitHubRepo" -Version "v$($manifest.version)" -Platform "github"
+        if ($upstreamOwner -and $upstreamRepo) {
+            $releaseAssets = Get-ReleaseAsset -Repo "$upstreamOwner/$upstreamRepo" -Version "v$($manifest.version)" -Platform "github"
             if (-not $releaseAssets) {
                 # Try without 'v' prefix
-                $releaseAssets = Get-ReleaseAsset -Repo "$gitHubOwner/$gitHubRepo" -Version $manifest.version -Platform "github"
+                $releaseAssets = Get-ReleaseAsset -Repo "$upstreamOwner/$upstreamRepo" -Version $manifest.version -Platform "github"
             }
             # Check if checksum files exist
             if ($releaseAssets) {
@@ -1541,7 +1569,7 @@ try {
             if ($hasChecksumFiles -and $releaseAssets) {
                 $fileName = Split-Path -Leaf $targetUrl
                 $hashValue = [ordered]@{
-                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                    "url"      = "https://api.github.com/repos/$upstreamOwner/$upstreamRepo/releases/latest"
                     "jsonpath" = '$.assets[?(@.name == ''' + $fileName + ''')].digest'
                 }
 
