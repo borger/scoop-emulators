@@ -11,6 +11,8 @@ permissions:
   contents: write
   # required to read the completed excavator run's job log
   actions: read
+  # required to open/close tracking issues for unfixable manifests
+  issues: write
 
 # Ensure only one run per branch/workflow executes at a time. When a new run
 # is triggered (for example by a new push), any in-progress runs in the same
@@ -64,6 +66,7 @@ jobs:
             if (!job) {
               console.log('Could not locate the excavator job; skipping log parse');
               core.setOutput('failed-apps', '');
+              core.setOutput('parsed', 'false');
               return;
             }
 
@@ -95,6 +98,73 @@ jobs:
               console.log('No per-app errors found in excavator log');
             }
             core.setOutput('failed-apps', list.join(','));
+            // Signals that the list below is trustworthy. Without it, a failed
+            // lookup would be indistinguishable from "nothing is broken" and the
+            // reconcile step would close every open issue.
+            core.setOutput('parsed', 'true');
+
+      # An issue only auto-closes from inside autofix-manifest.ps1 if auto-fix
+      # actually processes that manifest - which only happens while excavator is
+      # still reporting it as broken. Once a manifest is repaired by hand it
+      # drops off that list entirely, so its issue would linger forever.
+      # Reconcile here: any app excavator no longer reports is healthy.
+      - name: Close resolved issues
+        if: >-
+          github.event_name == 'workflow_run' &&
+          steps.parse-logs.outputs.parsed == 'true' &&
+          github.event.workflow_run.conclusion == 'success'
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const failing = new Set(
+              (process.env.FAILED_APPS || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean)
+            );
+
+            // Not filtered by the auto-fix label: if label creation ever fails
+            // the issue lands unlabelled and would become unclosable. The body
+            // marker below is the authoritative key.
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            // Must stay in sync with Get-IssueMarker in bin/autofix-manifest.ps1
+            const markerRe = /<!--\s*autofix-app:\s*([A-Za-z0-9._-]+)\s*-->/;
+
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+
+              const m = (issue.body || '').match(markerRe);
+              if (!m) continue;
+
+              const app = m[1];
+              if (failing.has(app)) continue;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Excavator no longer reports an error for \`${app}\`, so this looks resolved. Closing automatically.`,
+              });
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+
+              console.log(`Closed #${issue.number} - ${app} is no longer failing`);
+            }
+        env:
+          FAILED_APPS: ${{ steps.parse-logs.outputs.failed-apps }}
 
       - name: Determine manifests to fix
         id: parse-errors
@@ -231,8 +301,18 @@ jobs:
             # Reset before each call so a previous non-zero code can't leak forward
             $global:LASTEXITCODE = 0
 
-            # Run auto-fix script
-            $result = & "$scriptsPath\autofix-manifest.ps1" -ManifestPath $manifest.FullName -BucketPath $bucketPath
+            # Run auto-fix script. -AutoCreateIssues opens one deduplicated
+            # tracking issue per unfixable manifest and closes it again once the
+            # manifest is healthy, so persistent breakage is visible without
+            # turning every hourly run red.
+            $result = & "$scriptsPath\autofix-manifest.ps1" `
+              -ManifestPath $manifest.FullName `
+              -BucketPath $bucketPath `
+              -AutoCreateIssues `
+              -NotifyOnIssues `
+              -IssueLog "$env:RUNNER_TEMP\autofix-issues.jsonl" `
+              -GitHubToken $env:GITHUB_TOKEN `
+              -GitHubRepo $env:GITHUB_REPOSITORY
 
             $exitCode = $LASTEXITCODE
             if ($exitCode -eq 0) {
@@ -268,6 +348,9 @@ jobs:
           # Unfixable manifests are reported above, not treated as a build failure.
           $global:LASTEXITCODE = 0
           exit 0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Commit and push changes
         if: steps.parse-errors.outputs.should-run == 'true'

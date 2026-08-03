@@ -120,6 +120,83 @@ function Add-Issue {
     $issues += @{ Title = $Title; Description = $Description; Severity = $Severity; App = $appName; Timestamp = Get-Date }
 }
 
+# Marker embedded in every auto-fix issue body so the issue can later be matched
+# back to its manifest without relying on the (varying) title wording.
+function Get-IssueMarker {
+    param([string]$AppName)
+    return "<!-- autofix-app: $AppName -->"
+}
+
+# Fetch open auto-fix issues. Uses the issues list endpoint rather than
+# /search/issues: search is eventually consistent and rate limited, so an hourly
+# job can file duplicates before the search index catches up.
+function Get-OpenAutoFixIssues {
+    param(
+        [string]$Repository,
+        [string]$Token
+    )
+
+    if (!$Repository -or !$Token) { return @() }
+
+    $headers = @{
+        Authorization  = "token $Token"
+        'Content-Type' = 'application/json'
+    }
+
+    # Deliberately NOT filtered by the auto-fix label. GitHub creates missing
+    # labels on issue creation, but if that ever fails the issue lands unlabelled
+    # and a label-filtered lookup would never find it - producing exactly the
+    # hourly duplicates this check exists to prevent. The body marker is the
+    # authoritative key, so match on that instead.
+    $apiUrl = "https://api.github.com/repos/$Repository/issues?state=open&per_page=100"
+    $result = Invoke-RestMethod -Uri $apiUrl -Method GET -Headers $headers -ErrorAction Stop
+
+    # The issues endpoint also returns pull requests; drop them.
+    return @($result | Where-Object { -not ($_.PSObject.Properties.Name -contains 'pull_request') })
+}
+
+# Close any open auto-fix issue for this app once the manifest is healthy again,
+# so resolved problems do not linger in the tracker.
+function Resolve-GitHubIssue {
+    param(
+        [string]$AppName,
+        [string]$Repository,
+        [string]$Token
+    )
+
+    if (!$Repository -or !$Token -or !$AppName) { return }
+
+    try {
+        $marker = Get-IssueMarker -AppName $AppName
+        $open = Get-OpenAutoFixIssues -Repository $Repository -Token $Token
+
+        $headers = @{
+            Authorization  = "token $Token"
+            'Content-Type' = 'application/json'
+        }
+
+        foreach ($item in $open) {
+            if ($item.body -notlike "*$marker*") { continue }
+
+            $payload = @{ state = 'closed'; state_reason = 'completed' } | ConvertTo-Json
+            $issueUrl = "https://api.github.com/repos/$Repository/issues/$($item.number)"
+            $null = Invoke-RestMethod -Uri $issueUrl -Method PATCH -Headers $headers -Body $payload -ErrorAction Stop
+            Write-Host '[OK] Closed issue #' -NoNewline; Write-Host $item.number -NoNewline; Write-Host " - $AppName is healthy again" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host '[WARN] Could not close resolved issues: ' -NoNewline; Write-Host $_ -ForegroundColor Yellow
+    }
+}
+
+# Exit code 0 means the manifest is healthy or was repaired, so any open issue
+# tracking it is now stale. Centralised here to keep every success path honest.
+function Exit-Healthy {
+    if ($AutoCreateIssues) {
+        Resolve-GitHubIssue -AppName $appName -Repository $GitHubRepo -Token $GitHubToken
+    }
+    exit 0
+}
+
 # Create GitHub issue with Copilot and escalation tags
 function New-GitHubIssue {
     param(
@@ -137,17 +214,36 @@ function New-GitHubIssue {
         return $false
     }
 
+    # A broken manifest fails on every excavator run, so without this check an
+    # hourly job would file a fresh duplicate issue every hour.
+    try {
+        $marker = Get-IssueMarker -AppName $appName
+        $existing = Get-OpenAutoFixIssues -Repository $Repository -Token $Token
+        $duplicate = $existing | Where-Object { $_.title -eq $Title -or $_.body -like "*$marker*" } | Select-Object -First 1
+
+        if ($duplicate) {
+            Write-Host '[OK] Issue #' -NoNewline; Write-Host $duplicate.number -NoNewline; Write-Host ' already tracks this; not filing a duplicate' -ForegroundColor Cyan
+            return $duplicate.number
+        }
+    } catch {
+        # If the lookup fails, fall through and create the issue: a possible
+        # duplicate is preferable to silently losing the report.
+        Write-Host '[WARN] Could not check for existing issues: ' -NoNewline; Write-Host $_ -ForegroundColor Yellow
+    }
+
     try {
         # Build labels array
         $labels = @("auto-fix")
         if ($TagCopilot) { $labels += "@copilot" }
-        if ($TagEscalation) { $labels += "needs-review"; $labels += "@beyondmeat" }
+        if ($TagEscalation) { $labels += "review-needed"; $labels += "@beyondmeat"; $labels += "@borger" }
 
-        # Add issue type labels
+        # Add issue type labels. Names match the labels already defined on the
+        # repository (and used by .github/ISSUE_TEMPLATE) so auto-filed issues
+        # share one vocabulary with hand-filed ones.
         switch ($IssueType) {
             "bug" { $labels += "bug" }
-            "manifest-error" { $labels += "manifest-error" }
-            "hash-error" { $labels += "hash-mismatch" }
+            "manifest-error" { $labels += "manifest-fix-needed" }
+            "hash-error" { $labels += "hash-fix-needed" }
         }
 
         # Build issue body with context
@@ -166,12 +262,15 @@ $([DateTime]::UtcNow.ToString('o'))
 
 ### Next Steps
 $(if ($TagCopilot) { "- [ ] GitHub Copilot to review and create fix PR`n" })
-$(if ($TagEscalation) { "- [ ] @beyondmeat to manually review and apply fix`n" })
+$(if ($TagEscalation) { "- [ ] @beyondmeat / @borger to manually review and apply fix`n" })
 - [ ] Run: ``.\bin\autofix-manifest.ps1 -ManifestPath bucket/$appName.json``
 - [ ] Commit and push changes
 
 ### Context
 Manifest: bucket/$appName.json
+
+$(Get-IssueMarker -AppName $appName)
+This issue closes automatically once auto-fix sees the manifest healthy again.
 "@
 
         $headers = @{
@@ -931,7 +1030,7 @@ try {
     # Skip if no autoupdate (not an error, manifest is valid as-is)
     if (!$manifest.autoupdate) {
         Write-Host '[OK] No autoupdate section needed, manifest is valid'
-        exit 0
+        Exit-Healthy
     }
 
     $needsFix = $false
@@ -1118,7 +1217,7 @@ try {
                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                 [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
                 Write-Host '[OK] Manifest saved with repaired checkver'
-                exit 0
+                Exit-Healthy
             }
 
             # If the current version is in a non-canonical form (e.g., 'mame0282'), try to canonicalize using checkver
@@ -1141,7 +1240,7 @@ try {
                                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                                 [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
                                 Write-Host '[OK] Manifest canonicalized and saved' -ForegroundColor Green
-                                exit 0
+                                Exit-Healthy
                             }
                         }
                     }
@@ -1151,13 +1250,13 @@ try {
             }
 
             Write-Host '[OK] Manifest already up-to-date (' -NoNewline; Write-Host $currentVersion -NoNewline; Write-Host ')'
-            exit 0
+            Exit-Healthy
         }
 
         # If downloads were reachable and we couldn't detect any newer version, avoid making changes
         if ($downloadsOk -and -not $latestVersion) {
             Write-Host '[OK] Existing release assets reachable and no newer version detected; nothing to fix' -ForegroundColor Green
-            exit 0
+            Exit-Healthy
         }
 
         Write-Host "Found update: $currentVersion -> $latestVersion" -ForegroundColor Yellow
@@ -1571,7 +1670,7 @@ try {
             }
 
             Write-Host '[OK] Manifest auto-fixed and saved' -ForegroundColor Green
-            exit 0
+            Exit-Healthy
         }
 
         # Save updated manifest - preserve original formatting by doing targeted text replacements
@@ -1780,7 +1879,7 @@ try {
             exit 2
         }
 
-        exit 0
+        Exit-Healthy
     } else {
         Write-Host '[FAIL] Could not parse checkver output'
         Add-Issue -Title "Checkver Parse Failed" -Description "Could not extract version from checkver output for $appName" -Severity "error"
