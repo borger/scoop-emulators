@@ -114,10 +114,14 @@ $lib = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
 if (Test-Path $lib) { . $lib }
 
 # Issue tracking for notification system
-$issues = @()
+$script:issues = @()
 function Add-Issue {
     param([string]$Title, [string]$Description, [string]$Severity = "warning")
-    $issues += @{ Title = $Title; Description = $Description; Severity = $Severity; App = $appName; Timestamp = Get-Date }
+    # Must be $script: - `+=` is read-then-assign, and a bare assignment inside a
+    # function writes to a new function-local variable instead of this one. That
+    # left $issues permanently empty, so every `$issues.Count -gt 0` guard was
+    # false and the whole notification path never ran.
+    $script:issues += @{ Title = $Title; Description = $Description; Severity = $Severity; App = $appName; Timestamp = Get-Date }
 }
 
 # Marker embedded in every auto-fix issue body so the issue can later be matched
@@ -246,6 +250,16 @@ function New-GitHubIssue {
             "hash-error" { $labels += "hash-fix-needed" }
         }
 
+        # Build the checklist as a list so unused branches cannot leave blank
+        # lines behind - a blank line between items makes GitHub render a loose
+        # task list with inconsistent spacing.
+        $nextSteps = @()
+        if ($TagCopilot) { $nextSteps += '- [ ] GitHub Copilot to review and create fix PR' }
+        if ($TagEscalation) { $nextSteps += '- [ ] @beyondmeat / @borger to manually review and apply fix' }
+        $nextSteps += "- [ ] Run: ``.\bin\autofix-manifest.ps1 -ManifestPath bucket/$appName.json``"
+        $nextSteps += '- [ ] Commit and push changes'
+        $nextStepsText = $nextSteps -join "`n"
+
         # Build issue body with context
         $body = @"
 ## Manifest Auto-Fix Failed
@@ -255,16 +269,13 @@ function New-GitHubIssue {
 $Description
 
 ### Severity
-$($issues[-1].Severity)
+$(if ($issues.Count -gt 0) { $issues[-1].Severity } else { 'unknown' })
 
 ### Timestamp
 $([DateTime]::UtcNow.ToString('o'))
 
 ### Next Steps
-$(if ($TagCopilot) { "- [ ] GitHub Copilot to review and create fix PR`n" })
-$(if ($TagEscalation) { "- [ ] @beyondmeat / @borger to manually review and apply fix`n" })
-- [ ] Run: ``.\bin\autofix-manifest.ps1 -ManifestPath bucket/$appName.json``
-- [ ] Commit and push changes
+$nextStepsText
 
 ### Context
 Manifest: bucket/$appName.json
