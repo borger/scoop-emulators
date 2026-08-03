@@ -6,6 +6,12 @@ on:
 
 name: Auto-Fix Manifests
 
+permissions:
+  # auto-fix commits repaired manifests
+  contents: write
+  # required to read the completed excavator run's job log
+  actions: read
+
 # Ensure only one run per branch/workflow executes at a time. When a new run
 # is triggered (for example by a new push), any in-progress runs in the same
 # group will be cancelled so work is only performed against the latest commit.
@@ -33,89 +39,92 @@ jobs:
             Write-Host "Excavator status: $status" -ForegroundColor $(if ($status -eq "failure") { "Red" } else { "Yellow" })
           }
 
-      - name: Download broken manifests list
-        id: download-errors
+      # The upstream ScoopInstaller/GithubActions action exposes no step outputs
+      # (steps.excavator.outputs is always {}), so per-app failures are only
+      # visible in the excavator job log. This workflow runs on workflow_run
+      # AFTER excavator completes, so the log is final and fetchable here -
+      # it is not available while that job is still in progress.
+      - name: Parse excavator log for failing apps
+        id: parse-logs
         if: github.event_name == 'workflow_run'
         continue-on-error: true
         uses: actions/github-script@v9
         with:
           script: |
-            const fs = require('fs');
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+            const runId = context.payload.workflow_run.id;
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              run_id: context.payload.workflow_run.id,
+              run_id: runId,
             });
 
-            const matchArtifact = artifacts.data.artifacts.find(artifact =>
-              artifact.name === 'broken-manifests'
-            );
-
-            if (!matchArtifact) {
-              console.log('No broken-manifests artifact found');
+            // Match the job's display name, not the job key - the API returns
+            // display names, and matching 'excavate' here silently no-opped.
+            const job = jobs.data.jobs.find(j => j.name === 'Check for Updates');
+            if (!job) {
+              console.log('Could not locate the excavator job; skipping log parse');
+              core.setOutput('failed-apps', '');
               return;
             }
 
-            try {
-              const download = await github.rest.actions.downloadArtifact({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                artifact_id: matchArtifact.id,
-                archive_format: 'zip',
-              });
+            const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              job_id: job.id,
+            });
 
-              const path = require('path');
-              const fs = require('fs');
+            const text = typeof logs.data === 'string'
+              ? logs.data
+              : Buffer.from(logs.data).toString('utf8');
 
-              // Use GITHUB_WORKSPACE reliably instead of raw template expansion and build
-              // an absolute path with path.join to avoid accidental path mangling on Windows.
-              const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-              const outPath = path.join(workspace, 'broken-manifests.zip');
+            // Excavator reports per-app failures as "<app>: <error message>",
+            // e.g. "shadps4: The remote server returned an error: (404) Not Found."
+            // Successful updates read "<app>: <version> (scoop version is ...)",
+            // so require an explicit error phrase to avoid matching those.
+            const failureRe = /^(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|not found|failed|error))(?!.*autoupdate available).*$/gim;
 
-              // The download response may contain the raw ArrayBuffer/Buffer or an object
-              // with nested data depending on runner/Octokit version. Normalize it.
-              let payload = download.data;
-              if (payload && payload.data) { payload = payload.data; }
-
-              const buffer = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
-              fs.writeFileSync(outPath, buffer);
-              console.log(`Downloaded broken-manifests artifact to ${outPath}`);
-            } catch (err) {
-              console.error('Failed to download or write broken-manifests artifact:', err);
+            const apps = new Set();
+            for (const m of text.matchAll(failureRe)) {
+              apps.add(m[1]);
             }
 
-      - name: Extract and parse broken manifests
+            const list = [...apps];
+            if (list.length) {
+              console.log(`Apps with errors in excavator log: ${list.join(', ')}`);
+            } else {
+              console.log('No per-app errors found in excavator log');
+            }
+            core.setOutput('failed-apps', list.join(','));
+
+      - name: Determine manifests to fix
         id: parse-errors
         shell: pwsh
         run: |
+          $failedApps = "${{ steps.parse-logs.outputs.failed-apps }}"
+          $excavatorResult = "${{ github.event.workflow_run.conclusion }}"
+
           $brokenManifests = @()
-
-          # Check if we have the broken manifests artifact
-          if (Test-Path "broken-manifests.zip") {
-            Write-Host "Extracting broken manifests..." -ForegroundColor Cyan
-            Expand-Archive -Path "broken-manifests.zip" -DestinationPath "." -Force
-
-            if (Test-Path "broken-manifests.json") {
-              $content = Get-Content -Path "broken-manifests.json" -Raw
-              try {
-                $brokenManifests = $content | ConvertFrom-Json
-              } catch {
-                Write-Host "Failed to parse broken-manifests.json, will process all" -ForegroundColor Yellow
-              }
-            }
+          if ($failedApps -and $failedApps.Trim() -ne '') {
+            $brokenManifests = @($failedApps -split ',' | Where-Object { $_ -and $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
           }
-
-          $brokenManifests = @($brokenManifests | Where-Object { $_ -and $_.Trim() -ne '' })
 
           if ($brokenManifests.Count -gt 0) {
             Write-Host "Found $($brokenManifests.Count) broken manifest(s) to fix:" -ForegroundColor Yellow
             $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
             "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+          } elseif ($excavatorResult -eq 'failure') {
+            # Excavator failed outright but the log named no specific app - fall
+            # back to sweeping every base manifest. Only ever on an actual failure.
+            Write-Host "Excavator failed with no specific app identified - checking all base manifests" -ForegroundColor Yellow
+            $brokenManifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' } | Select-Object -ExpandProperty BaseName)
+            Write-Host "Total manifests to check: $($brokenManifests.Count)" -ForegroundColor Gray
+            "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+            "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           } else {
-            # No artifact (or an empty one) means excavator reported no broken
-            # manifests. Skip the run entirely rather than sweeping every manifest -
-            # a full sweep here is expensive and was never the intent.
+            # Excavator succeeded and reported no per-app errors. Skip entirely
+            # rather than sweeping every manifest - a full sweep here is expensive
+            # and was never the intent.
             Write-Host "No broken manifests reported by excavator - nothing to do" -ForegroundColor Green
             "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             "should-run=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
