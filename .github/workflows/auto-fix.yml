@@ -178,24 +178,30 @@ jobs:
             $brokenManifests = @($failedApps -split ',' | Where-Object { $_ -and $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
           }
 
-          if ($brokenManifests.Count -gt 0) {
+          # A few manifests breaking at once is plausible. A large fraction of the
+          # bucket breaking simultaneously is not - that is an outage, a rate
+          # limit, or an API problem, and acting on it files issues against
+          # perfectly healthy manifests.
+          $systemicThreshold = 10
+
+          if ($brokenManifests.Count -gt $systemicThreshold) {
+            Write-Host "$($brokenManifests.Count) manifests reported failing at once - treating as systemic, not per-manifest." -ForegroundColor Yellow
+            Write-Host "Skipping auto-fix so a transient outage cannot raise issues against healthy manifests." -ForegroundColor Yellow
+            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+            "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+            "should-run=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
+          } elseif ($brokenManifests.Count -gt 0) {
             Write-Host "Found $($brokenManifests.Count) broken manifest(s) to fix:" -ForegroundColor Yellow
             $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
             "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-          } elseif ($excavatorResult -eq 'failure') {
-            # Excavator failed outright but the log named no specific app - fall
-            # back to sweeping every base manifest. Only ever on an actual failure.
-            Write-Host "Excavator failed with no specific app identified - checking all base manifests" -ForegroundColor Yellow
-            $brokenManifests = @(Get-ChildItem -Path "bucket" -Filter "*.json" -File | Where-Object { $_.Name -notmatch '(-nightly|-dev)' } | Select-Object -ExpandProperty BaseName)
-            Write-Host "Total manifests to check: $($brokenManifests.Count)" -ForegroundColor Gray
-            "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-            "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           } else {
-            # Excavator succeeded and reported no per-app errors. Skip entirely
-            # rather than sweeping every manifest - a full sweep here is expensive
-            # and was never the intent.
-            Write-Host "No broken manifests reported by excavator - nothing to do" -ForegroundColor Green
+            # Nothing named, so there is nothing to act on - regardless of whether
+            # excavator succeeded or failed. Deliberately NO full-bucket sweep on
+            # excavator failure: that tells us nothing about which manifest is at
+            # fault, and if one really is, the log parse above names it. Sweeping
+            # during an outage makes every manifest look broken.
+            Write-Host "No specific manifest reported as failing (excavator: $excavatorResult) - nothing to do" -ForegroundColor Green
             "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
             "should-run=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
           }
