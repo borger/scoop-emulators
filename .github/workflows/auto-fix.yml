@@ -80,14 +80,19 @@ jobs:
               ? logs.data
               : Buffer.from(logs.data).toString('utf8');
 
-            // Excavator reports per-app failures as "<app>: <error message>",
-            // e.g. "shadps4: The remote server returned an error: (404) Not Found."
-            // Successful updates read "<app>: <version> (scoop version is ...)",
-            // so require an explicit error phrase to avoid matching those.
-            const failureRe = /^(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|not found|failed|error))(?!.*autoupdate available).*$/gim;
-
+            // Excavator reports per-app failures in various formats:
+            // - "<app>: <error message>" (e.g. "shadps4: The remote server returned an error: (404) Not Found.")
+            // - "<app>: couldn't match..." (e.g. "dolphin-dev: couldn't match '...' in ...")
+            // - "ERROR Could not update <app>..." (e.g. "ERROR Could not update dolphin, hash for dolphin-2606a-ARM64.7z failed!")
             const apps = new Set();
-            for (const m of text.matchAll(failureRe)) {
+
+            const appColonRe = /^(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|error))(?!.*autoupdate available).*$/gim;
+            for (const m of text.matchAll(appColonRe)) {
+              apps.add(m[1]);
+            }
+
+            const errorUpdateRe = /ERROR Could not update ([A-Za-z0-9._-]+)/gim;
+            for (const m of text.matchAll(errorUpdateRe)) {
               apps.add(m[1]);
             }
 
@@ -290,7 +295,7 @@ jobs:
             Write-Host "Processing specific manifests from excavator errors..." -ForegroundColor Yellow
             $appNames = $manifestsToFix -split ','
             $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
-              Where-Object { $appNames -contains $_.BaseName -and $_.Name -notmatch '(-nightly|-dev)' }
+              Where-Object { $appNames -contains $_.BaseName }
           } else {
             Write-Host "Processing all manifests..." -ForegroundColor Gray
             $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
