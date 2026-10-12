@@ -50,8 +50,8 @@
         "xenia-canary.config.toml"
     ],
     "checkver": {
-        "github": "https://github.com/xenia-canary/xenia-canary",
-        "regex": "releases/tag/([a-f0-9]+)"
+        "url": "https://api.github.com/repos/xenia-canary/xenia-canary/releases/latest",
+        "regex": "\"tag_name\"\\s*:\\s*\"(?<version>[a-f0-9]+)\""
     },
     "autoupdate": {
         "architecture": {

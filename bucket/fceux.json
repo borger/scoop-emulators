@@ -61,10 +61,10 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/TASEmulators/fceux/releases/download/v$version/fceux-$version-fceux-win64-QtSDL.zip"
+                "url": "https://github.com/TASEmulators/fceux/releases/download/fceux-$version/fceux-$version-win64-QtSDL.zip"
             },
             "32bit": {
-                "url": "https://github.com/TASEmulators/fceux/releases/download/v$version/fceux-$version-win32.zip"
+                "url": "https://github.com/TASEmulators/fceux/releases/download/fceux-$version/fceux-$version-win32.zip"
             }
         }
     }

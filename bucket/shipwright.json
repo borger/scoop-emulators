@@ -46,8 +46,8 @@
         ]
     },
     "checkver": {
-        "github": "https://github.com/HarbourMasters/Shipwright/",
-        "regex": "(?<majorName>(\\w+))\\s(?<minorName>(\\w+))\\s(?<version>([\\d\\.]+))",
+        "url": "https://api.github.com/repos/HarbourMasters/Shipwright/releases/latest",
+        "regex": "\"tag_name\"\\s*:\\s*\"(?<version>[\\d.]+)\"[\\s\\S]*?\"name\"\\s*:\\s*\"SoH-(?<majorName>\\w+)-(?<minorName>\\w+)-Win64\\.zip\"",
         "replace": "${version}"
     },
     "autoupdate": {
