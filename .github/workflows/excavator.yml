@@ -23,13 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cache Scoop
-        uses: actions/cache@v6
-        id: scoop-cache
-        with:
-          path: ~\scoop\cache
-          key: ${{ runner.os }}-scoop-cache-v1-${{ hashFiles('.github/workflows/excavator.yml') }}
-
       - name: Check for new versions
         id: excavator
         uses: ScoopInstaller/GithubActions@main
@@ -37,3 +30,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: '1'
+
+      # Auto-Fix reads the completed job log through workflow_run. Keep this
+      # marker stable so it can distinguish a complete log from a failed lookup.
+      - name: Record Excavator outcome for Auto-Fix
+        if: always()
+        shell: pwsh
+        env:
+          EXCAVATOR_OUTCOME: ${{ steps.excavator.outcome }}
+        run: |
+          Write-Host "AUTOFIX_EXCAVATOR_OUTCOME: $env:EXCAVATOR_OUTCOME"

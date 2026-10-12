@@ -9,8 +9,8 @@ name: Auto-Fix Manifests
 permissions:
   # auto-fix commits repaired manifests
   contents: write
-  # required to read the completed excavator run's job log
-  actions: read
+  # required to read the completed excavator run's job log and dispatch a retry
+  actions: write
   # required to open/close tracking issues for unfixable manifests
   issues: write
 
@@ -80,15 +80,33 @@ jobs:
               ? logs.data
               : Buffer.from(logs.data).toString('utf8');
 
+            // Excavator emits this after its update step. Without it, a
+            // truncated/unavailable log must not be treated as "no failures".
+            const outcome = text.match(/^AUTOFIX_EXCAVATOR_OUTCOME:\s*(success|failure)$/m);
+            if (!outcome) {
+              console.log('Excavator outcome marker is missing; skipping auto-fix');
+              core.setOutput('failed-apps', '');
+              core.setOutput('checkver-failed-apps', '');
+              core.setOutput('parsed', 'false');
+              return;
+            }
+
             // Excavator reports per-app failures in various formats:
             // - "<app>: <error message>" (e.g. "shadps4: The remote server returned an error: (404) Not Found.")
             // - "<app>: couldn't match..." (e.g. "dolphin-dev: couldn't match '...' in ...")
             // - "ERROR Could not update <app>..." (e.g. "ERROR Could not update dolphin, hash for dolphin-2606a-ARM64.7z failed!")
             const apps = new Set();
+            const checkverApps = new Set();
 
-            const appColonRe = /^(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|error))(?!.*autoupdate available).*$/gim;
+            const appColonRe = /^\s*(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|error))(?!.*autoupdate available).*$/gim;
             for (const m of text.matchAll(appColonRe)) {
               apps.add(m[1]);
+            }
+
+            const checkverFailureRe = /^\s*(?:\S+\s+)?([A-Za-z0-9._-]+):\s+couldn't (?:match|find|retrieve)\b.*$/gim;
+            for (const m of text.matchAll(checkverFailureRe)) {
+              apps.add(m[1]);
+              checkverApps.add(m[1]);
             }
 
             const errorUpdateRe = /ERROR Could not update ([A-Za-z0-9._-]+)/gim;
@@ -97,12 +115,17 @@ jobs:
             }
 
             const list = [...apps];
+            const checkverList = [...checkverApps];
             if (list.length) {
               console.log(`Apps with errors in excavator log: ${list.join(', ')}`);
             } else {
               console.log('No per-app errors found in excavator log');
             }
+            if (checkverList.length) {
+              console.log(`Apps with checkver match failures: ${checkverList.join(', ')}`);
+            }
             core.setOutput('failed-apps', list.join(','));
+            core.setOutput('checkver-failed-apps', checkverList.join(','));
             // Signals that the list below is trustworthy. Without it, a failed
             // lookup would be indistinguishable from "nothing is broken" and the
             // reconcile step would close every open issue.
@@ -268,6 +291,174 @@ jobs:
         run: |
           if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) { scoop install 7zip }
 
+      - name: Repair known GitHub checkver patterns
+        if: steps.parse-errors.outputs.should-run == 'true' && steps.parse-logs.outputs.checkver-failed-apps != ''
+        shell: pwsh
+        env:
+          CHECKVER_FAILED_APPS: ${{ steps.parse-logs.outputs.checkver-failed-apps }}
+        run: |
+          $bucketPath = Join-Path $env:GITHUB_WORKSPACE 'bucket'
+          $scriptsPath = Join-Path $env:GITHUB_WORKSPACE 'bin'
+          $failedApps = @($env:CHECKVER_FAILED_APPS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
+          foreach ($app in $failedApps) {
+            $manifestPath = Join-Path $bucketPath "$app.json"
+            if (-not (Test-Path $manifestPath -PathType Leaf)) {
+              Write-Host "[SKIP] Manifest not found: $manifestPath" -ForegroundColor Yellow
+              continue
+            }
+
+            $originalJson = [System.IO.File]::ReadAllText($manifestPath)
+            try {
+              $manifest = ConvertFrom-Json -InputObject $originalJson -AsHashtable -ErrorAction Stop
+              $checkver = $manifest.checkver
+              $repository = $null
+              foreach ($candidate in @($checkver.github, $manifest.homepage, $checkver.url)) {
+                if ($candidate -and $candidate -match 'github\.com/(?:repos/)?(?<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)') {
+                  $repository = $matches['repo'] -replace '\.git$', ''
+                  break
+                }
+              }
+              if (-not $repository) { throw 'Could not determine the upstream GitHub repository from the manifest' }
+
+              $apiUrl = "https://api.github.com/repos/$repository/releases/latest"
+              $release = Invoke-RestMethod -Uri $apiUrl -Headers @{
+                'User-Agent' = 'scoop-emulators-autofix'
+                Accept = 'application/vnd.github+json'
+              } -ErrorAction Stop
+
+              $regex = if ($checkver.regex) { [string]$checkver.regex } elseif ($checkver.re) { [string]$checkver.re } else { $null }
+              $candidates = @()
+              if ($release.name) {
+                $candidates += [ordered]@{ source = [string]$release.name; jsonpath = '$.name' }
+              }
+              if ($release.tag_name) {
+                $candidates += [ordered]@{ source = [string]$release.tag_name; jsonpath = '$.tag_name' }
+              }
+              foreach ($asset in $release.assets) {
+                $escapedName = ([string]$asset.name).Replace('\', '\\').Replace("'", "\'")
+                $assetPath = "$.assets[?(@.name == '$escapedName')].browser_download_url"
+                if ($asset.browser_download_url) {
+                  $candidates += [ordered]@{ source = [string]$asset.browser_download_url; jsonpath = $assetPath }
+                }
+                if ($asset.name) {
+                  $candidates += [ordered]@{ source = [string]$asset.name; jsonpath = "$.assets[?(@.name == '$escapedName')].name" }
+                }
+              }
+
+              $repair = $null
+              $version = $null
+              if ($regex) {
+                foreach ($candidate in $candidates) {
+                  $match = [regex]::Match($candidate.source, $regex)
+                  if (-not $match.Success) { continue }
+
+                  $version = $match.Groups['1'].Value
+                  if ($checkver.replace) {
+                    $version = [regex]::Replace($match.Value, $regex, [string]$checkver.replace)
+                  }
+                  if (-not $version) { $version = $match.Groups['version'].Value }
+                  if (-not $version -or $version -notmatch '\d') { continue }
+
+                  $repair = [ordered]@{
+                    url = $apiUrl
+                    jsonpath = $candidate.jsonpath
+                    regex = $regex
+                  }
+                  if ($checkver.replace) { $repair.replace = [string]$checkver.replace }
+                  break
+                }
+              }
+
+              # If the old pattern no longer matches any field or asset, derive
+              # a new tag pattern from the release and the manifest's existing
+              # version layout. This preserves separators and versions such as
+              # "10.6" -> "beta_10_6" without package-specific rules.
+              if (-not $repair) {
+                if (-not $release.tag_name -or -not $manifest.version) {
+                  throw 'Could not derive a replacement pattern without a release tag and current version'
+                }
+
+                $tag = [string]$release.tag_name
+                $tagParts = [regex]::Matches($tag, '\d+')
+                $versionParts = [regex]::Matches([string]$manifest.version, '\d+')
+                if ($tagParts.Count -eq 0 -or $versionParts.Count -eq 0) {
+                  throw 'Release tag or current version has no numeric version components'
+                }
+
+                $tagDigits = ($tagParts | ForEach-Object { $_.Value }) -join ''
+                $versionDigits = ($versionParts | ForEach-Object { $_.Value }) -join ''
+                $captureValues = @()
+                if ($tagParts.Count -eq $versionParts.Count) {
+                  for ($i = 0; $i -lt $tagParts.Count; $i++) {
+                    if ($tagParts[$i].Value -ne $versionParts[$i].Value) {
+                      throw 'Release tag numeric components do not match the manifest version layout'
+                    }
+                    $captureValues += $tagParts[$i].Value
+                  }
+                } elseif ($tagParts.Count -eq 1 -and $tagDigits -eq $versionDigits) {
+                  foreach ($part in $versionParts) { $captureValues += $part.Value }
+                } else {
+                  throw 'Could not safely map release tag numbers to the existing manifest version'
+                }
+
+                $pattern = '^'
+                $replacement = [string]$manifest.version
+                $offset = 0
+                for ($i = 0; $i -lt $tagParts.Count; $i++) {
+                  $part = $tagParts[$i]
+                  $pattern += [regex]::Escape($tag.Substring($offset, $part.Index - $offset))
+                  if ($tagParts.Count -eq 1 -and $captureValues.Count -gt 1) {
+                    for ($captureIndex = 0; $captureIndex -lt $captureValues.Count; $captureIndex++) {
+                      $capture = $captureValues[$captureIndex]
+                      $pattern += "(?<v$captureIndex>\d{$($capture.Length)})"
+                    }
+                  } else {
+                    $pattern += "(?<v$i>\d{$($part.Length)})"
+                  }
+                  $offset = $part.Index + $part.Length
+                }
+                $pattern += [regex]::Escape($tag.Substring($offset)) + '$'
+
+                $versionParts = [regex]::Matches([string]$manifest.version, '\d+')
+                for ($i = $versionParts.Count - 1; $i -ge 0; $i--) {
+                  $part = $versionParts[$i]
+                  $replacement = $replacement.Remove($part.Index, $part.Length).Insert($part.Index, '${v' + $i + '}')
+                }
+                $match = [regex]::Match($tag, $pattern)
+                if (-not $match.Success) { throw 'Generated checkver pattern did not match the latest tag' }
+                $version = [regex]::Replace($tag, $pattern, $replacement)
+                if (-not $version -or $version -notmatch '\d') { throw "Derived version is invalid: $version" }
+
+                $repair = [ordered]@{
+                  url = $apiUrl
+                  jsonpath = '$.tag_name'
+                  regex = $pattern
+                  replace = $replacement
+                }
+              }
+
+              $manifest.checkver = $repair
+              $serialized = ConvertTo-Json -InputObject $manifest -Depth 100
+              $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+              [System.IO.File]::WriteAllText($manifestPath, $serialized + "`n", $utf8NoBom)
+
+              $checkverOutput = & "$scriptsPath\checkver.ps1" -App $app -Dir $bucketPath 2>&1 | Out-String
+              if ($checkverOutput -match '(?i)couldn''t (match|find|retrieve)|couldn''t parse') {
+                throw "Scoop checkver rejected the repaired configuration: $checkverOutput"
+              }
+              $versionPattern = '(?m)^\s*' + [regex]::Escape($app) + ':\s*\r?\n\s*' + [regex]::Escape($version) + '(?:\s+\(scoop version|\s+autoupdate available)?\s*$'
+              if ($checkverOutput -notmatch $versionPattern) {
+                throw "Scoop checkver did not return the expected version $version`: $checkverOutput"
+              }
+              Write-Host "[OK] Repaired checkver for $app (latest version: $version)" -ForegroundColor Green
+            } catch {
+              $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+              [System.IO.File]::WriteAllText($manifestPath, $originalJson, $utf8NoBom)
+              Write-Host "[WARN] Could not safely repair checkver for $app`: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+          }
+
       - name: Auto-fix broken manifests
         if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
@@ -364,24 +555,48 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Commit and push changes
+        id: commit-fixes
         if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
         run: |
           git config user.name "Scoop Auto-Updater"
+          if ($LASTEXITCODE -ne 0) { throw "git config user.name failed" }
           git config user.email "auto-updater@scoop.sh"
+          if ($LASTEXITCODE -ne 0) { throw "git config user.email failed" }
           git add bucket/
+          if ($LASTEXITCODE -ne 0) { throw "git add failed" }
 
           $status = git status --porcelain
+          if ($LASTEXITCODE -ne 0) { throw "git status failed" }
           if ($status) {
             Write-Host "Found changes to commit:" -ForegroundColor Green
             Write-Host $status
             git commit -m "chore: Auto-fix broken manifests"
+            if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
             git push
+            if ($LASTEXITCODE -ne 0) { throw "git push failed; manifest fixes were not persisted" }
+            "committed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             Write-Host "✓ Changes pushed" -ForegroundColor Green
           } else {
+            "committed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             Write-Host "No manifest changes to commit" -ForegroundColor Gray
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
+      - name: Rerun Excavator after persisted fixes
+        if: steps.commit-fixes.outputs.committed == 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const ref = context.payload.workflow_run.head_branch;
+            if (!ref || !/^[A-Za-z0-9._/-]+$/.test(ref)) {
+              throw new Error(`Refusing to dispatch Excavator for invalid branch: ${ref}`);
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'excavator.yml',
+              ref,
+            });
+            console.log(`Dispatched Excavator on ${ref} after committing manifest fixes`);
