@@ -1,12 +1,12 @@
 {
-    "version": "1.20.4-3300-g521d54bb19c2",
+    "version": "1.20.4-3303-gf572831d37c4",
     "description": "Sony PlayStation Portable (PSP) emulator",
     "homepage": "https://www.ppsspp.org",
     "license": "GPL-2.0-or-later",
     "architecture": {
         "64bit": {
-            "url": "https://builds.ppsspp.org/builds/v1.20.4-3300-g521d54bb19c2/ppsspp_win_v1.20.4-3300-g521d54bb19c2.zip",
-            "hash": "0ed0394c4e5b2c9a66f21ba55e73223fe50885261217768c35482ade88124fa2",
+            "url": "https://builds.ppsspp.org/builds/v1.20.4-3303-gf572831d37c4/ppsspp_win_v1.20.4-3303-gf572831d37c4.zip",
+            "hash": "8c77b3afb5562445c00d8a1c1fcc8f834f854f19cc4b56da14acb94a0083237c",
             "shortcuts": [
                 [
                     "PPSSPPWindows64.exe",
@@ -15,8 +15,8 @@
             ]
         },
         "32bit": {
-            "url": "https://builds.ppsspp.org/builds/v1.20.4-3300-g521d54bb19c2/ppsspp_win_v1.20.4-3300-g521d54bb19c2.zip",
-            "hash": "0ed0394c4e5b2c9a66f21ba55e73223fe50885261217768c35482ade88124fa2",
+            "url": "https://builds.ppsspp.org/builds/v1.20.4-3303-gf572831d37c4/ppsspp_win_v1.20.4-3303-gf572831d37c4.zip",
+            "hash": "8c77b3afb5562445c00d8a1c1fcc8f834f854f19cc4b56da14acb94a0083237c",
             "shortcuts": [
                 [
                     "PPSSPPWindows.exe",
@@ -25,8 +25,8 @@
             ]
         },
         "arm64": {
-            "url": "https://builds.ppsspp.org/builds/v1.20.4-3300-g521d54bb19c2/PPSSPPWindowsARM64_v1.20.4-3300-g521d54bb19c2.zip",
-            "hash": "fbc3191da5a0323fa02dc7775bb4123438fdb8be9e75ecd6eac7caef63981ff1",
+            "url": "https://builds.ppsspp.org/builds/v1.20.4-3303-gf572831d37c4/PPSSPPWindowsARM64_v1.20.4-3303-gf572831d37c4.zip",
+            "hash": "7bb9f602a985a81fdd4a2a841a0c838657a2d2d6423613fc7af3a59bbbfd983f",
             "shortcuts": [
                 [
                     "PPSSPPWindowsARM64.exe",
