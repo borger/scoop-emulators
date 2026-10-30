@@ -1,5 +1,5 @@
 {
-    "version": "20261029-g67409ee",
+    "version": "20261030-g87bc837",
     "description": "Sony PlayStation 1 emulator",
     "homepage": "https://github.com/stenzek/duckstation/",
     "license": {
@@ -22,7 +22,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip",
-            "hash": "78b53c514923c6d2f007b82b39509ca33cb26388900c5c76df65d81eccc43190",
+            "hash": "12a44d39a2f89eacc28d710442ce40473aac69a4bd42bcbb83cf789a02ef7761",
             "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
             "bin": [
                 [
@@ -33,7 +33,7 @@
         },
         "arm64": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-arm64-release.zip",
-            "hash": "702faed1d90311baee84d0657e4be2d09c12555b472442f91042bf23179461d6",
+            "hash": "77404453232d5394df056140ed6f22ee12d659dfcfe1f6259c09de0e0de6c239",
             "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
             "bin": [
                 [
