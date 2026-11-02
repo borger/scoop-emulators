@@ -1,5 +1,5 @@
 {
-    "version": "20261102111432-887c93f",
+    "version": "20261102155520-20d0b78",
     "description": "Microsoft Xbox 360 emulator",
     "homepage": "https://github.com/has207/xenia-edge/",
     "license": {
@@ -11,8 +11,8 @@
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/has207/xenia-edge/releases/download/887c93f/xenia_edge_windows.zip",
-            "hash": "cf32a01eff4e93d50d9701a480975fb61ef423edf9548e3660b22b95cb21a80e"
+            "url": "https://github.com/has207/xenia-edge/releases/download/20d0b78/xenia_edge_windows.zip",
+            "hash": "11c5228e6e48c3eb91f82d74387de09674b345ab1f7e949251130803cf36585d"
         }
     },
     "pre_install": [
