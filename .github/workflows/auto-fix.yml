@@ -98,7 +98,7 @@ jobs:
             const apps = new Set();
             const checkverApps = new Set();
 
-            const appColonRe = /^\s*(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|error))(?!.*autoupdate available).*$/gim;
+            const appColonRe = /^\s*(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|\berr(?:or)?\b))(?!.*autoupdate available).*$/gim;
             for (const m of text.matchAll(appColonRe)) {
               apps.add(m[1]);
             }
@@ -109,7 +109,7 @@ jobs:
               checkverApps.add(m[1]);
             }
 
-            const errorUpdateRe = /ERROR Could not update ([A-Za-z0-9._-]+)/gim;
+            const errorUpdateRe = /\bERR(?:OR)?\s*:?\s*Could not update\s+([A-Za-z0-9._-]+)/gim;
             for (const m of text.matchAll(errorUpdateRe)) {
               apps.add(m[1]);
             }
