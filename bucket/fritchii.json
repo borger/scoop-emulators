@@ -1,5 +1,5 @@
 {
-    "version": "4.1",
+    "version": "5",
     "description": "Fritchii is a fork of Lichii for Nintendo Switch emulation",
     "homepage": "https://github.com/Frizti/Fritchii",
     "license": "GPL-3.0",
@@ -9,11 +9,11 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/Frizti/Fritchii/releases/download/fritchii-v4.1/Fritchii-v4.1-Windows-x64.zip",
-            "hash": "181C7CF276421263EB8B4AB118814A0FD29FFB92A3CADA915FBDA3B5B18A2F30"
+            "url": "https://github.com/Frizti/Fritchii/releases/download/fritchii-v5/Fritchii-v5-Windows-x64.zip",
+            "hash": "f152f436d9f7d172760f1cfa60ef7119cabfd234535e447cadcae4b3637a149a"
         }
     },
-    "extract_dir": "Fritchii-v4.1",
+    "extract_dir": "Fritchii-v5",
     "pre_install": [
         "if (!(Test-Path \"$persist_dir\")) {",
         "   New-item \"$persist_dir\" -ItemType Directory | Out-Null",
