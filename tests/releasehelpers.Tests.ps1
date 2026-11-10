@@ -1,37 +1,11 @@
 Describe 'Get-ReleaseChecksum' {
     BeforeAll {
-        . "$PSScriptRoot\TestHelpers.ps1"
-        $scriptPath = Join-Path $PSScriptRoot '..\bin\lib-releasehelpers.ps1'
-        . (Get-TestFunctionScriptBlock -Path $scriptPath -Name 'Get-ReleaseChecksum')
+        . "$PSScriptRoot\..\bin\lib-releasehelpers.ps1"
     }
 
     It 'matches checksum filenames exactly and case-insensitively' {
         Mock Invoke-RestMethod {
             ('a' * 64) + '  dist/APP[1].ZIP'
-        }
-        $assets = @(
-            @{ name = 'checksums.sha256'; browser_download_url = 'https://example.test/checksums.sha256' }
-        )
-
-        Get-ReleaseChecksum -Assets $assets -TargetAssetName 'app[1].zip' |
-            Should -Be ('a' * 64)
-    }
-
-    It 'does not use a checksum for a partially matching filename' {
-        Mock Invoke-RestMethod {
-            ('b' * 64) + '  app.zip.old'
-        }
-        $assets = @(
-            @{ name = 'checksums.sha256'; browser_download_url = 'https://example.test/checksums.sha256' }
-        )
-
-        Get-ReleaseChecksum -Assets $assets -TargetAssetName 'app.zip' |
-            Should -BeNullOrEmpty
-    }
-
-    It 'supports filename-first checksum lines and normalizes uppercase hashes' {
-        Mock Invoke-RestMethod {
-            'APP[1].ZIP  ' + ('A' * 64)
         }
         $assets = @(
             @{ name = 'checksums.sha256'; browser_download_url = 'https://example.test/checksums.sha256' }
@@ -51,6 +25,31 @@ Describe 'Get-ReleaseChecksum' {
         ) -TargetAssetName '' | Should -BeNullOrEmpty
 
         Should -Invoke Invoke-RestMethod -Times 0
+    }
+}
+
+Describe 'ConvertFrom-ChecksumContent' {
+    BeforeAll {
+        . "$PSScriptRoot\..\bin\lib-releasehelpers.ps1"
+    }
+
+    It 'parses checksum-first and filename-first entries case-insensitively' {
+        $content = @"
+$('a' * 64)  dist/APP[1].ZIP
+other.zip  $('B' * 64)
+"@
+
+        ConvertFrom-ChecksumContent -Content $content -TargetAssetName 'app[1].zip' |
+            Should -Be ('a' * 64)
+        ConvertFrom-ChecksumContent -Content $content -TargetAssetName 'other.zip' |
+            Should -Be ('b' * 64)
+    }
+
+    It 'ignores checksum entries for filenames that only partially match' {
+        $content = ('b' * 64) + '  app.zip.old'
+
+        ConvertFrom-ChecksumContent -Content $content -TargetAssetName 'app.zip' |
+            Should -BeNullOrEmpty
     }
 }
 

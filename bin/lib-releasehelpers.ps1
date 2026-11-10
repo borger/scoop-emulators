@@ -15,69 +15,79 @@ function Get-ReleaseChecksum {
 
     # Common checksum filenames we consider
     $checksumPatterns = @('*.sha256', '*.sha256sum', '*.sha256.txt', '*.checksum', '*.hashes', '*.DIGEST', '*.md5', '*.md5sum')
-    $checksumAssets = @()
-
     foreach ($pattern in $checksumPatterns) {
-        $checksumAssets += @($Assets | Where-Object { $_.name -like $pattern })
+        foreach ($checksumAsset in $Assets) {
+            if ($checksumAsset.name -notlike $pattern) { continue }
+
+            try {
+                $ProgressPreference = 'SilentlyContinue'
+
+                # Prefer invoking REST method for direct textual content when possible
+                $content = $null
+                if ($checksumAsset.browser_download_url) {
+                    try {
+                        $content = Invoke-RestMethod -Uri $checksumAsset.browser_download_url -ErrorAction Stop
+                    } catch {
+                        # Fallback to using Invoke-WebRequest and temp file for binary-like responses
+                        $tempFile = [System.IO.Path]::GetTempFileName()
+                        try {
+                            Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing | Out-Null
+                            $content = Get-Content -Path $tempFile -Raw
+                        } finally {
+                            if (Test-Path $tempFile) { Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue }
+                        }
+                    }
+                } else {
+                    # If no download URL provided, attempt to use asset.url
+                    try { $content = Invoke-RestMethod -Uri $checksumAsset.url -ErrorAction Stop } catch { continue }
+                }
+
+                if (-not $content) { continue }
+                if ($content -isnot [string]) { $content = $content | Out-String }
+
+                $hash = ConvertFrom-ChecksumContent -Content $content -TargetAssetName $TargetAssetName
+                if ($hash) {
+                    Write-Verbose ('[OK] Found SHA256 from release: {0}' -f $hash)
+                    return $hash
+                }
+            } catch {
+                Write-Verbose ('[WARN] Failed to parse checksum file: {0}' -f $_)
+            }
+        }
     }
 
-    if ($checksumAssets.Count -eq 0) { return $null }
+    return $null
+}
 
-    foreach ($checksumAsset in $checksumAssets) {
-        try {
-            $ProgressPreference = 'SilentlyContinue'
+function ConvertFrom-ChecksumContent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Content,
 
-            # Prefer invoking REST method for direct textual content when possible
-            $content = $null
-            if ($checksumAsset.browser_download_url) {
-                try {
-                    $content = Invoke-RestMethod -Uri $checksumAsset.browser_download_url -ErrorAction Stop
-                } catch {
-                    # Fallback to using Invoke-WebRequest and temp file for binary-like responses
-                    $tempFile = [System.IO.Path]::GetTempFileName()
-                    try {
-                        Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $tempFile -ErrorAction Stop -UseBasicParsing | Out-Null
-                        $content = Get-Content -Path $tempFile -Raw
-                    } finally {
-                        if (Test-Path $tempFile) { Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue }
-                    }
-                }
+        [Parameter(Mandatory)]
+        [string]$TargetAssetName
+    )
+
+    $targetFileName = [System.IO.Path]::GetFileName($TargetAssetName)
+    foreach ($line in ($Content -split "`n")) {
+        if ($line -notmatch '\S') { continue }
+
+        if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
+            $firstValue = $matches[1]
+            $secondValue = $matches[2]
+            if ($firstValue -match '^[a-f0-9]{64}$') {
+                $hash = $firstValue
+                $filename = $secondValue
             } else {
-                # If no download URL provided, attempt to use asset.url
-                try { $content = Invoke-RestMethod -Uri $checksumAsset.url -ErrorAction Stop } catch { continue }
+                $hash = $secondValue
+                $filename = $firstValue
             }
 
-            if (-not $content) { continue }
-
-            if ($content -isnot [string]) { $content = $content | Out-String }
-
-            $lines = $content -split "`n" | Where-Object { $_ -match '\S' }
-
-            foreach ($line in $lines) {
-                if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
-                    $firstValue = $matches[1]
-                    $secondValue = $matches[2]
-                    if ($firstValue -match '^[a-f0-9]{64}$') {
-                        $hash = $firstValue
-                        $filename = $secondValue
-                    } else {
-                        $hash = $secondValue
-                        $filename = $firstValue
-                    }
-
-                    $hash = $hash.ToLowerInvariant()
-                    $filename = $filename.Trim().Trim('*')
-                    $checksumFileName = [System.IO.Path]::GetFileName($filename)
-                    $targetFileName = [System.IO.Path]::GetFileName($TargetAssetName)
-
-                    if ($checksumFileName.Equals($targetFileName, [System.StringComparison]::OrdinalIgnoreCase)) {
-                        Write-Verbose ('[OK] Found SHA256 from release: {0}' -f $hash)
-                        return $hash
-                    }
-                }
+            $checksumFileName = [System.IO.Path]::GetFileName($filename.Trim().Trim('*'))
+            if ($checksumFileName.Equals($targetFileName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $hash.ToLowerInvariant()
             }
-        } catch {
-            Write-Verbose ('[WARN] Failed to parse checksum file: {0}' -f $_)
         }
     }
 
