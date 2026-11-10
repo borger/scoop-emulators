@@ -30,6 +30,7 @@ $ErrorActionPreference = 'Stop'
 
 $scoopHome = Get-ScoopHome
 $missing_checkver = "$scoopHome/bin/missing-checkver.ps1"
-$dir = "$PSScriptRoot/../bucket" # checks the parent dir
-& $missing_checkver -Dir $dir @Args
+$dir = Join-Path $PSScriptRoot '..\bucket'
+$arguments = Get-DirectoryArgumentList -Arguments $Args -DefaultDirectory $dir
+& $missing_checkver @arguments
 

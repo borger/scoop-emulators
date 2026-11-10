@@ -40,3 +40,23 @@ exit 0
         } | Should -Throw "*PowerShell script not found*"
     }
 }
+
+Describe 'Resolve-BucketPath' {
+    BeforeAll {
+        . "$PSScriptRoot\TestHelpers.ps1"
+        $scriptPath = Join-Path $PSScriptRoot '..\bin\validate-and-merge.ps1'
+        . (Get-TestFunctionScriptBlock -Path $scriptPath -Name 'Resolve-BucketPath')
+    }
+
+    It 'defaults to the directory containing the manifest' {
+        $manifestPath = Join-Path (Join-Path $TestDrive 'bucket') 'app.json'
+
+        Resolve-BucketPath -ManifestPath $manifestPath |
+            Should -Be (Split-Path -Parent $manifestPath)
+    }
+
+    It 'preserves an explicitly supplied bucket path' {
+        Resolve-BucketPath -ManifestPath 'C:\repo\bucket\app.json' -BucketPath 'C:\custom\bucket' |
+            Should -Be 'C:\custom\bucket'
+    }
+}

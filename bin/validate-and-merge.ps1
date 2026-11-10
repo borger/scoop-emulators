@@ -31,7 +31,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ManifestPath,
 
-    [string]$BucketPath = (Split-Path -Parent (Split-Path -Parent $ManifestPath)),
+    [string]$BucketPath,
 
     [Parameter(Mandatory = $true)]
     [int]$PullRequestNumber,
@@ -48,6 +48,19 @@ $ErrorActionPreference = 'Stop'
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
 # --- Helpers ---
+
+function Resolve-BucketPath {
+    param(
+        [string]$ManifestPath,
+        [string]$BucketPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($BucketPath)) {
+        return $BucketPath
+    }
+
+    return Split-Path -Parent $ManifestPath
+}
 
 function Invoke-GitHubApi {
     param(
@@ -102,6 +115,7 @@ function Merge-PR {
 
 # --- Main Logic ---
 
+$BucketPath = Resolve-BucketPath -ManifestPath $ManifestPath -BucketPath $BucketPath
 $appName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
 $binDir = Join-Path (Split-Path -Parent $PSScriptRoot) "bin"
 

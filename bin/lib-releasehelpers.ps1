@@ -122,6 +122,25 @@ function Get-ScoopHome {
     return "$env:USERPROFILE\scoop\apps\scoop\current"
 }
 
+function Get-DirectoryArgumentList {
+    [CmdletBinding()]
+    param(
+        [object[]]$Arguments = @(),
+
+        [Parameter(Mandatory)]
+        [string]$DefaultDirectory
+    )
+
+    $argumentList = @($Arguments)
+    foreach ($argument in $argumentList) {
+        if ($argument -ieq '-Dir' -or $argument -like '-Dir:*') {
+            return $argumentList
+        }
+    }
+
+    return @('-Dir', $DefaultDirectory) + $argumentList
+}
+
 function Invoke-PowerShellScript {
     [CmdletBinding()]
     param(

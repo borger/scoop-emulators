@@ -178,6 +178,52 @@ function Update-ManifestUrls {
     return $Manifest
 }
 
+function Get-ManifestVersionFromCheckverOutput {
+    [CmdletBinding()]
+    param(
+        [string]$Output,
+        [string]$AppName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Output) -or [string]::IsNullOrWhiteSpace($AppName)) {
+        return $null
+    }
+
+    $appPattern = '^\s*{0}\s*:(?<tail>.*)$' -f [regex]::Escape($AppName)
+    $lines = $Output -split "`r?`n"
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        if ($lines[$index] -notmatch $appPattern) {
+            continue
+        }
+
+        $versionLine = $matches['tail'].Trim()
+        if (-not $versionLine) {
+            for ($nextIndex = $index + 1; $nextIndex -lt $lines.Count; $nextIndex++) {
+                if ($lines[$nextIndex] -match '^\(scoop version') {
+                    continue
+                }
+                if (-not [string]::IsNullOrWhiteSpace($lines[$nextIndex])) {
+                    $versionLine = $lines[$nextIndex].Trim()
+                    break
+                }
+            }
+        }
+
+        if (-not $versionLine -or
+            $versionLine -match '(?i)\b(?:error|failed|not found|could not|couldn''t|unable|invalid|rate limit|forbidden|unauthorized)\b') {
+            return $null
+        }
+
+        if ($versionLine -match '^(?<version>\S+)') {
+            return $matches['version']
+        }
+
+        return $null
+    }
+
+    return $null
+}
+
 ## Use shared Get-ReleaseChecksum from bin/lib-releasehelpers.ps1
 
 try {
@@ -239,14 +285,7 @@ try {
 
     Write-Verbose "Checkver output: '$checkverOutput'"
 
-    # Parse the output to find the latest version. Support arbitrary tokens (dates, hashes, semantic versions).
-    # Prefer the form: "appname: <version> (scoop version is ...)", otherwise take the first non-space token after the colon.
-    $latestVersion = $null
-    if ($checkverOutput -match "$([regex]::Escape($AppName)):\s*(\S+)\s*\(scoop version") {
-        $latestVersion = $matches[1]
-    } elseif ($checkverOutput -match "$([regex]::Escape($AppName)):\s*(\S+)") {
-        $latestVersion = $matches[1]
-    }
+    $latestVersion = Get-ManifestVersionFromCheckverOutput -Output $checkverOutput -AppName $AppName
 
     if (-not $latestVersion) {
         Write-Error "Could not parse version from checkver output: $checkverOutput"

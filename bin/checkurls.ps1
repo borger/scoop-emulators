@@ -34,6 +34,7 @@ $ErrorActionPreference = 'Stop'
 
 $scoopHome = Get-ScoopHome
 $checkurls = "$scoopHome/bin/checkurls.ps1"
-$dir = "$PSScriptRoot/../bucket" # checks the parent dir
-& $checkurls -Dir $dir @Args
+$dir = Join-Path $PSScriptRoot '..\bucket'
+$arguments = Get-DirectoryArgumentList -Arguments $Args -DefaultDirectory $dir
+& $checkurls @arguments
 

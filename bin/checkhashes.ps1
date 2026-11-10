@@ -34,6 +34,7 @@ $ErrorActionPreference = 'Stop'
 
 $scoopHome = Get-ScoopHome
 $checkhashes = "$scoopHome/bin/checkhashes.ps1"
-$dir = "$PSScriptRoot/../bucket" # checks the parent dir
-& $checkhashes -Dir $dir @Args
+$dir = Join-Path $PSScriptRoot '..\bucket'
+$arguments = Get-DirectoryArgumentList -Arguments $Args -DefaultDirectory $dir
+& $checkhashes @arguments
 

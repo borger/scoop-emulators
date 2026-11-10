@@ -72,3 +72,25 @@ Describe 'Update-ManifestUrls' {
         } | Should -Throw "*'arm64'*no matching architecture*"
     }
 }
+
+Describe 'Get-ManifestVersionFromCheckverOutput' {
+    BeforeAll {
+        . "$PSScriptRoot\TestHelpers.ps1"
+        $scriptPath = Join-Path $PSScriptRoot '..\bin\update-manifest.ps1'
+        . (Get-TestFunctionScriptBlock -Path $scriptPath -Name 'Get-ManifestVersionFromCheckverOutput')
+    }
+
+    It 'does not parse an HTTP error message as the latest version' {
+        $output = 'app: The remote server returned an error: (404) Not Found.'
+
+        Get-ManifestVersionFromCheckverOutput -Output $output -AppName 'app' |
+            Should -BeNullOrEmpty
+    }
+
+    It 'extracts a version from a separate line after the app name' {
+        $output = "app:`r`n2.3.4 (scoop version is 2.2.0)"
+
+        Get-ManifestVersionFromCheckverOutput -Output $output -AppName 'app' |
+            Should -Be '2.3.4'
+    }
+}

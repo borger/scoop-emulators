@@ -33,6 +33,7 @@ $ErrorActionPreference = 'Stop'
 
 $scoopHome = Get-ScoopHome
 $formatjson = "$scoopHome/bin/formatjson.ps1"
-$path = "$PSScriptRoot/../bucket" # checks the parent dir
-& $formatjson -Dir $path @Args
+$dir = Join-Path $PSScriptRoot '..\bucket'
+$arguments = Get-DirectoryArgumentList -Arguments $Args -DefaultDirectory $dir
+& $formatjson @arguments
 

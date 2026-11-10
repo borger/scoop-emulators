@@ -53,3 +53,22 @@ Describe 'Get-ReleaseChecksum' {
         Should -Invoke Invoke-RestMethod -Times 0
     }
 }
+
+Describe 'Get-DirectoryArgumentList' {
+    BeforeAll {
+        . "$PSScriptRoot\..\bin\lib-releasehelpers.ps1"
+    }
+
+    It 'preserves an explicitly supplied directory argument' {
+        $arguments = @(Get-DirectoryArgumentList -Arguments @('-App', 'gopher64', '-Dir', 'custom-bucket') `
+                -DefaultDirectory 'bucket')
+
+        $arguments | Should -Be @('-App', 'gopher64', '-Dir', 'custom-bucket')
+    }
+
+    It 'adds the default directory without changing other arguments' {
+        $arguments = @(Get-DirectoryArgumentList -Arguments @('-App', 'gopher64') -DefaultDirectory 'bucket')
+
+        $arguments | Should -Be @('-Dir', 'bucket', '-App', 'gopher64')
+    }
+}
