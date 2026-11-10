@@ -266,15 +266,15 @@ GPLv2 (same as bucket)
 
 Quick reference for all PowerShell scripts in the `bin/` directory.
 
-## Formatting and Linting
+## JSON Formatting
 
-Pre-commit formats changed JSON manifests with Oxfmt. Run it manually for all files with:
+Pre-commit formats JSON manifests with the PowerShell `formatjson.ps1` wrapper, which keeps short arrays and nested-array entries inline style. Run it manually for all manifests with:
 
 ```powershell
-pre-commit run oxfmt --all-files
+pre-commit run formatjson --all-files
 ```
 
-The repository does not currently contain JavaScript or TypeScript files, so Oxlint is not configured.
+Oxlint is not configured because the repository does not currently contain JavaScript or TypeScript files.
 
 ## Manifest Creation & Automation
 
@@ -486,7 +486,7 @@ The repository does not currently contain JavaScript or TypeScript files, so Oxl
 
 ### formatjson.ps1
 
-**Purpose**: Format and validate JSON structure using Scoop's formatter.
+**Purpose**: Format and validate JSON structure using Scoop's formatter with Oxfmt-style array layout.
 
 **Usage**:
 
@@ -504,7 +504,7 @@ The repository does not currently contain JavaScript or TypeScript files, so Oxl
 - Valid JSON structure
 - Consistent formatting
 
-**Note**: Oxfmt is used by the pre-commit hook to format bucket manifests.
+**Note**: The pre-commit hook uses this script and applies Oxfmt-style formatting to short arrays.
 
 ---
 
