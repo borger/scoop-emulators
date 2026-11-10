@@ -4,7 +4,7 @@
 Run Pester tests for the bucket.
 
 .DESCRIPTION
-Executes all Pester tests defined in the Scoop-Bucket.Tests.ps1 file.
+Executes the repository's Pester tests.
 Tests validate manifest structure, checksums, and functionality.
 
 .EXAMPLE
@@ -28,7 +28,7 @@ https://github.com/borger/scoop-emulators
 
 $pesterConfig = New-PesterConfiguration -Hashtable @{
     Run    = @{
-        Path     = "$PSScriptRoot/.."
+        Path     = (Join-Path $PSScriptRoot '..')
         PassThru = $true
     }
     Output = @{

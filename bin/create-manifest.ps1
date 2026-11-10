@@ -1993,7 +1993,11 @@ function ConvertTo-JsonValue {
     }
 
     if ($Value -is [bool]) {
-        return if ($Value) { 'true' } else { 'false' }
+        if ($Value) {
+            return 'true'
+        }
+
+        return 'false'
     }
 
     if ($Value -is [int] -or $Value -is [long] -or $Value -is [double]) {
@@ -2011,7 +2015,7 @@ function ConvertTo-JsonValue {
                 $subIndent = ' ' * ($Indent + 4)
                 if ($item -is [array]) {
                     $subElements = $item | ForEach-Object { ConvertTo-JsonValue -Value $_ -Indent ($Indent + 8) }
-                    $joined = $subElements -join "`n$subIndent  "
+                    $joined = $subElements -join ",`n$subIndent  "
                     return $subIndent + '[' + "`n" + $subIndent + '  ' + $joined + "`n" + $subIndent + ']'
                 } else {
                     "$subIndent$(ConvertTo-JsonValue -Value $item -Indent ($Indent + 4))"
