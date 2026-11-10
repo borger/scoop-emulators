@@ -24,6 +24,12 @@ Describe 'Invoke-ManifestCreation' {
             title  = ''
             body   = ''
         } | Should -BeTrue
+
+        Test-ManifestRequest -Issue @{
+            labels = @(@{ name = 'package-request' })
+            title  = ''
+            body   = ''
+        } | Should -BeTrue
     }
 
     It 'passes supported issue-creation options to the child script' {

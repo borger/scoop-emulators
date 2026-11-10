@@ -6,7 +6,7 @@ on:
 
 jobs:
   process-request:
-    if: contains(github.event.issue.labels.*.name, 'request-emulator') || contains(github.event.issue.labels.*.name, 'add-app')
+    if: contains(github.event.issue.labels.*.name, 'request-emulator') || contains(github.event.issue.labels.*.name, 'add-app') || contains(github.event.issue.labels.*.name, 'package-request')
     runs-on: windows-latest
     permissions:
       contents: write

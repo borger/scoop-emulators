@@ -43,7 +43,7 @@ Write-Host "=== Processing Issue #$IssueNumber ===" -ForegroundColor Cyan
 function Test-ManifestRequest {
     param([object]$Issue)
 
-    $requestLabels = @("request-manifest", "emulator-request", "add-emulator", "request-emulator", "add-app")
+    $requestLabels = @("request-manifest", "emulator-request", "add-emulator", "request-emulator", "add-app", "package-request")
     $hasRequestLabel = $false
 
     foreach ($label in $Issue.labels) {
