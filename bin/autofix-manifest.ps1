@@ -168,14 +168,22 @@ function Get-OpenAutoFixIssues {
     # and a label-filtered lookup would never find it - producing exactly the
     # hourly duplicates this check exists to prevent. The body marker is the
     # authoritative key, so match on that instead.
-    $apiUrl = "https://api.github.com/repos/$Repository/issues?state=open&per_page=100"
+    $result = @()
+    for ($page = 1; ; $page++) {
+        $apiUrl = "https://api.github.com/repos/$Repository/issues?state=open&per_page=100&page=$page"
 
-    try {
-        $result = Invoke-RestMethod -Uri $apiUrl -Method GET -Headers (Get-GitHubApiHeaders -Token $Token) -ErrorAction Stop
-    } catch {
-        Write-Host '[WARN] Issue lookup failed: ' -NoNewline
-        Write-Host (Get-ApiErrorDetail -ErrorRecord $_ -Url $apiUrl) -ForegroundColor Yellow
-        throw
+        try {
+            $pageResult = @(Invoke-RestMethod -Uri $apiUrl -Method GET -Headers (Get-GitHubApiHeaders -Token $Token) -ErrorAction Stop)
+        } catch {
+            Write-Host '[WARN] Issue lookup failed: ' -NoNewline
+            Write-Host (Get-ApiErrorDetail -ErrorRecord $_ -Url $apiUrl) -ForegroundColor Yellow
+            throw
+        }
+
+        $result += $pageResult
+        if ($pageResult.Count -lt 100) {
+            break
+        }
     }
 
     # The issues endpoint also returns pull requests; drop them.
