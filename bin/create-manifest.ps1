@@ -2728,6 +2728,14 @@ try {
         "  .\bin\check-manifest-install.ps1 -ManifestPath bucket\$cleanedAppName.json" | Write-Status -Level Info
     }
 
+    if ($CreatePR) {
+        '' | Write-Status
+        'Creating Pull Request...' | Write-Status -Level Step
+        New-PullRequest -ManifestPath $manifestPath -AppName $cleanedAppName `
+            -Version $repoInfo.Version -RepoUrl $repoInfo.RepoUrl `
+            -Token $GitHubToken -Repository $GitHubRepository
+    }
+
     if ($issueInfo) {
         '' | Write-Status
         'Updating GitHub issue...' | Write-Status -Level Step
@@ -2760,14 +2768,6 @@ try {
         Update-IssueComment -IssueNumber $issueInfo.IssueNumber -Token $GitHubToken -Comment $commentText -Labels @('manifest-created') -Confirm:$false
     }
 
-    if ($CreatePR) {
-        '' | Write-Status
-        'Creating Pull Request...' | Write-Status -Level Step
-        New-PullRequest -ManifestPath $manifestPath -AppName $cleanedAppName `
-            -Version $repoInfo.Version -RepoUrl $repoInfo.RepoUrl `
-            -Token $GitHubToken -Repository $GitHubRepository
-    }
-
     '' | Write-Status
     '========================================' | Write-Status -Level OK
     'Manifest created successfully!' | Write-Status -Level OK
@@ -2796,7 +2796,7 @@ try {
 
     if ($issueInfo -and $GitHubToken) {
         try {
-            $errorComment = '[FAIL] Failed to create manifest: ' + $_.Exception.Message
+            $errorComment = '[FAIL] Automated manifest processing failed: ' + $_.Exception.Message
             Update-IssueComment -IssueNumber $issueInfo.IssueNumber -Token $GitHubToken -Comment $errorComment -Labels @('needs-investigation') -Confirm:$false
         } catch {
             'Could not update GitHub issue with error info' | Write-Status -Level Warn
