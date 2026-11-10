@@ -18,7 +18,10 @@ Describe 'Manifest creation helper functions' {
                     'Get-ManifestLicense',
                     'Get-ManifestArchitecture',
                     'New-ScoopManifest',
-                    'Test-GitHubCliAuthentication',
+                    'Resolve-GitHubRepository',
+                    'Get-GitHubApiHeaders',
+                    'Get-GitHubApiBaseUrl',
+                    'Get-GitHubDefaultBranch',
                     'Invoke-GitHubPullRequestCreate'
                 ))) {
             . $functionBlock
@@ -26,7 +29,6 @@ Describe 'Manifest creation helper functions' {
         $libraryPath = Join-Path $PSScriptRoot '..\bin\lib-releasehelpers.ps1'
         . (Get-TestFunctionScriptBlock -Path $libraryPath -Name 'Invoke-PowerShellScript')
 
-        function gh {}
         function git {}
     }
 
@@ -164,42 +166,56 @@ Describe 'Manifest creation helper functions' {
         $output | Should -Be "first`r`nsecond`r`n"
     }
 
-    It 'checks GitHub CLI authentication by exit code' {
-        Mock gh {
-            $global:LASTEXITCODE = 1
-            'not authenticated'
+    It 'creates pull requests through the GitHub REST API' {
+        $script:apiRequests = @()
+        Mock Invoke-RestMethod {
+            $script:apiRequests += [PSCustomObject]@{
+                Uri     = $Uri
+                Method  = $Method
+                Headers = $Headers
+                Body    = $Body
+            }
+            if ($Method -eq 'Get') {
+                return [PSCustomObject]@{ default_branch = 'main' }
+            }
+            return [PSCustomObject]@{ html_url = 'https://github.com/owner/repo/pull/42' }
         }
 
-        Test-GitHubCliAuthentication | Should -BeFalse
+        $defaultBranch = Get-GitHubDefaultBranch -Repository 'owner/repo' -Token 'test-token'
+        $url = Invoke-GitHubPullRequestCreate -Repository 'owner/repo' -Token 'test-token' `
+            -Head 'owner:add-app-1.2.3' -Base $defaultBranch -Title 'Title' -Body "Body`n"
 
-        Mock gh {
-            $global:LASTEXITCODE = 0
-            'authenticated'
-        }
-
-        Test-GitHubCliAuthentication | Should -BeTrue
+        $defaultBranch | Should -Be 'main'
+        $url | Should -Be 'https://github.com/owner/repo/pull/42'
+        $apiRequests.Count | Should -Be 2
+        $apiRequests[1].Uri | Should -Be 'https://api.github.com/repos/owner/repo/pulls'
+        $apiRequests[1].Headers.Authorization | Should -Be 'Bearer test-token'
+        $payload = $apiRequests[1].Body | ConvertFrom-Json
+        $payload.head | Should -Be 'owner:add-app-1.2.3'
+        $payload.base | Should -Be 'main'
+        $payload.body | Should -Be "Body`n"
     }
 
-    It 'creates pull requests noninteractively and reports CLI failures' {
-        Mock gh {
-            $script:pullRequestArguments = $args
+    It 'resolves a GitHub repository from an HTTPS or SSH origin remote' {
+        $script:remoteUrl = 'https://github.com/owner/repo.git'
+        Mock git {
             $global:LASTEXITCODE = 0
-            'pull request created'
+            $script:remoteUrl
         }
 
-        Invoke-GitHubPullRequestCreate -Title 'Title' -Body 'Body' |
-            Should -Be 'pull request created'
-        $pullRequestArguments | Should -Be @('pr', 'create', '--title', 'Title', '--body', 'Body')
-        $pullRequestArguments | Should -Not -Contain '--web'
+        Resolve-GitHubRepository -Repository '' | Should -Be 'owner/repo'
 
-        Mock gh {
-            $global:LASTEXITCODE = 1
-            'creation failed'
-        }
+        $script:remoteUrl = 'git@github.com:owner/repo.git'
+        Resolve-GitHubRepository -Repository '' | Should -Be 'owner/repo'
+    }
+
+    It 'surfaces GitHub API pull request creation failures' {
+        Mock Invoke-RestMethod { throw 'Forbidden' }
 
         {
-            Invoke-GitHubPullRequestCreate -Title 'Title' -Body 'Body'
-        } | Should -Throw '*exit code 1*creation failed*'
+            Invoke-GitHubPullRequestCreate -Repository 'owner/repo' -Token 'test-token' `
+                -Head 'owner:branch' -Base 'main' -Title 'Title' -Body 'Body'
+        } | Should -Throw "*GitHub API failed to create a pull request*Forbidden*"
     }
 
     It 'runs validation scripts in child processes and records their exit codes' {
@@ -271,9 +287,8 @@ exit 0
     }
 
     It 'surfaces branch push failures instead of reporting PR creation as successful' {
-        Mock gh {
-            $global:LASTEXITCODE = 0
-            'authenticated'
+        Mock Invoke-RestMethod {
+            [PSCustomObject]@{ default_branch = 'main' }
         }
         Mock git {
             $script:gitCommands += ($args -join ' ')
@@ -283,7 +298,8 @@ exit 0
 
         {
             New-PullRequest -ManifestPath 'bucket\app.json' -AppName 'app' `
-                -Version '1.2.3' -RepoUrl 'https://github.com/owner/app'
+                -Version '1.2.3' -RepoUrl 'https://github.com/owner/app' `
+                -Token 'test-token' -Repository 'owner/repo'
         } | Should -Throw '*Failed to push the manifest branch*'
 
         $script:gitCommands | Should -Be @(
@@ -295,21 +311,21 @@ exit 0
     }
 
     It 'formats the PR body with actual newlines' {
-        Mock gh {
-            $global:LASTEXITCODE = 0
-            'authenticated'
-        }
         Mock git { $global:LASTEXITCODE = 0 }
-        Mock Invoke-GitHubPullRequestCreate {
-            $script:capturedPullRequestBody = $Body
-            return 'pull request created'
+        Mock Invoke-RestMethod {
+            if ($Method -eq 'Get') {
+                return [PSCustomObject]@{ default_branch = 'main' }
+            }
+            $script:capturedPullRequestBody = (ConvertFrom-Json $Body).body
+            return [PSCustomObject]@{ html_url = 'https://github.com/owner/repo/pull/42' }
         }
 
         $script:capturedPullRequestBody = $null
         $result = New-PullRequest -ManifestPath 'bucket\app.json' -AppName 'app' `
-            -Version '1.2.3' -RepoUrl 'https://github.com/owner/app'
+            -Version '1.2.3' -RepoUrl 'https://github.com/owner/app' `
+            -Token 'test-token' -Repository 'owner/repo'
 
-        $result | Should -Be 'pull request created'
+        $result | Should -Be 'https://github.com/owner/repo/pull/42'
         $script:capturedPullRequestBody | Should -Be "Added manifest for [app](https://github.com/owner/app) version 1.2.3`n`nAuto-generated by create-manifest.ps1."
     }
 }
