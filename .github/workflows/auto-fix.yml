@@ -444,6 +444,11 @@ jobs:
               $serialized = ConvertTo-Json -InputObject $manifest -Depth 100
               $utf8NoBom = New-Object System.Text.UTF8Encoding $false
               [System.IO.File]::WriteAllText($manifestPath, $serialized + "`n", $utf8NoBom)
+              $formatScript = Join-Path $scriptsPath 'formatjson.ps1'
+              $formatOutput = & $formatScript -Dir $bucketPath -App $app 2>&1
+              if (-not $?) {
+                throw "Failed to format manifest '$manifestPath': $formatOutput"
+              }
 
               $checkverResult = Invoke-PowerShellScript -Path (Join-Path $scriptsPath 'checkver.ps1') `
                 -ArgumentList @('-App', $app, '-Dir', $bucketPath)
