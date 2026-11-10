@@ -67,6 +67,26 @@ function Test-ManifestRequest {
     return $false
 }
 
+function Get-ManifestNamesFromIssue {
+    param(
+        [string]$Title,
+        [string]$Body
+    )
+
+    $issueText = '{0}{1}{2}' -f $Title, [Environment]::NewLine, $Body
+    $pattern = '(?:bucket[/\\])?([a-z0-9_-]+)\.json|(?:manifest|app)\s+([a-z0-9_-]+)'
+    $matches = [regex]::Matches($issueText, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $names = foreach ($match in $matches) {
+        if ($match.Groups[1].Success) {
+            $match.Groups[1].Value
+        } elseif ($match.Groups[2].Success) {
+            $match.Groups[2].Value
+        }
+    }
+
+    return @($names | ForEach-Object { $_.ToLowerInvariant() } | Select-Object -Unique)
+}
+
 # Get issue details from GitHub API
 function Get-IssueDetails {
     param([int]$IssueNum, [string]$Repo, [string]$Token)
@@ -215,19 +235,8 @@ cc: @beyondmeat
     }
 }
 
-# Extract manifest names from issue (look for references like "manifests/app-name.json" or "app-name")
-$manifestMatches = $issue.title + "`n" + $issue.body | Select-String -Pattern "(?:bucket/)?(\w+)\.json|(?:manifest|app)\s+([a-z0-9\-]+)" -AllMatches
-
-$manifestsToFix = @()
-foreach ($match in $manifestMatches.Matches) {
-    if ($match.Groups[1].Value) {
-        $manifestsToFix += $match.Groups[1].Value
-    } elseif ($match.Groups[2].Value) {
-        $manifestsToFix += $match.Groups[2].Value
-    }
-}
-
-$manifestsToFix = $manifestsToFix | Select-Object -Unique
+# Extract manifest names from issue (look for references like "bucket\app-name.json" or "app-name")
+$manifestsToFix = @(Get-ManifestNamesFromIssue -Title $issue.title -Body $issue.body)
 
 if ($manifestsToFix.Count -eq 0) {
     $comment = '[WARN] Could not identify manifest names from issue. Please include manifest names explicitly (e.g., ''app-name.json'' or ''Fix app-name'').'

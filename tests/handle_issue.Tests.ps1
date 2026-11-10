@@ -6,6 +6,7 @@ Describe 'Invoke-ManifestCreation' {
         $scriptPath = Join-Path $PSScriptRoot '..\bin\handle-issue.ps1'
         foreach ($functionBlock in (Get-TestFunctionScriptBlock -Path $scriptPath -Name @(
                     'Test-ManifestRequest',
+                    'Get-ManifestNamesFromIssue',
                     'Invoke-ManifestCreation'
                 ))) {
             . $functionBlock
@@ -44,6 +45,13 @@ Describe 'Invoke-ManifestCreation' {
             title  = 'Please add this emulator'
             body   = 'Repository: https://github.com/owner/repo'
         } | Should -BeTrue
+    }
+
+    It 'extracts complete hyphenated manifest names and removes duplicates' {
+        $names = @(Get-ManifestNamesFromIssue -Title 'Fix duckstation-preview.json' `
+                -Body 'Also check bucket\cemu-dev.json and app duckstation-preview')
+
+        $names | Should -Be @('duckstation-preview', 'cemu-dev')
     }
 
     It 'passes supported issue-creation options to the child script' {
