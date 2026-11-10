@@ -36,6 +36,8 @@ jobs:
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\scoop_core\test\bin\init.ps1
+          Install-Module -Name Pester -MinimumVersion 6.2.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Import-Module Pester -MinimumVersion 6.2.0 -Force
           .\my_bucket\bin\test.ps1
       - name: Init and Test (pwsh)
         if: matrix.shell == 'pwsh'
@@ -43,4 +45,6 @@ jobs:
         run: |
           $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
           .\scoop_core\test\bin\init.ps1
+          Install-Module -Name Pester -MinimumVersion 6.2.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Import-Module Pester -MinimumVersion 6.2.0 -Force
           .\my_bucket\bin\test.ps1

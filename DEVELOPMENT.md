@@ -532,7 +532,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ```
 
 **Requirements**:
-- Pester 5.2.0+
+- Pester 6.2.0+
 - BuildHelpers 2.0.1+
 
 **Output**: Test results summary

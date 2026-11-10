@@ -15,7 +15,7 @@ Tests validate manifest structure, checksums, and functionality.
 Pester test results with pass/fail count.
 
 .REQUIREMENTS
-- Pester 5.2.0 or higher
+- Pester 6.2.0 or higher
 - BuildHelpers 2.0.1 or higher
 
 .LINK
@@ -24,7 +24,7 @@ https://github.com/borger/scoop-emulators
 
 #Requires -Version 5.1
 #Requires -Modules @{ ModuleName = 'BuildHelpers'; ModuleVersion = '2.0.1' }
-#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.2.0' }
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.2.0' }
 
 $pesterConfig = New-PesterConfiguration -Hashtable @{
     Run    = @{
