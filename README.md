@@ -41,7 +41,6 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `bsnes-hd-beta` | SNES (HD mode7 fork) | — | [github.com/DerKoun/bsnes-hd](https://github.com/DerKoun/bsnes-hd) |
 | `bsnes-mt` | SNES (pixel-perfect fork) | — | [tanalin.com/en/projects/bsnes-mt](https://tanalin.com/en/projects/bsnes-mt/) |
 | `cemu` | Wii U | `dev` | [cemu.info](https://cemu.info) |
-| `citron` | Switch | `nightly` | [citron-neo.org](https://citron-neo.org/) |
 | `dolphin` | GameCube / Wii | `dev` | [dolphin-emu.org](https://dolphin-emu.org/) |
 | `eden` | Switch | `nightly` | [eden-emu.dev](https://eden-emu.dev/) |
 | `eglantine` | Switch 2 | — | [github.com/Eglantine-Community/Eglantine](https://github.com/Eglantine-Community/Eglantine) |

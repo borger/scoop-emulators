@@ -505,6 +505,13 @@ function Get-VersionFromCheckverOutput {
     if (-not $Output -or -not $AppName) { return $null }
 
     $normalized = $Output -replace "`r", ''
+    # Do not let an HTTP status code in a failed checkver request become a
+    # plausible numeric version (for example, interpreting "(404) Not Found"
+    # as version 404).
+    if ($normalized -match '(?im)^.*(?=.*\b404\b)(?=.*(?:error|not found|HTTP)).*$') {
+        return $null
+    }
+
     $lines = $normalized -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
 
     for ($i = 0; $i -lt $lines.Count; $i++) {

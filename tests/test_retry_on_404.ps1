@@ -1,6 +1,6 @@
 # Test: Ensure check-manifest-install will update manifest when asset URL 404s
 $ErrorActionPreference = 'Stop'
-$manifestPath = Convert-Path (Join-Path $PSScriptRoot '..\bucket\citron.json')
+$manifestPath = Convert-Path (Join-Path $PSScriptRoot '..\bucket\citron-nightly.json')
 $backup = "$manifestPath.bak"
 Copy-Item -Path $manifestPath -Destination $backup -Force
 try {
