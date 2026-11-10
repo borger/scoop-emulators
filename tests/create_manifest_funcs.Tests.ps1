@@ -15,10 +15,14 @@ Describe 'Manifest creation helper functions' {
                     'Get-ManifestPreInstall',
                     'Get-ManifestLicense',
                     'Get-ManifestArchitecture',
-                    'New-ScoopManifest'
+                    'New-ScoopManifest',
+                    'Test-GitHubCliAuthentication',
+                    'Invoke-GitHubPullRequestCreate'
                 ))) {
             . $functionBlock
         }
+
+        function gh {}
     }
 
     It 'accepts supported repository URLs and rejects unsupported values' {
@@ -153,5 +157,43 @@ Describe 'Manifest creation helper functions' {
         }
 
         $output | Should -Be "first`r`nsecond`r`n"
+    }
+
+    It 'checks GitHub CLI authentication by exit code' {
+        Mock gh {
+            $global:LASTEXITCODE = 1
+            'not authenticated'
+        }
+
+        Test-GitHubCliAuthentication | Should -BeFalse
+
+        Mock gh {
+            $global:LASTEXITCODE = 0
+            'authenticated'
+        }
+
+        Test-GitHubCliAuthentication | Should -BeTrue
+    }
+
+    It 'creates pull requests noninteractively and reports CLI failures' {
+        Mock gh {
+            $script:pullRequestArguments = $args
+            $global:LASTEXITCODE = 0
+            'pull request created'
+        }
+
+        Invoke-GitHubPullRequestCreate -Title 'Title' -Body 'Body' |
+            Should -Be 'pull request created'
+        $pullRequestArguments | Should -Be @('pr', 'create', '--title', 'Title', '--body', 'Body')
+        $pullRequestArguments | Should -Not -Contain '--web'
+
+        Mock gh {
+            $global:LASTEXITCODE = 1
+            'creation failed'
+        }
+
+        {
+            Invoke-GitHubPullRequestCreate -Title 'Title' -Body 'Body'
+        } | Should -Throw '*exit code 1*creation failed*'
     }
 }
