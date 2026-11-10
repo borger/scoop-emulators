@@ -399,6 +399,11 @@ try {
         # Convert back to JSON and save with proper formatting
         $updatedJson = $manifestJson | ConvertTo-Json -Depth 10
 
+        $formatJsonPath = Get-FormatJsonPath
+        if (-not $formatJsonPath) {
+            throw 'formatjson.ps1 not found; cannot update the manifest without formatting it.'
+        }
+
         # Write JSON with UTF-8 encoding without BOM
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
@@ -406,11 +411,9 @@ try {
         # Format the JSON properly
         $bucketDir = Split-Path $ManifestPath -Parent
         $appName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
-        $formatJsonPath = Get-FormatJsonPath
-        if ($formatJsonPath) {
-            & $formatJsonPath -Dir $bucketDir -App $appName
-        } else {
-            Write-Verbose 'formatjson.ps1 not found; leaving JSON as-is'
+        $formatOutput = & $formatJsonPath -Dir $bucketDir -App $appName 2>&1
+        if (-not $?) {
+            throw "Failed to format manifest '$ManifestPath': $formatOutput"
         }
 
         Write-Host ('[OK] Manifest version updated from {0} to {1}' -f $oldVersion, $latestVersion)

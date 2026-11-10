@@ -198,28 +198,78 @@ function Format-JsonManifest {
     $Manifest | ConvertToPrettyJson
 }
 
-$scoopHome = Get-ScoopHome
-$dir = Join-Path $PSScriptRoot '..\bucket'
-$arguments = Get-DirectoryArgumentList -Arguments $Args -DefaultDirectory $dir
+function Get-FormatJsonOptions {
+    param(
+        [object[]]$Arguments = @(),
 
-$targetDirectory = $dir
-$app = '*'
-for ($i = 0; $i -lt $arguments.Count; $i++) {
-    $argument = [string]$arguments[$i]
-    if ($argument -ieq '-Dir' -and $i + 1 -lt $arguments.Count) {
-        $targetDirectory = [string]$arguments[++$i]
-    } elseif ($argument -like '-Dir:*') {
-        $targetDirectory = $argument.Substring(5)
-    } elseif ($argument -ieq '-App' -and $i + 1 -lt $arguments.Count) {
-        $app = [string]$arguments[++$i]
-    } elseif ($argument -like '-App:*') {
-        $app = $argument.Substring(5)
-    } elseif ($argument -notlike '-*') {
-        $app = $argument
+        [Parameter(Mandatory)]
+        [string]$DefaultDirectory
+    )
+
+    $targetDirectory = $DefaultDirectory
+    $app = '*'
+    for ($i = 0; $i -lt $Arguments.Count; $i++) {
+        $argument = [string]$Arguments[$i]
+        if ($argument -ieq '-Dir') {
+            if ($i + 1 -ge $Arguments.Count -or [string]$Arguments[$i + 1] -like '-*') {
+                throw 'Option -Dir requires a directory path.'
+            }
+            $targetDirectory = [string]$Arguments[++$i]
+        } elseif ($argument -like '-Dir:*') {
+            $targetDirectory = $argument.Substring(5)
+        } elseif ($argument -ieq '-App') {
+            if ($i + 1 -ge $Arguments.Count -or [string]$Arguments[$i + 1] -like '-*') {
+                throw 'Option -App requires an app name or pattern.'
+            }
+            $app = [string]$Arguments[++$i]
+        } elseif ($argument -like '-App:*') {
+            $app = $argument.Substring(5)
+        } elseif ($argument.StartsWith('-')) {
+            throw "Unknown option: $argument"
+        } else {
+            $app = $argument
+        }
+
+        if (($argument -ieq '-Dir' -or $argument -like '-Dir:*') -and [string]::IsNullOrWhiteSpace($targetDirectory)) {
+            throw 'Option -Dir requires a directory path.'
+        }
+        if (($argument -ieq '-App' -or $argument -like '-App:*') -and [string]::IsNullOrWhiteSpace($app)) {
+            throw 'Option -App requires an app name or pattern.'
+        }
+    }
+
+    [PSCustomObject]@{
+        Directory = $targetDirectory
+        App       = $app
     }
 }
 
-Get-ChildItem -LiteralPath $targetDirectory -Filter "$app.json" -File -Recurse | ForEach-Object {
+function Get-JsonManifestFiles {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Directory,
+
+        [Parameter(Mandatory)]
+        [string]$App
+    )
+
+    $manifestFiles = @(Get-ChildItem -LiteralPath $Directory -Filter "$App.json" -File -Recurse)
+    if ($App -ne '*' -and $manifestFiles.Count -eq 0) {
+        throw "No manifest files matched '$App.json' in '$Directory'."
+    }
+
+    return $manifestFiles
+}
+
+$scoopHome = Get-ScoopHome
+$dir = Join-Path $PSScriptRoot '..\bucket'
+$arguments = Get-DirectoryArgumentList -Arguments $Args -DefaultDirectory $dir
+$options = Get-FormatJsonOptions -Arguments $arguments -DefaultDirectory $dir
+$targetDirectory = $options.Directory
+$app = $options.App
+$manifestFiles = Get-JsonManifestFiles -Directory $targetDirectory -App $app
+
+$manifestFiles | ForEach-Object {
     $content = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8
     $manifest = $content | ConvertFrom-Json -ErrorAction Stop
     $formatted = Format-JsonManifest -Manifest $manifest

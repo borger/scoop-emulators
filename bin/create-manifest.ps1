@@ -2140,7 +2140,7 @@ function Export-Manifest {
     if (Test-Path $formatScript) {
         'Formatting manifest...' | Write-Status -Level Info
         try {
-            $output = & $formatScript -App $cleanedName 2>&1
+            $output = & $formatScript -Dir $OutputDirectory -App $cleanedName 2>&1
             if ($LASTEXITCODE -ne 0) {
                 "Formatting failed: $output" | Write-Status -Level Warn
             }

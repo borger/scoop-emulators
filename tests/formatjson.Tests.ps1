@@ -5,7 +5,9 @@ Describe 'JSON array formatting' {
         foreach ($functionBlock in (Get-TestFunctionScriptBlock -Path $scriptPath -Name @(
                     'Get-JsonArrayEndIndex',
                     'Get-CompactJsonArray',
-                    'Format-JsonArrays'
+                    'Format-JsonArrays',
+                    'Get-FormatJsonOptions',
+                    'Get-JsonManifestFiles'
                 ))) {
             . $functionBlock
         }
@@ -75,5 +77,29 @@ Describe 'JSON array formatting' {
 
         $formatted = Format-JsonArrays -Json $json
         $formatted | Should -Match '"bin": \[\r?\n\s+\["first.exe", "first"\],\r?\n\s+\["second.exe", "second"\]\r?\n'
+    }
+
+    It 'rejects missing option values and unknown options rather than formatting all manifests' {
+        { Get-FormatJsonOptions -Arguments @('-App') -DefaultDirectory '.\bucket' } |
+            Should -Throw '*Option -App requires*'
+        { Get-FormatJsonOptions -Arguments @('-Dir') -DefaultDirectory '.\bucket' } |
+            Should -Throw '*Option -Dir requires*'
+        { Get-FormatJsonOptions -Arguments @('-Ap', 'game') -DefaultDirectory '.\bucket' } |
+            Should -Throw '*Unknown option: -Ap*'
+    }
+
+    It 'parses the app and directory options' {
+        $options = Get-FormatJsonOptions -Arguments @('-Dir', '.\bucket', '-App', 'game') -DefaultDirectory '.\default'
+
+        $options.Directory | Should -Be '.\bucket'
+        $options.App | Should -Be 'game'
+    }
+
+    It 'fails when a requested app has no matching manifest' {
+        $directory = Join-Path $TestDrive 'manifests'
+        $null = New-Item -ItemType Directory -Path $directory
+
+        { Get-JsonManifestFiles -Directory $directory -App 'missing' } |
+            Should -Throw "*No manifest files matched 'missing.json'*"
     }
 }

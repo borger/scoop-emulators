@@ -113,6 +113,25 @@ $ErrorActionPreference = 'Stop'
 $lib = Join-Path $PSScriptRoot 'lib-releasehelpers.ps1'
 if (Test-Path $lib) { . $lib }
 
+function Format-ManifestFile {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $formatScript = Join-Path $PSScriptRoot 'formatjson.ps1'
+    if (-not (Test-Path -LiteralPath $formatScript -PathType Leaf)) {
+        throw "JSON formatter not found: $formatScript"
+    }
+
+    $directory = Split-Path -Parent $Path
+    $app = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+    $output = & $formatScript -Dir $directory -App $app 2>&1
+    if (-not $?) {
+        throw "Failed to format manifest '$Path': $output"
+    }
+}
+
 # Issue tracking for notification system
 $script:issues = @()
 function Add-Issue {
@@ -1316,6 +1335,7 @@ try {
                 $updatedJson = $manifest | ConvertTo-Json -Depth 10
                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                 [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                Format-ManifestFile -Path $ManifestPath
                 Write-Host '[OK] Manifest saved with repaired checkver'
                 Exit-Healthy
             }
@@ -1339,6 +1359,7 @@ try {
                                 $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
                                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                                 [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                                Format-ManifestFile -Path $ManifestPath
                                 Write-Host '[OK] Manifest canonicalized and saved' -ForegroundColor Green
                                 Exit-Healthy
                             }
@@ -1685,21 +1706,8 @@ try {
 
             $utf8NoBom = New-Object System.Text.UTF8Encoding $false
             [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
-
-            # Format the JSON to match Scoop standards
-            $formatScript = "$PSScriptRoot/formatjson.ps1"
-            if (Test-Path $formatScript) {
-                Write-Host '  [INFO] Formatting manifest...' -ForegroundColor Cyan
-                try {
-                    $output = & $formatScript -App $appName 2>&1
-                    # formatjson.ps1 is a PS script; prefer checking $? (and $LASTEXITCODE as extra) to detect failure
-                    if ($LASTEXITCODE -ne 0 -or -not $?) {
-                        Write-Host ('  [WARN] Formatting failed: {0}' -f $output) -ForegroundColor Yellow
-                    }
-                } catch {
-                    Write-Host ('  [WARN] Formatting script error: {0}' -f $_) -ForegroundColor Yellow
-                }
-            }
+            Write-Host '  [INFO] Formatting manifest...' -ForegroundColor Cyan
+            Format-ManifestFile -Path $ManifestPath
 
             # After saving, run checkver to ensure version is canonical according to checkver
             try {
@@ -1752,6 +1760,7 @@ try {
                                 $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
                                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                                 [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                                Format-ManifestFile -Path $ManifestPath
                             }
                         }
                     } else {
@@ -1874,6 +1883,7 @@ try {
         # Write back preserving original line endings (UTF-8 without BOM)
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($ManifestPath, $updatedContent, $utf8NoBom)
+        Format-ManifestFile -Path $ManifestPath
 
         # After targeted text replacements, run checkver to canonicalize version
         try {
@@ -1926,6 +1936,7 @@ try {
                             $updatedJson = $sortedManifest | ConvertTo-Json -Depth 10
                             $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                             [System.IO.File]::WriteAllText($ManifestPath, $updatedJson + "`n", $utf8NoBom)
+                            Format-ManifestFile -Path $ManifestPath
                         }
                     }
                 } else {
