@@ -9,7 +9,7 @@ Uses Scoop's auto-pr utility configured for the emulators bucket.
 
 .PARAMETER upstream
 Upstream repository in format "owner/repo:branch".
-Default: "borger/scoop-emulators:master"
+Default: "borger/scoop-emulators:main"
 
 .EXAMPLE
 # Create PRs for all updates
@@ -27,7 +27,7 @@ https://github.com/borger/scoop-emulators
 
 param(
     # overwrite upstream param
-    [String]$upstream = "borger/scoop-emulators:master"
+    [String]$upstream = "borger/scoop-emulators:main"
 )
 
 if (!$env:SCOOP_HOME) {

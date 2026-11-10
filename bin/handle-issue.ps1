@@ -31,7 +31,7 @@ param(
     [int]$IssueNumber,
     [string]$GitHubToken = $env:GITHUB_TOKEN,
     [string]$GitHubRepo = $env:GITHUB_REPOSITORY,
-    [string]$BucketPath = "./bucket"
+    [string]$BucketPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'bucket')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -87,6 +87,82 @@ function Get-ManifestNamesFromIssue {
     return @($names | ForEach-Object { $_.ToLowerInvariant() } | Select-Object -Unique)
 }
 
+function Invoke-GitCommand {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory)]
+        [string]$RepositoryRoot
+    )
+
+    $output = & git -C $RepositoryRoot @Arguments 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Git command failed (git $($Arguments -join ' ')): $($output -join [Environment]::NewLine)"
+    }
+
+    return $output
+}
+
+function Get-AutofixResultStatus {
+    param(
+        [int]$ExitCode,
+        [string]$BeforeHash,
+        [string]$AfterHash
+    )
+
+    if ($ExitCode -ne 0) {
+        return 'FAILED'
+    }
+    if ($BeforeHash -ne $AfterHash) {
+        return 'SUCCESS'
+    }
+    return 'UP_TO_DATE'
+}
+
+function Publish-AutofixBranch {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$ManifestPaths,
+
+        [Parameter(Mandatory)]
+        [string]$BranchName,
+
+        [Parameter(Mandatory)]
+        [string]$CommitMessage,
+
+        [Parameter(Mandatory)]
+        [string]$RepositoryRoot
+    )
+
+    $repoRootFull = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    $repoPrefix = $repoRootFull + [IO.Path]::DirectorySeparatorChar
+    $relativePaths = foreach ($path in $ManifestPaths) {
+        $fullPath = [IO.Path]::GetFullPath($path)
+        if (-not $fullPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Manifest path is outside the repository: $path"
+        }
+        $fullPath.Substring($repoPrefix.Length).Replace('\', '/')
+    }
+
+    $status = Invoke-GitCommand -Arguments @('status', '--porcelain', '--untracked-files=all') -RepositoryRoot $repoRootFull
+    if (-not $status) {
+        throw 'No manifest changes are available to publish.'
+    }
+
+    foreach ($line in $status) {
+        $changedPath = ([string]$line).Substring(3).Replace('\', '/')
+        if ($relativePaths -notcontains $changedPath) {
+            throw "Refusing to publish unrelated worktree change: $changedPath"
+        }
+    }
+
+    Invoke-GitCommand -Arguments @('checkout', '-b', $BranchName) -RepositoryRoot $repoRootFull | Out-Null
+    Invoke-GitCommand -Arguments (@('add', '--') + $relativePaths) -RepositoryRoot $repoRootFull | Out-Null
+    Invoke-GitCommand -Arguments (@('commit', '--only', '--message', $CommitMessage, '--') + $relativePaths) -RepositoryRoot $repoRootFull | Out-Null
+    Invoke-GitCommand -Arguments @('push', '--set-upstream', 'origin', $BranchName) -RepositoryRoot $repoRootFull | Out-Null
+}
+
 # Get issue details from GitHub API
 function Get-IssueDetails {
     param([int]$IssueNum, [string]$Repo, [string]$Token)
@@ -133,12 +209,24 @@ function New-PullRequest {
         [string]$Title,
         [string]$Body,
         [string]$HeadBranch,
-        [string]$BaseBranch = "master",
+        [string]$BaseBranch = "",
         [string]$Repo,
         [string]$Token
     )
 
     try {
+        if ([string]::IsNullOrWhiteSpace($BaseBranch)) {
+            $repositoryUrl = "https://api.github.com/repos/$Repo"
+            $repository = Invoke-RestMethod -Uri $repositoryUrl -Headers @{
+                Authorization = "Bearer $Token"
+                Accept        = 'application/vnd.github+json'
+            } -ErrorAction Stop
+            $BaseBranch = $repository.default_branch
+            if ([string]::IsNullOrWhiteSpace($BaseBranch)) {
+                throw "Could not determine the default branch for $Repo."
+            }
+        }
+
         $headers = @{
             Authorization  = "token $Token"
             "Content-Type" = "application/json"
@@ -155,8 +243,7 @@ function New-PullRequest {
         $response = Invoke-WebRequest -Uri $apiUrl -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         return ($response.Content | ConvertFrom-Json).number
     } catch {
-        Write-Host ('[WARN] Failed to create PR: {0}' -f $_) -ForegroundColor Yellow
-        return $null
+        throw "Failed to create pull request: $($_.Exception.Message)"
     }
 }
 
@@ -247,20 +334,29 @@ if ($manifestsToFix.Count -eq 0) {
 
 Write-Host "Manifests to fix: $($manifestsToFix -join ', ')" -ForegroundColor Yellow
 
+# Avoid including pre-existing user changes in the auto-fix commit.
+$repositoryRoot = Split-Path -Parent $PSScriptRoot
+$initialStatus = Invoke-GitCommand -Arguments @('status', '--porcelain', '--untracked-files=all') -RepositoryRoot $repositoryRoot
+if ($initialStatus) {
+    throw 'The repository worktree must be clean before issue auto-fixes can run.'
+}
+
 # Attempt auto-fix on each manifest
 $autoFixResults = @{}
-$autofixScript = "$(Split-Path -Parent $PSScriptRoot)/bin/autofix-manifest.ps1"
+$successfulManifestPaths = @()
+$autofixScript = Join-Path $PSScriptRoot 'autofix-manifest.ps1'
 
 foreach ($manifest in $manifestsToFix) {
-    $manifestPath = "$BucketPath/$manifest.json"
+    $manifestPath = Join-Path $BucketPath "$manifest.json"
 
-    if (!(Test-Path $manifestPath)) {
+    if (!(Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
         Write-Host ('[WARN] Manifest not found: {0}' -f $manifestPath) -ForegroundColor Yellow
         $autoFixResults[$manifest] = "NOT_FOUND"
         continue
     }
 
     Write-Host "`n→ Attempting auto-fix for $manifest..." -ForegroundColor Cyan
+    $beforeHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
 
     try {
         $autoFixResult = Invoke-PowerShellScript -Path $autofixScript -ArgumentList @(
@@ -270,8 +366,14 @@ foreach ($manifest in $manifestsToFix) {
         if ($autoFixResult.ExitCode -ne 0) {
             throw "Auto-fix exited with code $($autoFixResult.ExitCode). $($autoFixResult.Output)"
         }
-        $autoFixResults[$manifest] = "SUCCESS"
-        Write-Host ('  [OK] Auto-fix succeeded for {0}' -f $manifest) -ForegroundColor Green
+        $afterHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
+        $autoFixResults[$manifest] = Get-AutofixResultStatus -ExitCode $autoFixResult.ExitCode -BeforeHash $beforeHash -AfterHash $afterHash
+        if ($autoFixResults[$manifest] -eq 'SUCCESS') {
+            $successfulManifestPaths += $manifestPath
+            Write-Host ('  [OK] Auto-fix updated {0}' -f $manifest) -ForegroundColor Green
+        } else {
+            Write-Host ('  [INFO] No changes were needed for {0}' -f $manifest) -ForegroundColor Cyan
+        }
     } catch {
         $autoFixResults[$manifest] = "FAILED"
         Write-Host ('  [FAIL] Auto-fix failed for {0}: {1}' -f $manifest, $_.Exception.Message) -ForegroundColor Red
@@ -279,7 +381,7 @@ foreach ($manifest in $manifestsToFix) {
 }
 
 # Check if any auto-fix succeeded
-$anySucceeded = $autoFixResults.Values -contains "SUCCESS"
+$anySucceeded = $successfulManifestPaths.Count -gt 0
 
 if ($anySucceeded) {
     # Create commit and PR for successful auto-fixes
@@ -289,6 +391,9 @@ if ($anySucceeded) {
     $branchName = "issue-$IssueNumber-autofix-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 
     $prTitle = "fix(bucket): Auto-fix issue #$IssueNumber ($successList)"
+    Publish-AutofixBranch -ManifestPaths $successfulManifestPaths -BranchName $branchName `
+        -CommitMessage $prTitle -RepositoryRoot $repositoryRoot
+
     $prBody = @"
 ## Auto-Fix for Issue #${IssueNumber}
 
@@ -305,7 +410,7 @@ All auto-fixed manifests have passed validation. Please review and merge.
 Closes #${IssueNumber}
 "@
 
-    $prNumber = New-PullRequest -Title $prTitle -Body $prBody -HeadBranch $branchName -BaseBranch "master" -Repo $GitHubRepo -Token $GitHubToken
+    $prNumber = New-PullRequest -Title $prTitle -Body $prBody -HeadBranch $branchName -Repo $GitHubRepo -Token $GitHubToken
 
     if ($prNumber) {
         Write-Host ('[OK] PR #{0} created for auto-fixed manifests' -f $prNumber) -ForegroundColor Green
@@ -331,7 +436,7 @@ cc: @beyondmeat
 
         Add-IssueComment -IssueNum $IssueNumber -Body $issueComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
     }
-} else {
+} elseif (@($autoFixResults.Values | Where-Object { $_ -in @('FAILED', 'NOT_FOUND') }).Count -gt 0) {
     # All auto-fixes failed - request Copilot
     Write-Host ([Environment]::NewLine + '[FAIL] Auto-fix failed for all manifests. Requesting Copilot assistance...') -ForegroundColor Red
 
@@ -351,6 +456,10 @@ cc: @copilot
 "@
 
     Add-IssueComment -IssueNum $IssueNumber -Body $copilotComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
+} else {
+    $upToDateComment = 'Auto-fix checked the requested manifests; no changes were needed.'
+    Add-IssueComment -IssueNum $IssueNumber -Body $upToDateComment -Repo $GitHubRepo -Token $GitHubToken | Out-Null
+    Write-Host '[INFO] All requested manifests are already up to date.' -ForegroundColor Cyan
 }
 
 Write-Host ([Environment]::NewLine + ('[OK] Issue #{0} has been processed' -f $IssueNumber)) -ForegroundColor Green
