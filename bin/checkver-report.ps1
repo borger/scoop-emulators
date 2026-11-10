@@ -6,16 +6,25 @@ $results = @()
 
 function Get-TokenFromText($Text) {
     if (-not $Text) { return $null }
+    if ($Text -match '(?im)^.*(?=.*\b404\b)(?=.*(?:error|not found|HTTP)).*$') { return $null }
+
     $patterns = @(
+        '(?<!\S)(?<ver>\d{14}-[a-f0-9]{7,40})(?!\S)',
+        '(?<!\S)(?<ver>\d{8}-g[a-f0-9]{7,40})(?!\S)',
+        '(?<!\S)(?<ver>\d{4}-[a-f0-9]{7,40})(?!\S)',
+        '(?<!\S)(?<ver>\d{4}-\d{1,8})(?!\S)',
+        '(?<!\S)(?<ver>\d{4}[a-z])(?!\S)',
+        '(?<!\S)(?<ver>\d{9,10}\.[a-f0-9]{7,40})(?!\S)',
         '(?<!\S)(?<ver>\d{4}-\d{2}-\d{2}-[a-f0-9]{7,40})(?!\S)',
         '(?<!\S)(?<ver>\d{4}-\d{2}-\d{2})(?!\S)',
         '(?<!\S)(?<ver>[a-f0-9]{7,40})(?!\S)',
-        '(?<!\S)(?<ver>\d+(?:\.\d+)+[\w\.-_]*)',
+        '(?<!\S)(?<ver>[vV]\.?\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?)(?!\S)',
+        '(?<!\S)(?<ver>\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?)(?!\S)',
         '(?<!\S)(?<ver>\d{2,})(?!\S)',
         '(?<!\S)(?<ver>\d)(?!\S)'
     )
     foreach ($p in $patterns) { if ($Text -match $p) { return $matches['ver'] } }
-    $tokens = $Text -split '\s+' | ForEach-Object { $_.TrimEnd(':', ',', ';', '.') }
+    $tokens = $Text -split '\s+' | ForEach-Object { $_.TrimEnd([char[]]@(':', ',', ';', '.', ')', ']')) }
     foreach ($t in $tokens) { if ($t -match '\d') { if ($t -match '^\d' -or $t -match '\d$') { return $t } } }
     return $null
 }
@@ -25,8 +34,14 @@ function Test-TokenValid($v) {
     if ($v -match '^[0-9]+$') { return $true }
     if ($v -match '^\d{4}-\d{2}-\d{2}$') { return $true }
     if ($v -match '^\d{4}-\d{2}-\d{2}-[a-f0-9]{7,40}$') { return $true }
+    if ($v -match '^\d{14}-[a-f0-9]{7,40}$' -or
+        $v -match '^\d{8}-g[a-f0-9]{7,40}$' -or
+        $v -match '^\d{4}-(?:[a-f0-9]{7,40}|\d{1,8})$' -or
+        $v -match '^\d{4}[a-z]$' -or
+        $v -match '^\d{9,10}\.[a-f0-9]{7,40}$') { return $true }
     if ($v -match '^[a-f0-9]{7,40}$') { return $true }
-    if ($v -match '^\d[0-9\.\-_]*\d$') { return $true }
+    if ($v -match '^[vV]\.?\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?$' -or
+        $v -match '^\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?$') { return $true }
     return $false
 }
 

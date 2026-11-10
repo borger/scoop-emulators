@@ -11,7 +11,7 @@ function Get-ReleaseChecksum {
         [string]$TargetAssetName
     )
 
-    if (-not $Assets) { return $null }
+    if (-not $Assets -or [string]::IsNullOrWhiteSpace($TargetAssetName)) { return $null }
 
     # Common checksum filenames we consider
     $checksumPatterns = @('*.sha256', '*.sha256sum', '*.sha256.txt', '*.checksum', '*.hashes', '*.DIGEST', '*.md5', '*.md5sum')
@@ -55,12 +55,22 @@ function Get-ReleaseChecksum {
 
             foreach ($line in $lines) {
                 if ($line -match '^([a-f0-9]{64})\s+(.+?)$' -or $line -match '^(.+?)\s+([a-f0-9]{64})$') {
-                    $hash = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[1] } else { $matches[2] }
-                    $filename = if ($matches[1] -match '^[a-f0-9]{64}$') { $matches[2] } else { $matches[1] }
+                    $firstValue = $matches[1]
+                    $secondValue = $matches[2]
+                    if ($firstValue -match '^[a-f0-9]{64}$') {
+                        $hash = $firstValue
+                        $filename = $secondValue
+                    } else {
+                        $hash = $secondValue
+                        $filename = $firstValue
+                    }
 
+                    $hash = $hash.ToLowerInvariant()
                     $filename = $filename.Trim().Trim('*')
+                    $checksumFileName = [System.IO.Path]::GetFileName($filename)
+                    $targetFileName = [System.IO.Path]::GetFileName($TargetAssetName)
 
-                    if ($filename -like "*$($TargetAssetName)*" -or $TargetAssetName -like "*$filename*") {
+                    if ($checksumFileName.Equals($targetFileName, [System.StringComparison]::OrdinalIgnoreCase)) {
                         Write-Verbose ('[OK] Found SHA256 from release: {0}' -f $hash)
                         return $hash
                     }
@@ -106,7 +116,33 @@ function Get-ScoopHome {
     try {
         $path = Convert-Path (scoop prefix scoop)
         if ($path) { return $path }
-    } catch {}
+    } catch {
+        Write-Verbose "Could not resolve Scoop home from 'scoop prefix scoop': $($_.Exception.Message)"
+    }
     return "$env:USERPROFILE\scoop\apps\scoop\current"
+}
+
+function Invoke-PowerShellScript {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [object[]]$ArgumentList = @()
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "PowerShell script not found: $Path"
+    }
+
+    $executableName = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh.exe' } else { 'powershell.exe' }
+    $executablePath = Join-Path $PSHOME $executableName
+    $output = & $executablePath -NoProfile -ExecutionPolicy Bypass -File $Path @ArgumentList 2>&1
+    $exitCode = $LASTEXITCODE
+
+    [PSCustomObject]@{
+        ExitCode = $exitCode
+        Output   = ($output | Out-String).Trim()
+    }
 }
 

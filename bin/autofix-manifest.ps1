@@ -398,9 +398,13 @@ function Test-FixIntegrity {
     }
 
     Write-Host ('  [INFO] Running update-manifest.ps1 for {0}' -f $AppName) -ForegroundColor Cyan
-    $updateOutput = & $updateScript -ManifestPath $ManifestPath -Update -Force 2>&1
-    # $LASTEXITCODE may not be set for PowerShell scripts; check both it and $? for robustness
-    if ($LASTEXITCODE -ne 0 -or -not $?) {
+    $updateResult = Invoke-PowerShellScript -Path $updateScript -ArgumentList @(
+        '-ManifestPath', $ManifestPath,
+        '-Update',
+        '-Force'
+    )
+    $updateOutput = $updateResult.Output
+    if ($updateResult.ExitCode -ne 0) {
         Write-Host ('  [WARN] update-manifest failed for {0}' -f $AppName) -ForegroundColor Yellow
         Add-Issue -Title "Validation failed" -Description "update-manifest.ps1 failed:\n$updateOutput" -Severity "error"
         return $false
@@ -433,14 +437,26 @@ function Get-VersionTokenFromText {
 
     # Prioritized patterns to extract a reasonable version token from free text.
     $patterns = @(
+        # Compact timestamp followed by a commit (YYYYMMDDhhmmss-abcdef1)
+        '(?<!\S)(?<ver>\d{14}-[a-f0-9]{7,40})(?!\S)',
+        # Compact date followed by a g-prefixed commit (YYYYMMDD-gabcdef1)
+        '(?<!\S)(?<ver>\d{8}-g[a-f0-9]{7,40})(?!\S)',
+        # Build number followed by a commit
+        '(?<!\S)(?<ver>\d{4}-[a-f0-9]{7,40})(?!\S)',
+        # Compact build identifiers used by Dolphin and mGBA
+        '(?<!\S)(?<ver>\d{4}-\d{1,8})(?!\S)',
+        '(?<!\S)(?<ver>\d{4}[a-z])(?!\S)',
+        # Unix timestamp followed by a short commit
+        '(?<!\S)(?<ver>\d{9,10}\.[a-f0-9]{7,40})(?!\S)',
         # Date + commit (YYYY-MM-DD-abcdef)
         '(?<!\S)(?<ver>\d{4}-\d{2}-\d{2}-[a-f0-9]{7,40})(?!\S)',
         # ISO date
         '(?<!\S)(?<ver>\d{4}-\d{2}-\d{2})(?!\S)',
         # Git SHA (7-40 hex chars)
         '(?<!\S)(?<ver>[a-f0-9]{7,40})(?!\S)',
-        # Semantic-like (requires at least one dot)
-        '(?<!\S)(?<ver>\d+(?:\.\d+)+[\w\.-_]*)',
+        # Semantic versions, including prerelease/build metadata and v prefixes
+        '(?<!\S)(?<ver>[vV]\.?\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?)(?!\S)',
+        '(?<!\S)(?<ver>\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?)(?!\S)',
         # Long numeric (2+ digits)
         '(?<!\S)(?<ver>\d{2,})(?!\S)'
     )
@@ -459,7 +475,7 @@ function Get-VersionTokenFromText {
     foreach ($t in $tokens) {
         if ($t -match '\d') {
             # strip trailing punctuation
-            $tok = $t.TrimEnd(':', ',', ';', '.')
+            $tok = $t.TrimEnd([char[]]@(':', ',', ';', '.', ')', ']'))
             # Accept tokens that start or end with a digit (e.g., '1.2.3' or '123beta' or 'beta123')
             if ($tok -match '^\d' -or $tok -match '\d$') {
                 return $tok
@@ -485,11 +501,23 @@ function Test-VersionLooksValid {
     # Allow date-commit format YYYY-MM-DD-<sha>
     if ($v -match '^\d{4}-\d{2}-\d{2}-[a-f0-9]{7,40}$') { return $true }
 
+    # Allow compact timestamps/build identifiers present in this bucket.
+    if ($v -match '^\d{14}-[a-f0-9]{7,40}$' -or
+        $v -match '^\d{8}-g[a-f0-9]{7,40}$' -or
+        $v -match '^\d{4}-(?:[a-f0-9]{7,40}|\d{1,8})$' -or
+        $v -match '^\d{4}[a-z]$' -or
+        $v -match '^\d{9,10}\.[a-f0-9]{7,40}$') {
+        return $true
+    }
+
     # Allow git SHAs (7+ hex characters)
     if ($v -match '^[a-f0-9]{7,40}$') { return $true }
 
-    # Allow semantic-like versions: starts and ends with a digit and contains digits and dots/hyphens/underscores
-    if ($v -match '^\d[0-9\.\-_]*\d$') { return $true }
+    # Accept prerelease/build suffixes, including versions ending in a commit hash.
+    if ($v -match '^[vV]\.?\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?$' -or
+        $v -match '^\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?$') {
+        return $true
+    }
 
     # Reject short tokens that mix letters with digits (e.g., '3k', 'ita3k')
     return $false
@@ -611,6 +639,20 @@ function ConvertTo-CanonicalVersion {
 
     # Preserve date-commit format (YYYY-MM-DD-hash)
     if ($v -match '^\d{4}-\d{2}-\d{2}-[a-f0-9]+$') { return $v }
+
+    # Preserve the compact build/date/commit formats used by several bucket entries.
+    if ($v -match '^\d{14}-[a-f0-9]{7,40}$' -or
+        $v -match '^\d{8}-g[a-f0-9]{7,40}$' -or
+        $v -match '^\d{4}-(?:[a-f0-9]{7,40}|\d{1,8})$' -or
+        $v -match '^\d{4}[a-z]$' -or
+        $v -match '^\d{9,10}\.[a-f0-9]{7,40}$') {
+        return $v
+    }
+
+    # Keep semantic prerelease/build versions intact instead of stripping suffixes such as -rc3.
+    if ($v -match '^\d+(?:\.\d+)+(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]*)?$') {
+        return $v
+    }
 
     # If version contains a '-g<commit>' suffix (e.g. 20251115-g3d6627c), prefer the commit SHA alone
     # But only if it doesn't already contain semantic versioning (dots)
@@ -1244,7 +1286,11 @@ try {
         }
 
         # Normalize latestVersion into canonical form (handles tags like v.0.12.5, .0.12.5, mame0282)
-        try { $latestVersion = ConvertTo-CanonicalVersion -RawVersion $latestVersion -Manifest $manifest -AppName $appName } catch { }
+        try {
+            $latestVersion = ConvertTo-CanonicalVersion -RawVersion $latestVersion -Manifest $manifest -AppName $appName
+        } catch {
+            Write-Warning "Could not normalize version '$latestVersion'; using the extracted value. $($_.Exception.Message)"
+        }
 
         # Basic sanity check: ensure the extracted version looks like a version token (contains digits, date, or short SHA)
         if (-not (Test-VersionLooksValid -v $latestVersion)) {

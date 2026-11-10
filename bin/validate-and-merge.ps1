@@ -38,12 +38,11 @@ param(
 
     [string]$GitHubToken = $env:GITHUB_TOKEN,
     [string]$GitHubRepo = $env:GITHUB_REPOSITORY,
-    [int]$MaxRetries = 10,
-    [bool]$IsUserPR = $false,
-    [bool]$FromIssue = $false
+    [bool]$IsUserPR = $false
 )
 
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/lib-releasehelpers.ps1"
 
 # Ensure TLS 1.2 is enabled (critical for PS 5.1)
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -132,6 +131,7 @@ $validationTasks = @(
 
 if ($PSVersionTable.PSVersion.Major -ge 7) {
     Write-Host ([Environment]::NewLine + '[1-2/3] Running validation checks in parallel (PS 7+)...') -ForegroundColor Yellow
+    $powerShellExecutable = Join-Path $PSHOME 'pwsh.exe'
 
     $taskResults = $validationTasks | ForEach-Object -Parallel {
         $task = $_
@@ -139,11 +139,18 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
         $ErrorActionPreference = 'Stop'
 
         try {
-            & $task.Command @($task.Arguments) *>$null
-            if ($LASTEXITCODE -ne 0) { throw "Exited with code $LASTEXITCODE" }
+            $executablePath = $using:powerShellExecutable
+            $arguments = @($task.Arguments)
+            $output = & $executablePath -NoProfile -ExecutionPolicy Bypass -File $task.Command @arguments 2>&1
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) {
+                $details = ($output | Out-String).Trim()
+                $result.Output = "Exited with code $exitCode. $details"
+                throw $result.Output
+            }
             $result.Status = "PASS"
         } catch {
-            $result.Output = $_.Exception.Message
+            if (-not $result.Output) { $result.Output = $_.Exception.Message }
         }
         return $result
     }
@@ -163,8 +170,10 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     foreach ($task in $validationTasks) {
         Write-Host "Running $($task.Label)..." -NoNewline
         try {
-            & $task.Command @($task.Arguments) *>$null
-            if ($LASTEXITCODE -ne 0) { throw "Exited with code $LASTEXITCODE" }
+            $validationResult = Invoke-PowerShellScript -Path $task.Command -ArgumentList $task.Arguments
+            if ($validationResult.ExitCode -ne 0) {
+                throw "Exited with code $($validationResult.ExitCode). $($validationResult.Output)"
+            }
             $results[$task.Id].Status = "PASS"
             Write-Host ' [OK]' -ForegroundColor Green
         } catch {
@@ -178,7 +187,10 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
 # 3. Install
 Write-Host '[3/3] Running installation test...' -ForegroundColor Yellow
 try {
-    & "$binDir/check-manifest-install.ps1" -ManifestPath $ManifestPath | Out-Null
+    $installResult = Invoke-PowerShellScript -Path "$binDir/check-manifest-install.ps1" -ArgumentList @('-ManifestPath', $ManifestPath)
+    if ($installResult.ExitCode -ne 0) {
+        throw "Exited with code $($installResult.ExitCode). $($installResult.Output)"
+    }
     $results.CheckInstall.Status = "PASS"
     Write-Host '  [OK] Installation test passed' -ForegroundColor Green
 } catch {

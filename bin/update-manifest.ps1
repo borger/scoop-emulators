@@ -118,6 +118,66 @@ function Get-GitHubReleaseAssets {
     }
 }
 
+function Resolve-ManifestUrl {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Url,
+
+        [Parameter(Mandatory)]
+        [string]$Version,
+
+        [string]$CommitToken
+    )
+
+    $resolvedUrl = $Url.Replace('$version', $Version)
+    if ($CommitToken) {
+        $resolvedUrl = $resolvedUrl.Replace('$matchCommit', $CommitToken)
+    }
+
+    return $resolvedUrl
+}
+
+function Update-ManifestUrls {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Manifest,
+
+        [Parameter(Mandatory)]
+        [string]$Version,
+
+        [string]$CommitToken
+    )
+
+    foreach ($architecture in @('64bit', '32bit', 'arm64')) {
+        $manifestArchitecture = $Manifest.architecture.$architecture
+        $nestedUrl = $Manifest.autoupdate.architecture.$architecture.url
+        if ($nestedUrl) {
+            if (-not $manifestArchitecture) {
+                throw "Autoupdate URL exists for '$architecture', but the manifest has no matching architecture."
+            }
+
+            $manifestArchitecture.url = Resolve-ManifestUrl -Url $nestedUrl -Version $Version -CommitToken $CommitToken
+        }
+
+        $directUrl = $Manifest.autoupdate.$architecture.url
+        if ($directUrl) {
+            if (-not $manifestArchitecture) {
+                throw "Autoupdate URL exists for '$architecture', but the manifest has no matching architecture."
+            }
+
+            $manifestArchitecture.url = Resolve-ManifestUrl -Url $directUrl -Version $Version -CommitToken $CommitToken
+        }
+    }
+
+    if ($Manifest.autoupdate.url) {
+        $Manifest.url = Resolve-ManifestUrl -Url $Manifest.autoupdate.url -Version $Version -CommitToken $CommitToken
+    }
+
+    return $Manifest
+}
+
 ## Use shared Get-ReleaseChecksum from bin/lib-releasehelpers.ps1
 
 try {
@@ -218,41 +278,8 @@ try {
         $commitToken = $null
         if ($latestVersion -match '([a-f0-9]{7,40})$') { $commitToken = $matches[1] }
 
-        # Process autoupdate to update URLs with the new version
-        if ($manifestJson.autoupdate.architecture.'64bit'.url) {
-            Write-Verbose "Updating 64bit URL..."
-            $newUrl64 = $manifestJson.autoupdate.architecture.'64bit'.url -replace '\$version', $latestVersion
-            if ($commitToken) { $newUrl64 = $newUrl64 -replace '\$matchCommit', $commitToken }
-            $manifestJson.architecture.'64bit'.url = $newUrl64
-        }
-
-        if ($manifestJson.autoupdate.architecture.'32bit'.url) {
-            Write-Verbose "Updating 32bit URL..."
-            $newUrl32 = $manifestJson.autoupdate.architecture.'32bit'.url -replace '\$version', $latestVersion
-            if ($commitToken) { $newUrl32 = $newUrl32 -replace '\$matchCommit', $commitToken }
-            $manifestJson.architecture.'32bit'.url = $newUrl32
-        }
-
-        if ($manifestJson.autoupdate.'64bit'.url) {
-            Write-Verbose "Updating 64bit URL (direct)..."
-            $newUrl64 = $manifestJson.autoupdate.'64bit'.url -replace '\$version', $latestVersion
-            if ($commitToken) { $newUrl64 = $newUrl64 -replace '\$matchCommit', $commitToken }
-            $manifestJson.architecture.'64bit'.url = $newUrl64
-        }
-
-        if ($manifestJson.autoupdate.'32bit'.url) {
-            Write-Verbose "Updating 32bit URL (direct)..."
-            $newUrl32 = $manifestJson.autoupdate.'32bit'.url -replace '\$version', $latestVersion
-            if ($commitToken) { $newUrl32 = $newUrl32 -replace '\$matchCommit', $commitToken }
-            $manifestJson.architecture.'32bit'.url = $newUrl32
-        }
-
-        if ($manifestJson.autoupdate.url) {
-            Write-Verbose "Updating generic URL..."
-            $newUrl = $manifestJson.autoupdate.url -replace '\$version', $latestVersion
-            if ($commitToken) { $newUrl = $newUrl -replace '\$matchCommit', $commitToken }
-            $manifestJson.url = $newUrl
-        }
+        # Update generic and all supported architecture URLs.
+        Update-ManifestUrls -Manifest $manifestJson -Version $latestVersion -CommitToken $commitToken | Out-Null
 
         # Now we need to get the hashes for the updated URLs
         Write-Verbose "Getting hashes for updated URLs..."
@@ -274,71 +301,36 @@ try {
         }
 
         # Use Get-RemoteFileHash from bin/lib-releasehelpers.ps1
+        foreach ($architectureEntry in $manifestJson.architecture.PSObject.Properties) {
+            $architecture = $architectureEntry.Name
+            $url = $architectureEntry.Value.url
+            if (-not $url) { continue }
 
-        if ($manifestJson.architecture.'64bit'.url) {
-            $url64 = $manifestJson.architecture.'64bit'.url
-            Write-Verbose "Getting hash for 64bit: $url64"
+            Write-Verbose ('Getting hash for {0}: {1}' -f $architecture, $url)
+            $fileName = Split-Path -Leaf $url
 
-            # If checksum files exist in release, use API-based hash lookup
             if ($hasChecksumFiles -and $releaseAssets) {
-                $fileName = Split-Path -Leaf $url64
-                $manifestJson.architecture.'64bit'.hash = [ordered]@{
-                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
+                $manifestJson.architecture.$architecture.hash = [ordered]@{
+                    'url'      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
                     'jsonpath' = ('$.assets[?(@.name == ''{0}'')].digest' -f $fileName)
                 }
-                Write-Verbose ('[OK] 64bit hash configured for API lookup: {0}' -f $fileName)
-            } else {
-                # Fall back to static hash
-                # Try to get checksum from GitHub release first
-                $hash64 = $null
-                if ($releaseAssets) {
-                    $fileName = Split-Path -Leaf $url64
-                    $hash64 = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
-                }
-
-                # Fall back to downloading and calculating if no checksum found
-                if (-not $hash64) {
-                    $hash64 = Get-RemoteFileHash -Url $url64
-                }
-
-                if ($hash64) {
-                    $manifestJson.architecture.'64bit'.hash = $hash64
-                    Write-Verbose ('[OK] 64bit hash updated: {0}' -f $hash64)
-                }
+                Write-Verbose ('[OK] {0} hash configured for API lookup: {1}' -f $architecture, $fileName)
+                continue
             }
-        }
 
-        if ($manifestJson.architecture.'32bit'.url) {
-            $url32 = $manifestJson.architecture.'32bit'.url
-            Write-Verbose "Getting hash for 32bit: $url32"
-
-            # If checksum files exist in release, use API-based hash lookup
-            if ($hasChecksumFiles -and $releaseAssets) {
-                $fileName = Split-Path -Leaf $url32
-                $manifestJson.architecture.'32bit'.hash = [ordered]@{
-                    "url"      = "https://api.github.com/repos/$gitHubOwner/$gitHubRepo/releases/latest"
-                    'jsonpath' = ('$.assets[?(@.name == ''{0}'')].digest' -f $fileName)
-                }
-                Write-Verbose ('[OK] 32bit hash configured for API lookup: {0}' -f $fileName)
-            } else {
-                # Fall back to static hash
-                # Try to get checksum from GitHub release first
-                $hash32 = $null
-                if ($releaseAssets) {
-                    $fileName = Split-Path -Leaf $url32
-                    $hash32 = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
-                }
-
-                # Fall back to downloading and calculating if no checksum found
-                if (-not $hash32) {
-                    $hash32 = Get-RemoteFileHash -Url $url32
-                }
-
-                if ($hash32) {
-                    $manifestJson.architecture.'32bit'.hash = $hash32
-                    Write-Verbose ('[OK] 32bit hash updated: {0}' -f $hash32)
-                }
+            $hash = $null
+            if ($releaseAssets) {
+                $hash = Get-ReleaseChecksum -Assets $releaseAssets -TargetAssetName $fileName
             }
+            if (-not $hash) {
+                $hash = Get-RemoteFileHash -Url $url
+            }
+            if (-not $hash) {
+                throw "Could not calculate a SHA256 hash for $architecture URL: $url"
+            }
+
+            $manifestJson.architecture.$architecture.hash = $hash
+            Write-Verbose ('[OK] {0} hash updated: {1}' -f $architecture, $hash)
         }
 
         if ($manifestJson.url) {
@@ -357,10 +349,12 @@ try {
                 $hashGeneric = Get-RemoteFileHash -Url $urlGeneric
             }
 
-            if ($hashGeneric) {
-                $manifestJson.hash = $hashGeneric
-                Write-Verbose ('[OK] Generic hash updated: {0}' -f $hashGeneric)
+            if (-not $hashGeneric) {
+                throw "Could not calculate a SHA256 hash for generic URL: $urlGeneric"
             }
+
+            $manifestJson.hash = $hashGeneric
+            Write-Verbose ('[OK] Generic hash updated: {0}' -f $hashGeneric)
         }
 
         # Convert back to JSON and save with proper formatting

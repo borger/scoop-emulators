@@ -51,13 +51,13 @@ function Test-UrlAccessibility {
         }
         $response = Invoke-WebRequest @params
 
-        if ($response.StatusCode -eq 200) {
+        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
             return $true
         }
-        Write-Error "HTTP Status $($response.StatusCode) for $cleanUrl"
+        Write-Warning "HTTP Status $($response.StatusCode) for $cleanUrl"
         return $false
     } catch {
-        Write-Error "Connection failed for $cleanUrl : $($_.Exception.Message)"
+        Write-Warning "Connection failed for $cleanUrl : $($_.Exception.Message)"
         return $false
     }
 }

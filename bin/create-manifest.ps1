@@ -70,6 +70,7 @@ if (Test-Path $libPath) { . $libPath }
 
 # Helper function for colored output (maintains Write-Host functionality with warning suppression)
 function Write-Status {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [string]$Message = '',
@@ -78,17 +79,24 @@ function Write-Status {
         [string]$Level = 'Info'
     )
 
-    $colorMap = @{
-        'Info'  = 'Cyan'
-        'OK'    = 'Green'
-        'Warn'  = 'Yellow'
-        'Error' = 'Red'
-        'Step'  = 'Magenta'
+    begin {
+        $colorMap = @{
+            'Info'  = 'Cyan'
+            'OK'    = 'Green'
+            'Warn'  = 'Yellow'
+            'Error' = 'Red'
+            'Step'  = 'Magenta'
+        }
     }
 
-    [System.Console]::ForegroundColor = $colorMap[$Level]
-    [System.Console]::Out.WriteLine($Message)
-    [System.Console]::ResetColor()
+    process {
+        [System.Console]::ForegroundColor = $colorMap[$Level]
+        [System.Console]::Out.WriteLine($Message)
+    }
+
+    end {
+        [System.Console]::ResetColor()
+    }
 }
 
 function Test-Prerequisites {
@@ -123,8 +131,7 @@ function Request-ManifestDetails {
         [array]$CurrentPersistItems,
         [string]$ProvidedDescription,
         [string[]]$ProvidedPersistFolders,
-        [string]$ProvidedShortcutName,
-        [bool]$IsNonInteractive = $false
+        [string]$ProvidedShortcutName
     )
 
     # Use provided values if given, otherwise use defaults
@@ -635,7 +642,7 @@ function Get-RepositoryInfo {
                 }
             }
         } catch {
-            # Ignore README fetch errors
+            Write-Verbose "Could not fetch repository README: $($_.Exception.Message)"
         }
 
         return @{
@@ -904,7 +911,10 @@ function Get-AssetScore {
     if ($n -match '\.zip$') { $score += 100 }
     elseif ($n -match '\.7z$') { $score += 90 }
     elseif ($n -match '\.tar\.gz$|\.tgz$') { $score += 80 }
+    elseif ($n -match '\.rar$') { $score += 70 }
+    elseif ($n -match '\.(xz|bz2)$') { $score += 65 }
     elseif ($n -match '\.jar$') { $score += 60 }
+    elseif ($n -match '\.msi$') { $score += 50 }
     elseif ($n -match '\.exe$') { $score += 0 }
     else { return -1 } # Not a preferred format
 
@@ -1017,6 +1027,17 @@ function Get-AssetContent {
     return $outputPath
 }
 
+function Get-ArchiveExtension {
+    [CmdletBinding()]
+    param([string]$ArchivePath)
+
+    if ($ArchivePath -match '(?i)\.tar\.gz$') {
+        return '.tar.gz'
+    }
+
+    return [System.IO.Path]::GetExtension($ArchivePath).ToLowerInvariant()
+}
+
 function Expand-Asset {
     <#
     .SYNOPSIS
@@ -1038,7 +1059,7 @@ function Expand-Asset {
     }
     New-Item -ItemType Directory -Path $ExtractDirectory -Force | Out-Null
 
-    $extension = [System.IO.Path]::GetExtension($ArchivePath).ToLower()
+    $extension = Get-ArchiveExtension -ArchivePath $ArchivePath
 
     if ($extension -eq '.zip') {
         Expand-Archive -Path $ArchivePath -DestinationPath $ExtractDirectory -ErrorAction Stop
@@ -1535,11 +1556,20 @@ function Get-ManifestVersion {
 
     $versionToUse = $RepositoryInfo.Version
 
-    if ($BuildType -in @('nightly', 'dev')) {
+    if ($BuildType -in @('nightly', 'dev') -and
+        (-not $versionToUse -or $versionToUse -match '^(?i:nightly|dev|continuous|latest|main|master|trunk)$')) {
         # Try to extract commit hash from asset filename
-        $assetName = $Asset.name
-        if ($assetName -match '-([a-f0-9]+)[-\.]') {
-            $versionToUse = $matches[1]
+        $assetName = [string]$Asset.name
+        $commitMatches = [regex]::Matches($assetName, '(?i)(?:^|[-_.])g?(?<hash>[a-f0-9]{7,40})(?=[-_.]|$)')
+        foreach ($commitMatch in $commitMatches) {
+            $candidateHash = $commitMatch.Groups['hash'].Value
+            if ($candidateHash -match '[a-f]') {
+                $versionToUse = $candidateHash
+                break
+            }
+        }
+
+        if ($versionToUse -and $versionToUse -notmatch '^(?i:nightly|dev|continuous|latest|main|master|trunk)$') {
             "Using commit hash from filename: $versionToUse" | Write-Status -Level OK
         } elseif ($RepositoryInfo.CommitHash) {
             # Fallback to commit hash from API
@@ -1657,7 +1687,6 @@ function Get-ManifestAutoupdate {
     param(
         [hashtable]$RepositoryInfo,
         [hashtable]$ArchitectureAssets,
-        [string]$BuildType,
         [string]$ExtractDir
     )
 
@@ -1668,22 +1697,25 @@ function Get-ManifestAutoupdate {
     # Handle extract_dir templating
     if ($ExtractDir -and ($RepositoryInfo.Version -ne 'nightly' -and $RepositoryInfo.Version -ne 'dev')) {
         $version = $RepositoryInfo.Version
-        if ($version.StartsWith('v')) { $version = $version.Substring(1) }
+        if ($version -and $version.StartsWith('v')) { $version = $version.Substring(1) }
 
-        if ($ExtractDir.Contains($version)) {
+        if ($version -and $ExtractDir.Contains($version)) {
             $autoupdate['extract_dir'] = $ExtractDir.Replace($version, '$version')
         }
     }
 
     foreach ($arch in $ArchitectureAssets.Keys) {
         $asset = $ArchitectureAssets[$arch]
-        $url = $asset.browser_download_url
+        $url = if ($asset.browser_download_url) { $asset.browser_download_url } else { $asset.url }
+        if (-not $url) {
+            throw "Asset '$($asset.name)' for architecture '$arch' has no download URL."
+        }
 
         # Replace version with $version placeholder
         if ($RepositoryInfo.Version -ne 'nightly' -and $RepositoryInfo.Version -ne 'dev') {
             $version = $RepositoryInfo.Version
-            if ($version.StartsWith('v')) { $version = $version.Substring(1) }
-            $url = $url.Replace($version, '$version')
+            if ($version -and $version.StartsWith('v')) { $version = $version.Substring(1) }
+            if ($version) { $url = $url.Replace($version, '$version') }
         }
 
         # For nightly/dev, we don't use $version in URL usually, but if we do, it's handled by checkver
@@ -1837,7 +1869,13 @@ function New-ScoopManifest {
         [string[]]$AuxiliaryBinaries
     )
 
-    $assetToUse = if ($ArchitectureAssets['64bit']) { $ArchitectureAssets['64bit'] } else { $ArchitectureAssets['32bit'] }
+    $assetToUse = $null
+    foreach ($architecture in @('64bit', '32bit', 'arm64')) {
+        if ($ArchitectureAssets[$architecture]) {
+            $assetToUse = $ArchitectureAssets[$architecture]
+            break
+        }
+    }
     $versionToUse = Get-ManifestVersion -RepositoryInfo $RepositoryInfo -Asset $assetToUse -BuildType $BuildType
 
     $manifest = [ordered]@{
@@ -1954,7 +1992,7 @@ function New-ScoopManifest {
 
     $manifest['checkver'] = Get-ManifestCheckver -RepositoryInfo $RepositoryInfo -BuildType $BuildType
 
-    $manifest['autoupdate'] = Get-ManifestAutoupdate -RepositoryInfo $RepositoryInfo -ArchitectureAssets $ArchitectureAssets -BuildType $BuildType -ExtractDir $ExtractDir
+    $manifest['autoupdate'] = Get-ManifestAutoupdate -RepositoryInfo $RepositoryInfo -ArchitectureAssets $ArchitectureAssets -ExtractDir $ExtractDir
 
     $orderedKeys = $DEFAULT_MANIFEST_KEY_ORDER
 

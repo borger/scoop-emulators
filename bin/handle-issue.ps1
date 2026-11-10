@@ -35,6 +35,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/lib-releasehelpers.ps1"
 
 Write-Host "=== Processing Issue #$IssueNumber ===" -ForegroundColor Cyan
 
@@ -42,7 +43,7 @@ Write-Host "=== Processing Issue #$IssueNumber ===" -ForegroundColor Cyan
 function Test-ManifestRequest {
     param([object]$Issue)
 
-    $requestLabels = @("request-manifest", "emulator-request", "add-emulator")
+    $requestLabels = @("request-manifest", "emulator-request", "add-emulator", "request-emulator", "add-app")
     $hasRequestLabel = $false
 
     foreach ($label in $Issue.labels) {
@@ -138,6 +139,37 @@ function New-PullRequest {
     }
 }
 
+function Invoke-ManifestCreation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [int]$IssueNumber,
+
+        [Parameter(Mandatory)]
+        [string]$GitHubToken,
+
+        [Parameter(Mandatory)]
+        [string]$ScriptPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
+        throw "Manifest creation script not found: $ScriptPath"
+    }
+
+    $result = Invoke-PowerShellScript -Path $ScriptPath -ArgumentList @(
+        '-IssueNumber', $IssueNumber,
+        '-GitHubToken', $GitHubToken,
+        '-NonInteractive',
+        '-CreatePR'
+    )
+
+    if ($result.ExitCode -ne 0) {
+        throw "Manifest creation failed with exit code $($result.ExitCode). $($result.Output)"
+    }
+
+    return $result.Output
+}
+
 # Get issue details
 $issue = Get-IssueDetails -IssueNum $IssueNumber -Repo $GitHubRepo -Token $GitHubToken
 
@@ -153,12 +185,13 @@ Write-Host "Issue Body: $($issue.body)" -ForegroundColor Gray
 if (Test-ManifestRequest -Issue $issue) {
     Write-Host ([Environment]::NewLine + '[INFO] Detected manifest request - triggering automated creation') -ForegroundColor Cyan
 
-    $manifestScript = Join-Path (Split-Path $PSScriptRoot) "create-emulator-manifest.ps1"
+    $manifestScript = Join-Path $PSScriptRoot 'create-manifest.ps1'
 
     try {
         Write-Host '[INFO] Executing manifest creation script...' -ForegroundColor Cyan
 
-        & $manifestScript -IssueNumber $IssueNumber -GitHubToken $GitHubToken -AutoApprove
+        Invoke-ManifestCreation -IssueNumber $IssueNumber -GitHubToken $GitHubToken -ScriptPath $manifestScript |
+            Out-Null
 
         Write-Host ([Environment]::NewLine + ('[OK] Manifest created successfully from issue #{0}' -f $IssueNumber)) -ForegroundColor Green
         exit 0
@@ -220,7 +253,13 @@ foreach ($manifest in $manifestsToFix) {
     Write-Host "`n→ Attempting auto-fix for $manifest..." -ForegroundColor Cyan
 
     try {
-        & $autofixScript -ManifestPath $manifestPath -NotifyOnIssues | Out-Null
+        $autoFixResult = Invoke-PowerShellScript -Path $autofixScript -ArgumentList @(
+            '-ManifestPath', $manifestPath,
+            '-NotifyOnIssues'
+        )
+        if ($autoFixResult.ExitCode -ne 0) {
+            throw "Auto-fix exited with code $($autoFixResult.ExitCode). $($autoFixResult.Output)"
+        }
         $autoFixResults[$manifest] = "SUCCESS"
         Write-Host ('  [OK] Auto-fix succeeded for {0}' -f $manifest) -ForegroundColor Green
     } catch {

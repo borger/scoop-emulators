@@ -13,6 +13,9 @@
 
 .PARAMETER AppName
     Optional name override. Defaults to filename.
+
+.PARAMETER AutoRetry
+    Check asset URLs and attempt to repair unavailable manifests before installing.
 #>
 
 param(
@@ -20,10 +23,13 @@ param(
     [ValidateScript({ Test-Path $_ -PathType Leaf })]
     [string]$ManifestPath,
 
-    [string]$AppName
+    [string]$AppName,
+
+    [bool]$AutoRetry = $true
 )
 
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/lib-releasehelpers.ps1"
 
 # Ensure TLS 1.2 is enabled (critical for PS 5.1)
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -56,11 +62,85 @@ try {
             Invoke-WebRequest -Uri $Url -Method Head -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
             return $true
         } catch {
-            return $false
+            if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) {
+                return $false
+            }
+
+            throw
         }
     }
 
-    function Ensure-ManifestAssetAvailable {
+    function Resolve-ManifestAssetUrl {
+        param(
+            [string]$Template,
+            [string]$Version,
+            [string]$ConcreteUrl
+        )
+
+        if ($Template -match '\$match') {
+            return $ConcreteUrl
+        }
+
+        return $Template.Replace('$version', $Version)
+    }
+
+    function Get-ManifestAssetUrls {
+        param([object]$Manifest)
+
+        $urls = @()
+        $architectureNames = @()
+        if ($Manifest.architecture) {
+            $architectureNames += @($Manifest.architecture.PSObject.Properties.Name)
+        }
+        if ($Manifest.autoupdate -and $Manifest.autoupdate.architecture) {
+            $architectureNames += @($Manifest.autoupdate.architecture.PSObject.Properties.Name)
+        }
+        foreach ($architecture in @('64bit', '32bit', 'arm64')) {
+            if ($Manifest.autoupdate -and $Manifest.autoupdate.$architecture -and
+                $architectureNames -notcontains $architecture) {
+                $architectureNames += $architecture
+            }
+        }
+        $architectureNames = @($architectureNames | Select-Object -Unique)
+
+        if ($Manifest.autoupdate -and $Manifest.autoupdate.url) {
+            $url = Resolve-ManifestAssetUrl -Template $Manifest.autoupdate.url `
+                -Version ([string]$Manifest.version) -ConcreteUrl $Manifest.url
+            if ($url) { $urls += $url }
+        } elseif ($Manifest.url) {
+            $urls += $Manifest.url
+        }
+
+        foreach ($architecture in $architectureNames) {
+            $templates = @()
+            $concreteUrl = $null
+            if ($Manifest.architecture) {
+                $concreteUrl = $Manifest.architecture.$architecture.url
+            }
+            if ($Manifest.autoupdate -and $Manifest.autoupdate.architecture) {
+                $url = $Manifest.autoupdate.architecture.$architecture.url
+                if ($url) { $templates += $url }
+            }
+            if ($Manifest.autoupdate -and $Manifest.autoupdate.$architecture.url) {
+                $templates += $Manifest.autoupdate.$architecture.url
+            }
+
+            if ($templates.Count -gt 0) {
+                foreach ($template in $templates) {
+                    $url = Resolve-ManifestAssetUrl -Template $template `
+                        -Version ([string]$Manifest.version) `
+                        -ConcreteUrl $concreteUrl
+                    if ($url -and $urls -notcontains $url) { $urls += $url }
+                }
+            } else {
+                if ($concreteUrl -and $urls -notcontains $concreteUrl) { $urls += $concreteUrl }
+            }
+        }
+
+        return $urls
+    }
+
+    function Test-ManifestAssetAvailability {
         param(
             [string]$ManifestPath,
             [int]$Retries = 1
@@ -68,30 +148,7 @@ try {
 
         for ($attempt = 0; $attempt -le $Retries; $attempt++) {
             $manifest = Get-Content $ManifestPath -Raw | ConvertFrom-Json
-            $urls = @()
-
-            # Prefer autoupdate templates when present
-            if ($manifest.autoupdate -and $manifest.autoupdate.architecture) {
-                foreach ($arch in $manifest.autoupdate.architecture.PSObject.Properties.Name) {
-                    $u = $manifest.autoupdate.architecture.$arch.url
-                    if ($u) {
-                        if ($u -match '\$match') {
-                            $resolvedUrl = $manifest.architecture.$arch.url
-                            if ($resolvedUrl) { $urls += $resolvedUrl }
-                        } else {
-                            $urls += ($u -replace '\$version', [string]$manifest.version)
-                        }
-                    }
-                }
-            }
-
-            # Fallback to concrete architecture.url fields
-            if ($urls.Count -eq 0 -and $manifest.architecture) {
-                foreach ($arch in $manifest.architecture.PSObject.Properties.Name) {
-                    $u = $manifest.architecture.$arch.url
-                    if ($u) { $urls += $u }
-                }
-            }
+            $urls = @(Get-ManifestAssetUrls -Manifest $manifest)
 
             if ($urls.Count -eq 0) { return $true }
 
@@ -107,35 +164,26 @@ try {
 
             if ($attempt -lt $Retries) {
                 Write-Host "One or more assets returned 404, attempting to update manifest (attempt $($attempt + 1) of $Retries)..." -ForegroundColor Yellow
-                & "$PSScriptRoot/update-manifest.ps1" -ManifestPath $ManifestPath -Update
+                $updateResult = Invoke-PowerShellScript -Path (Join-Path $PSScriptRoot 'update-manifest.ps1') `
+                    -ArgumentList @('-ManifestPath', $ManifestPath, '-Update')
+                if ($updateResult.ExitCode -ne 0) {
+                    throw "Manifest update failed with exit code $($updateResult.ExitCode). $($updateResult.Output)"
+                }
+                if ($updateResult.Output) { Write-Host $updateResult.Output }
                 Start-Sleep -Seconds 1
                 continue
             } else {
                 Write-Host "Asset missing after updates; running autofix and rechecking..." -ForegroundColor Yellow
-                & "$PSScriptRoot/autofix-manifest.ps1" -ManifestPath $ManifestPath
+                $autofixResult = Invoke-PowerShellScript -Path (Join-Path $PSScriptRoot 'autofix-manifest.ps1') `
+                    -ArgumentList @('-ManifestPath', $ManifestPath)
+                if ($autofixResult.ExitCode -ne 0) {
+                    throw "Manifest autofix failed with exit code $($autofixResult.ExitCode). $($autofixResult.Output)"
+                }
+                if ($autofixResult.Output) { Write-Host $autofixResult.Output }
                 Start-Sleep -Seconds 1
 
                 $manifest = Get-Content $ManifestPath -Raw | ConvertFrom-Json
-                $urls = @()
-                if ($manifest.autoupdate -and $manifest.autoupdate.architecture) {
-                    foreach ($arch in $manifest.autoupdate.architecture.PSObject.Properties.Name) {
-                        $u = $manifest.autoupdate.architecture.$arch.url
-                        if ($u) {
-                            if ($u -match '\$match') {
-                                $resolvedUrl = $manifest.architecture.$arch.url
-                                if ($resolvedUrl) { $urls += $resolvedUrl }
-                            } else {
-                                $urls += ($u -replace '\$version', [string]$manifest.version)
-                            }
-                        }
-                    }
-                }
-                if ($urls.Count -eq 0 -and $manifest.architecture) {
-                    foreach ($arch in $manifest.architecture.PSObject.Properties.Name) {
-                        $u = $manifest.architecture.$arch.url
-                        if ($u) { $urls += $u }
-                    }
-                }
+                $urls = @(Get-ManifestAssetUrls -Manifest $manifest)
 
                 foreach ($u in $urls) {
                     if (-not (Test-UrlExists $u)) { return $false }
@@ -146,10 +194,10 @@ try {
         }
     }
 
-    if (-not $PSBoundParameters.ContainsKey('AutoRetry') -or $AutoRetry) {
+    if ($AutoRetry) {
         # Default to one retry; this keeps the behavior limited while handling
         # transient 404s caused by rotated nightly assets.
-        if (-not (Ensure-ManifestAssetAvailable -ManifestPath $ManifestPath -Retries 1)) {
+        if (-not (Test-ManifestAssetAvailability -ManifestPath $ManifestPath -Retries 1)) {
             throw "Asset URLs are unreachable even after update/autofix. Aborting."
         }
     }
