@@ -274,8 +274,6 @@ Pre-commit formats JSON manifests with the PowerShell `formatjson.ps1` wrapper, 
 pre-commit run formatjson --all-files
 ```
 
-Oxlint is not configured because the repository does not currently contain JavaScript or TypeScript files.
-
 ## Manifest Creation & Automation
 
 ### create-emulator-manifest.ps1
@@ -486,7 +484,7 @@ Oxlint is not configured because the repository does not currently contain JavaS
 
 ### formatjson.ps1
 
-**Purpose**: Format and validate JSON structure using Scoop's formatter with Oxfmt-style array layout.
+**Purpose**: Format and validate JSON structure using Scoop's formatter with inline array layout.
 
 **Usage**:
 
@@ -504,7 +502,7 @@ Oxlint is not configured because the repository does not currently contain JavaS
 - Valid JSON structure
 - Consistent formatting
 
-**Note**: The pre-commit hook uses this script and applies Oxfmt-style formatting to short arrays.
+**Note**: The pre-commit hook uses this script and applies inline formatting to short arrays.
 
 ---
 

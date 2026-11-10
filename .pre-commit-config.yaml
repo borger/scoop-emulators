@@ -16,4 +16,3 @@ repos:
         language: system
         files: ^bucket/.*\.json$
         pass_filenames: false
-
