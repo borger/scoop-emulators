@@ -4,6 +4,8 @@ Describe 'Manifest creation helper functions' {
         $scriptPath = Join-Path $PSScriptRoot '..\bin\create-manifest.ps1'
         foreach ($functionBlock in (Get-TestFunctionScriptBlock -Path $scriptPath -Name @(
                     'Write-Status',
+                    'Invoke-ManifestValidation',
+                    'New-PullRequest',
                     'Test-RepoUrl',
                     'Test-NightlyBuild',
                     'Get-AssetScore',
@@ -21,8 +23,11 @@ Describe 'Manifest creation helper functions' {
                 ))) {
             . $functionBlock
         }
+        $libraryPath = Join-Path $PSScriptRoot '..\bin\lib-releasehelpers.ps1'
+        . (Get-TestFunctionScriptBlock -Path $libraryPath -Name 'Invoke-PowerShellScript')
 
         function gh {}
+        function git {}
     }
 
     It 'accepts supported repository URLs and rejects unsupported values' {
@@ -195,5 +200,116 @@ Describe 'Manifest creation helper functions' {
         {
             Invoke-GitHubPullRequestCreate -Title 'Title' -Body 'Body'
         } | Should -Throw '*exit code 1*creation failed*'
+    }
+
+    It 'runs validation scripts in child processes and records their exit codes' {
+        $script:validationCalls = @()
+        Mock Test-Path { return $true }
+        Mock Invoke-PowerShellScript {
+            $script:validationCalls += $Path
+            [PSCustomObject]@{ ExitCode = 0; Output = 'passed' }
+        }
+
+        $result = Invoke-ManifestValidation -ManifestPath 'bucket\app.json' `
+            -BucketDirectory 'bucket' -AppName 'app' -ScriptDirectory $TestDrive
+
+        $result.AllPassed | Should -BeTrue
+        $result.Results.Count | Should -Be 3
+        $script:validationCalls.Count | Should -Be 3
+        Should -Invoke Invoke-PowerShellScript -Times 3
+    }
+
+    It 'continues validation after a child script exits with failure' {
+        $script:validationCalls = @()
+        Mock Test-Path { return $true }
+        Mock Invoke-PowerShellScript {
+            $script:validationCalls += $Path
+            $exitCode = if ($Path -like '*check-autoupdate.ps1') { 1 } else { 0 }
+            [PSCustomObject]@{ ExitCode = $exitCode; Output = 'validation output' }
+        }
+
+        $result = Invoke-ManifestValidation -ManifestPath 'bucket\app.json' `
+            -BucketDirectory 'bucket' -AppName 'app' -ScriptDirectory $TestDrive
+
+        $result.AllPassed | Should -BeFalse
+        $result.Results.Status | Should -Be @('PASS', 'FAIL', 'PASS')
+        $script:validationCalls.Count | Should -Be 3
+    }
+
+    It 'continues through scripts that call exit in a separate PowerShell process' {
+        $scriptDirectory = Join-Path $TestDrive 'validation scripts'
+        New-Item -ItemType Directory -Path $scriptDirectory | Out-Null
+        @'
+Write-Output 'checkver completed'
+exit 0
+'@ | Set-Content -LiteralPath (Join-Path $scriptDirectory 'checkver.ps1')
+        @'
+Write-Output 'autoupdate failed'
+exit 1
+'@ | Set-Content -LiteralPath (Join-Path $scriptDirectory 'check-autoupdate.ps1')
+        @'
+Write-Output 'install completed'
+exit 0
+'@ | Set-Content -LiteralPath (Join-Path $scriptDirectory 'check-manifest-install.ps1')
+
+        $result = Invoke-ManifestValidation -ManifestPath 'bucket\app.json' `
+            -BucketDirectory 'bucket' -AppName 'app' -ScriptDirectory $scriptDirectory
+
+        $result.AllPassed | Should -BeFalse
+        $result.Results.Status | Should -Be @('PASS', 'FAIL', 'PASS')
+        $result.Results[1].Message | Should -Match 'autoupdate failed'
+    }
+
+    It 'does not report all checks passed when a validation script is missing' {
+        Mock Test-Path { return $false }
+
+        $result = Invoke-ManifestValidation -ManifestPath 'bucket\app.json' `
+            -BucketDirectory 'bucket' -AppName 'app' -ScriptDirectory $TestDrive
+
+        $result.AllPassed | Should -BeFalse
+        $result.Results.Status | Should -Be @('SKIP', 'SKIP', 'SKIP')
+    }
+
+    It 'surfaces branch push failures instead of reporting PR creation as successful' {
+        Mock gh {
+            $global:LASTEXITCODE = 0
+            'authenticated'
+        }
+        Mock git {
+            $script:gitCommands += ($args -join ' ')
+            $global:LASTEXITCODE = if ($args[0] -eq 'push') { 1 } else { 0 }
+        }
+        $script:gitCommands = @()
+
+        {
+            New-PullRequest -ManifestPath 'bucket\app.json' -AppName 'app' `
+                -Version '1.2.3' -RepoUrl 'https://github.com/owner/app'
+        } | Should -Throw '*Failed to push the manifest branch*'
+
+        $script:gitCommands | Should -Be @(
+            'checkout -b add-app-1.2.3',
+            'add bucket\app.json',
+            'commit -m feat(app): add manifest for app v1.2.3',
+            'push -u origin add-app-1.2.3'
+        )
+    }
+
+    It 'formats the PR body with actual newlines' {
+        Mock gh {
+            $global:LASTEXITCODE = 0
+            'authenticated'
+        }
+        Mock git { $global:LASTEXITCODE = 0 }
+        Mock Invoke-GitHubPullRequestCreate {
+            $script:capturedPullRequestBody = $Body
+            return 'pull request created'
+        }
+
+        $script:capturedPullRequestBody = $null
+        $result = New-PullRequest -ManifestPath 'bucket\app.json' -AppName 'app' `
+            -Version '1.2.3' -RepoUrl 'https://github.com/owner/app'
+
+        $result | Should -Be 'pull request created'
+        $script:capturedPullRequestBody | Should -Be "Added manifest for [app](https://github.com/owner/app) version 1.2.3`n`nAuto-generated by create-manifest.ps1."
     }
 }

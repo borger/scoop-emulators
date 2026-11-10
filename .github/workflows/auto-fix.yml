@@ -284,6 +284,7 @@ jobs:
           # Set environment variables for subsequent steps
           "SCOOP=$env:SCOOP" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "SCOOP_HOME=$env:SCOOP_HOME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "$env:SCOOP\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Dependencies
         if: steps.parse-errors.outputs.should-run == 'true'
@@ -299,6 +300,7 @@ jobs:
         run: |
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE 'bucket'
           $scriptsPath = Join-Path $env:GITHUB_WORKSPACE 'bin'
+          . (Join-Path $scriptsPath 'lib-releasehelpers.ps1')
           $failedApps = @($env:CHECKVER_FAILED_APPS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
           foreach ($app in $failedApps) {
@@ -443,7 +445,12 @@ jobs:
               $utf8NoBom = New-Object System.Text.UTF8Encoding $false
               [System.IO.File]::WriteAllText($manifestPath, $serialized + "`n", $utf8NoBom)
 
-              $checkverOutput = & "$scriptsPath\checkver.ps1" -App $app -Dir $bucketPath 2>&1 | Out-String
+              $checkverResult = Invoke-PowerShellScript -Path (Join-Path $scriptsPath 'checkver.ps1') `
+                -ArgumentList @('-App', $app, '-Dir', $bucketPath)
+              $checkverOutput = $checkverResult.Output
+              if ($checkverResult.ExitCode -ne 0) {
+                throw "Scoop checkver exited with code $($checkverResult.ExitCode): $checkverOutput"
+              }
               if ($checkverOutput -match '(?i)couldn''t (match|find|retrieve)|couldn''t parse') {
                 throw "Scoop checkver rejected the repaired configuration: $checkverOutput"
               }
@@ -465,6 +472,7 @@ jobs:
         run: |
           $bucketPath = "${{ github.workspace }}/bucket"
           $scriptsPath = "${{ github.workspace }}/bin"
+          . (Join-Path $scriptsPath 'lib-releasehelpers.ps1')
           # No manual inputs available when triggered by workflow_run from Excavator
           $manualInput = ""
           $dryRun = "false"
@@ -496,35 +504,44 @@ jobs:
           Write-Host "Found $($manifests.Count) manifests to check"
 
           $fixedCount = 0
+          $upToDateCount = 0
           $skipped = @()
           foreach ($manifest in $manifests) {
             Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Processing $($manifest.BaseName)..."
 
-            # Reset before each call so a previous non-zero code can't leak forward
-            $global:LASTEXITCODE = 0
+            $originalHash = (Get-FileHash -LiteralPath $manifest.FullName -Algorithm SHA256).Hash
+            $originalBytes = [System.IO.File]::ReadAllBytes($manifest.FullName)
 
             # Run auto-fix script. -AutoCreateIssues opens one deduplicated
             # tracking issue per unfixable manifest and closes it again once the
             # manifest is healthy, so persistent breakage is visible without
             # turning every hourly run red.
-            $result = & "$scriptsPath\autofix-manifest.ps1" `
-              -ManifestPath $manifest.FullName `
-              -BucketPath $bucketPath `
-              -AutoCreateIssues `
-              -NotifyOnIssues `
-              -IssueLog "$env:RUNNER_TEMP\autofix-issues.jsonl" `
-              -GitHubToken $env:GITHUB_TOKEN `
-              -GitHubRepo $env:GITHUB_REPOSITORY
-
-            $exitCode = $LASTEXITCODE
+            $autoFixResult = Invoke-PowerShellScript -Path (Join-Path $scriptsPath 'autofix-manifest.ps1') -ArgumentList @(
+              '-ManifestPath', $manifest.FullName,
+              '-BucketPath', $bucketPath,
+              '-AutoCreateIssues',
+              '-NotifyOnIssues',
+              '-IssueLog', "$env:RUNNER_TEMP\autofix-issues.jsonl",
+              '-GitHubToken', $env:GITHUB_TOKEN,
+              '-GitHubRepo', $env:GITHUB_REPOSITORY
+            )
+            if ($autoFixResult.Output) { Write-Host $autoFixResult.Output }
+            $exitCode = $autoFixResult.ExitCode
             if ($exitCode -eq 0) {
-              Write-Host "[OK] Fixed: $($manifest.BaseName)" -ForegroundColor Green
-              $fixedCount++
+              $updatedHash = (Get-FileHash -LiteralPath $manifest.FullName -Algorithm SHA256).Hash
+              if ($updatedHash -ne $originalHash) {
+                Write-Host "[OK] Fixed: $($manifest.BaseName)" -ForegroundColor Green
+                $fixedCount++
+              } else {
+                Write-Host "[INFO] Already up to date: $($manifest.BaseName)" -ForegroundColor Cyan
+                $upToDateCount++
+              }
             } else {
               # autofix-manifest.ps1 exits non-zero when it cannot determine a safe
               # fix (e.g. unparseable checkver, or a version that looks wrong and
               # would corrupt the manifest). That is the script declining to act -
               # not a CI failure. Record it and keep going.
+              [System.IO.File]::WriteAllBytes($manifest.FullName, $originalBytes)
               Write-Host "[SKIP] $($manifest.BaseName) - no safe fix determined (exit $exitCode)" -ForegroundColor Yellow
               $skipped += $manifest.BaseName
             }
@@ -532,6 +549,7 @@ jobs:
 
           Write-Host "`n=== Auto-fix process complete ===" -ForegroundColor Cyan
           Write-Host "Fixed: $fixedCount manifest(s)" -ForegroundColor Cyan
+          Write-Host "Already up to date: $upToDateCount manifest(s)" -ForegroundColor Cyan
           Write-Host "Skipped: $($skipped.Count) manifest(s)" -ForegroundColor Cyan
 
           # Surface the outcome in the run summary instead of via a red X
@@ -539,6 +557,7 @@ jobs:
           $summary += "### Auto-fix results"
           $summary += ""
           $summary += "- Fixed: **$fixedCount**"
+          $summary += "- Already up to date: **$upToDateCount**"
           $summary += "- Skipped (no safe fix): **$($skipped.Count)**"
           if ($skipped.Count -gt 0) {
             $summary += ""
