@@ -262,17 +262,18 @@ GPLv2 (same as bucket)
 
 **Ready to add emulators?** Start with [QUICKSTART.md](QUICKSTART.md) 👈
 
-
-# PowerShell Scripts Reference
+## PowerShell Scripts Reference
 
 Quick reference for all PowerShell scripts in the `bin/` directory.
 
 ## Manifest Creation & Automation
 
 ### create-emulator-manifest.ps1
+
 **Purpose**: Automatically create complete emulator manifests from GitHub repositories.
 
 **Usage**:
+
 ```powershell
 # Create from GitHub URL
 .\bin\create-emulator-manifest.ps1 -GitHubUrl "https://github.com/owner/repo"
@@ -285,6 +286,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ```
 
 **Features**:
+
 - Auto-detects platform (Nintendo, PlayStation, etc.)
 - Monitors runtime for created files
 - Generates portable mode setup
@@ -296,9 +298,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### handle-issue.ps1
+
 **Purpose**: Process GitHub issues for manifest creation or bugfixes.
 
 **Usage**:
+
 ```powershell
 # Process specific issue
 .\bin\handle-issue.ps1 -IssueNumber 123 -GitHubToken "token"
@@ -308,6 +312,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ```
 
 **Features**:
+
 - Detects manifest requests automatically
 - Routes to create-emulator-manifest.ps1
 - Fixes broken manifests
@@ -319,9 +324,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ## Validation Scripts
 
 ### checkver.ps1
+
 **Purpose**: Test version detection configuration.
 
 **Usage**:
+
 ```powershell
 # Check specific manifest
 .\bin\checkver.ps1 -App gopher64 -Dir bucket
@@ -337,14 +344,17 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### check-autoupdate.ps1
+
 **Purpose**: Validate autoupdate configuration is correct.
 
 **Usage**:
+
 ```powershell
 .\bin\check-autoupdate.ps1 -ManifestPath bucket\gopher64.json
 ```
 
 **Checks**:
+
 - Architecture URLs are valid
 - Version placeholder `$version` exists
 - Hash placeholder `$sha256` exists
@@ -354,14 +364,17 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### check-manifest-install.ps1
+
 **Purpose**: Test that manifest actually installs correctly.
 
 **Usage**:
+
 ```powershell
 .\bin\check-manifest-install.ps1 -ManifestPath bucket\gopher64.json
 ```
 
 **Steps**:
+
 1. Downloads executable
 2. Verifies hash
 3. Installs app
@@ -373,9 +386,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### checkurls.ps1
+
 **Purpose**: Verify all download URLs are accessible.
 
 **Usage**:
+
 ```powershell
 .\bin\checkurls.ps1 -App gopher64 -Dir bucket
 ```
@@ -387,9 +402,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### checkhashes.ps1
+
 **Purpose**: Verify SHA256 hashes match actual files.
 
 **Usage**:
+
 ```powershell
 .\bin\checkhashes.ps1 -App gopher64 -Dir bucket
 ```
@@ -403,9 +420,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ## Manifest Management
 
 ### update-manifest.ps1
+
 **Purpose**: Update version and hashes from latest release.
 
 **Usage**:
+
 ```powershell
 # Preview changes (dry-run)
 .\bin\update-manifest.ps1 -ManifestPath bucket\gopher64.json
@@ -418,6 +437,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ```
 
 **Updates**:
+
 - Latest version number
 - Download URLs
 - SHA256 hashes
@@ -427,9 +447,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### autofix-manifest.ps1
+
 **Purpose**: Automatically repair broken or outdated manifests.
 
 **Usage**:
+
 ```powershell
 # Auto-fix broken manifest
 .\bin\autofix-manifest.ps1 -ManifestPath bucket\gopher64.json
@@ -440,6 +462,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ```
 
 **Repairs**:
+
 - Version format mismatches
 - Broken URLs
 - Missing hashes
@@ -452,9 +475,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ## Utility Scripts
 
 ### formatjson.ps1
+
 **Purpose**: Format and validate JSON structure.
 
 **Usage**:
+
 ```powershell
 # Format all manifests
 .\bin\formatjson.ps1
@@ -464,6 +489,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ```
 
 **Ensures**:
+
 - Proper indentation
 - Valid JSON structure
 - Consistent formatting
@@ -473,9 +499,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### missing-checkver.ps1
+
 **Purpose**: Find manifests without version detection.
 
 **Usage**:
+
 ```powershell
 .\bin\missing-checkver.ps1 -Dir bucket
 ```
@@ -487,15 +515,18 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### validate-and-merge.ps1
+
 **Purpose**: Run all validation tests and auto-merge on success.
 
 **Usage**:
+
 ```powershell
 .\bin\validate-and-merge.ps1 -ManifestPath bucket\gopher64.json `
   -PullRequestNumber 123 -GitHubToken "token" -GitHubRepo "owner/repo"
 ```
 
 **Steps**:
+
 1. Runs checkver, check-autoupdate, check-manifest-install
 2. Posts results to PR
 3. Auto-merges if all pass
@@ -506,9 +537,11 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ---
 
 ### auto-pr.ps1
+
 **Purpose**: Create pull requests for manifest updates.
 
 **Usage**:
+
 ```powershell
 # Create PRs to default upstream
 .\bin\auto-pr.ps1
@@ -517,21 +550,24 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 .\bin\auto-pr.ps1 -upstream "username/fork:develop"
 ```
 
-**Upstream Default**: borger/scoop-emulators:master
+**Upstream Default**: borger/scoop-emulators:main
 
 **Used By**: Automated update workflows
 
 ---
 
 ### test.ps1
+
 **Purpose**: Run all Pester tests for the bucket.
 
 **Usage**:
+
 ```powershell
 .\bin\test.ps1
 ```
 
 **Requirements**:
+
 - Pester 6.2.0+
 - BuildHelpers 2.0.1+
 
@@ -542,6 +578,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 ## Typical Workflows
 
 ### ✅ Creating a New Manifest
+
 ```powershell
 # 1. Create manifest
 .\bin\create-emulator-manifest.ps1 -GitHubUrl "https://github.com/..."
@@ -558,6 +595,7 @@ git push
 ```
 
 ### ✅ Updating an Existing Manifest
+
 ```powershell
 # 1. Update to latest version
 .\bin\update-manifest.ps1 -ManifestPath bucket\appname.json -Update
@@ -573,6 +611,7 @@ git push
 ```
 
 ### ✅ Fixing a Broken Manifest
+
 ```powershell
 # 1. Auto-fix
 .\bin\autofix-manifest.ps1 -ManifestPath bucket\appname.json
@@ -587,6 +626,7 @@ git push
 ```
 
 ### ✅ Processing GitHub Issues
+
 ```powershell
 # 1. When someone files a manifest request issue:
 .\bin\handle-issue.ps1 -IssueNumber 123 -GitHubToken "token"
@@ -647,7 +687,7 @@ Scripts use these exit codes:
 ---
 
 For detailed documentation, see:
+
 - MANIFEST_CREATION.md - Full feature guide
 - QUICKSTART.md - Quick reference
 - AUTOMATION_SUMMARY.md - System overview
-
