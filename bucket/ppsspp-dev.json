@@ -7,31 +7,18 @@
         "64bit": {
             "url": "https://builds.ppsspp.org/builds/v1.20.4-4779-g55d87956fcdd/ppsspp_win_v1.20.4-4779-g55d87956fcdd.zip",
             "hash": "87d29cc2a830130664c11af72a85dfccc5b07ed38247677810adcbbf13052c3c",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows64.exe",
-                    "Sony PlayStation Portable [psp][ppsspp] (dev)"
-                ]
-            ]
+            "shortcuts": [["PPSSPPWindows64.exe", "Sony PlayStation Portable [psp][ppsspp] (dev)"]]
         },
         "32bit": {
             "url": "https://builds.ppsspp.org/builds/v1.20.4-4779-g55d87956fcdd/ppsspp_win_v1.20.4-4779-g55d87956fcdd.zip",
             "hash": "87d29cc2a830130664c11af72a85dfccc5b07ed38247677810adcbbf13052c3c",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows.exe",
-                    "Sony PlayStation Portable [psp][ppsspp] (dev)"
-                ]
-            ]
+            "shortcuts": [["PPSSPPWindows.exe", "Sony PlayStation Portable [psp][ppsspp] (dev)"]]
         },
         "arm64": {
             "url": "https://builds.ppsspp.org/builds/v1.20.4-4779-g55d87956fcdd/PPSSPPWindowsARM64_v1.20.4-4779-g55d87956fcdd.zip",
             "hash": "4359424559214483485b05cbf592f1c8ac70dda6d4f2b1544eb5af24643695cd",
             "shortcuts": [
-                [
-                    "PPSSPPWindowsARM64.exe",
-                    "Sony PlayStation Portable [psp][ppsspp] (dev)"
-                ]
+                ["PPSSPPWindowsARM64.exe", "Sony PlayStation Portable [psp][ppsspp] (dev)"]
             ]
         }
     },
@@ -41,11 +28,7 @@
         "   New-item \"$persist_dir\\memstick\" -ItemType Directory | Out-Null",
         "}"
     ],
-    "persist": [
-        "memstick",
-        "assets",
-        "demos"
-    ],
+    "persist": ["memstick", "assets", "demos"],
     "checkver": {
         "url": "https://builds.ppsspp.org/meta/history.json",
         "regex": "ppsspp_win_v(?<version>[\\d.]+)-(?<build>[\\d]+)-g(?<commit>[\\da-fA-F]+)\\.zip",

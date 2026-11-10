@@ -27,18 +27,8 @@
         "   }",
         "}"
     ],
-    "bin": [
-        [
-            "citron-cmd.exe",
-            "citron-nightly"
-        ]
-    ],
-    "shortcuts": [
-        [
-            "citron.exe",
-            "Nintendo Switch [nsw][citron] (nightly)"
-        ]
-    ],
+    "bin": [["citron-cmd.exe", "citron-nightly"]],
+    "shortcuts": [["citron.exe", "Nintendo Switch [nsw][citron] (nightly)"]],
     "persist": "user",
     "checkver": {
         "url": "https://api.github.com/repos/citron-neo/CI/releases/tags/nightly-windows",

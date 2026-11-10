@@ -24,12 +24,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 2
-          path: 'my_bucket'
+          path: "my_bucket"
       - name: Checkout Scoop
         uses: actions/checkout@v7
         with:
           repository: ScoopInstaller/Scoop
-          path: 'scoop_core'
+          path: "scoop_core"
       - name: Init and Test (PowerShell)
         if: matrix.shell == 'powershell'
         shell: powershell

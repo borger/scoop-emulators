@@ -32,19 +32,8 @@
         "    }",
         "}"
     ],
-    "shortcuts": [
-        [
-            "starship.exe",
-            "StarFox 64 [n64][sf64]"
-        ]
-    ],
-    "persist": [
-        "mods",
-        "Save",
-        "starship.cfg.json",
-        "default.sav",
-        "imgui.ini"
-    ],
+    "shortcuts": [["starship.exe", "StarFox 64 [n64][sf64]"]],
+    "persist": ["mods", "Save", "starship.cfg.json", "default.sav", "imgui.ini"],
     "uninstaller": {
         "script": [
             "$files = @('starship.cfg.json', 'default.sav', 'imgui.ini')",

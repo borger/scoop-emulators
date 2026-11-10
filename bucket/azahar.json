@@ -21,12 +21,7 @@
         "}"
     ],
     "bin": "azahar.exe",
-    "shortcuts": [
-        [
-            "azahar.exe",
-            "Nintendo 3DS [3ds][azahar]"
-        ]
-    ],
+    "shortcuts": [["azahar.exe", "Nintendo 3DS [3ds][azahar]"]],
     "persist": "user",
     "checkver": {
         "github": "https://github.com/azahar-emu/azahar"

@@ -54,22 +54,9 @@
         "    (Get-Content \"$persist_dir\\launcher\\versions.json\").Replace($oldPath, $newPath) | Set-Content \"$persist_dir\\launcher\\versions.json\"",
         "}"
     ],
-    "bin": [
-        [
-            "shadPS4QtLauncher.exe",
-            "shadPS4"
-        ]
-    ],
-    "shortcuts": [
-        [
-            "shadPS4QtLauncher.exe",
-            "PlayStation 4 [ps4][shadps4]"
-        ]
-    ],
-    "persist": [
-        "launcher",
-        "user"
-    ],
+    "bin": [["shadPS4QtLauncher.exe", "shadPS4"]],
+    "shortcuts": [["shadPS4QtLauncher.exe", "PlayStation 4 [ps4][shadps4]"]],
+    "persist": ["launcher", "user"],
     "checkver": {
         "url": "https://api.github.com/repos/shadps4-emu/shadps4-qtlauncher/releases?per_page=1",
         "script": [

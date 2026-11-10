@@ -45,18 +45,8 @@
         "    '[sys.files]', \"eeprom_path = '$dir\\eeprom\\eeprom.bin'\" | Set-Content \"$persist_dir\\xemu.toml\"",
         "}"
     ],
-    "bin": [
-        [
-            "xemu.exe",
-            "xemu-dev"
-        ]
-    ],
-    "shortcuts": [
-        [
-            "xemu.exe",
-            "Microsoft Xbox [xbx][xemu] (dev)"
-        ]
-    ],
+    "bin": [["xemu.exe", "xemu-dev"]],
+    "shortcuts": [["xemu.exe", "Microsoft Xbox [xbx][xemu] (dev)"]],
     "persist": [
         "bootrom",
         "flashrom",

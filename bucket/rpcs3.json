@@ -34,12 +34,7 @@
         "}"
     ],
     "bin": "rpcs3.exe",
-    "shortcuts": [
-        [
-            "rpcs3.exe",
-            "Sony PlayStation 3 [ps3][rpcs3]"
-        ]
-    ],
+    "shortcuts": [["rpcs3.exe", "Sony PlayStation 3 [ps3][rpcs3]"]],
     "persist": [
         "dev_flash",
         "dev_flash2",

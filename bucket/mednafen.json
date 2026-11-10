@@ -32,12 +32,7 @@
         ]
     },
     "bin": "mednafen.exe",
-    "shortcuts": [
-        [
-            "mednafen.exe",
-            "mednafen"
-        ]
-    ],
+    "shortcuts": [["mednafen.exe", "mednafen"]],
     "persist": [
         "cheats",
         "firmware",

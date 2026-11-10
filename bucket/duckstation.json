@@ -18,22 +18,12 @@
         "64bit": {
             "url": "https://github.com/stenzek/duckstation/releases/download/latest/duckstation-windows-x64-release.zip",
             "hash": "ca02e8eac40c0c6de801638f6b16bec80b605b5df32e406fe2fba7f21016b14b",
-            "bin": [
-                [
-                    "duckstation-qt-x64-ReleaseLTCG.exe",
-                    "duckstation"
-                ]
-            ]
+            "bin": [["duckstation-qt-x64-ReleaseLTCG.exe", "duckstation"]]
         },
         "arm64": {
             "url": "https://github.com/stenzek/duckstation/releases/download/latest/duckstation-windows-ARM64-release.zip",
             "hash": "d6caa5fd775dac8506365408b3f794c0ecfb1dca0069c30763b466dc76a2a52f",
-            "bin": [
-                [
-                    "duckstation-qt-ARM64-ReleaseLTCG.exe",
-                    "duckstation"
-                ]
-            ]
+            "bin": [["duckstation-qt-ARM64-ReleaseLTCG.exe", "duckstation"]]
         }
     },
     "pre_install": [
@@ -49,12 +39,7 @@
         "}"
     ],
     "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
-    "shortcuts": [
-        [
-            "duckstation-qt-x64-ReleaseLTCG.exe",
-            "Sony PlayStation [ps1][duckstation]"
-        ]
-    ],
+    "shortcuts": [["duckstation-qt-x64-ReleaseLTCG.exe", "Sony PlayStation [ps1][duckstation]"]],
     "persist": [
         "bios",
         "cache",

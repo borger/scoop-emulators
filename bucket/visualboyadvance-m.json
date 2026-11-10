@@ -27,17 +27,9 @@
     ],
     "bin": "visualboyadvance-m.exe",
     "shortcuts": [
-        [
-            "visualboyadvance-m.exe",
-            "Nintendo Game Boy Advance [gba][visualboyadvance-m]"
-        ]
+        ["visualboyadvance-m.exe", "Nintendo Game Boy Advance [gba][visualboyadvance-m]"]
     ],
-    "persist": [
-        "Battery",
-        "Recording",
-        "Screenshot",
-        "State"
-    ],
+    "persist": ["Battery", "Recording", "Screenshot", "State"],
     "checkver": {
         "github": "https://github.com/visualboyadvance-m/visualboyadvance-m"
     },

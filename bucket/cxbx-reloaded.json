@@ -30,20 +30,8 @@
         "}"
     ],
     "bin": "cxbx.exe",
-    "shortcuts": [
-        [
-            "cxbx.exe",
-            "Microsoft Xbox [xbx][cxbx]"
-        ]
-    ],
-    "persist": [
-        "EmuDisk",
-        "EmuMediaBoard",
-        "EmuMu",
-        "SymbolCache",
-        "EEPROM.bin",
-        "settings.ini"
-    ],
+    "shortcuts": [["cxbx.exe", "Microsoft Xbox [xbx][cxbx]"]],
+    "persist": ["EmuDisk", "EmuMediaBoard", "EmuMu", "SymbolCache", "EEPROM.bin", "settings.ini"],
     "checkver": {
         "url": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/releases.atom",
         "script": [

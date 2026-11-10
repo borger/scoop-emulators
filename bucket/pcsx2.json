@@ -31,12 +31,7 @@
         "}"
     ],
     "post_install": "Set-Content -Value $null -Path \"$dir\\portable.ini\"",
-    "shortcuts": [
-        [
-            "pcsx2-qt.exe",
-            "Sony PlayStation 2 [ps2][pcsx2]"
-        ]
-    ],
+    "shortcuts": [["pcsx2-qt.exe", "Sony PlayStation 2 [ps2][pcsx2]"]],
     "persist": [
         "bios",
         "cheats_ws",

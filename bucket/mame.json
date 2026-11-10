@@ -50,22 +50,10 @@
                 "romcmp.exe",
                 "unidasm.exe"
             ],
-            "shortcuts": [
-                [
-                    "mame.exe",
-                    "MAME"
-                ]
-            ]
+            "shortcuts": [["mame.exe", "MAME"]]
         }
     },
-    "persist": [
-        "ctrlr",
-        "plugins",
-        "roms",
-        "mame.ini",
-        "ui.ini",
-        "plugin.ini"
-    ],
+    "persist": ["ctrlr", "plugins", "roms", "mame.ini", "ui.ini", "plugin.ini"],
     "checkver": {
         "url": "https://api.github.com/repos/mamedev/mame/releases/latest",
         "jsonpath": "$.tag_name",

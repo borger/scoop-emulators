@@ -23,24 +23,11 @@
         "   Add-Content -Path \"$dir\\vbam.ini\" -Value $_`Dir`=$_ }",
         "}"
     ],
-    "bin": [
-        [
-            "visualboyadvance-m.exe",
-            "visualboyadvance-m-nightly"
-        ]
-    ],
+    "bin": [["visualboyadvance-m.exe", "visualboyadvance-m-nightly"]],
     "shortcuts": [
-        [
-            "visualboyadvance-m.exe",
-            "Nintendo Game Boy Advance [gba][visualboyadvance-m] (nightly)"
-        ]
+        ["visualboyadvance-m.exe", "Nintendo Game Boy Advance [gba][visualboyadvance-m] (nightly)"]
     ],
-    "persist": [
-        "Battery",
-        "Recording",
-        "Screenshot",
-        "State"
-    ],
+    "persist": ["Battery", "Recording", "Screenshot", "State"],
     "autoupdate": {
         "architecture": {
             "64bit": {

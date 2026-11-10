@@ -16,27 +16,9 @@
             "hash": "1309d17d2859505d5e4a9577a81ccc5bb858c1ac48e321023eb57156a82f7187"
         }
     },
-    "bin": [
-        [
-            "Project64.exe",
-            "Project64-dev"
-        ]
-    ],
-    "shortcuts": [
-        [
-            "Project64.exe",
-            "Nintendo 64 [n64][project64] (dev)"
-        ]
-    ],
-    "persist": [
-        "Config",
-        "Logs",
-        "Save",
-        "Screenshots",
-        "Textures",
-        "Games",
-        "ROMs"
-    ],
+    "bin": [["Project64.exe", "Project64-dev"]],
+    "shortcuts": [["Project64.exe", "Nintendo 64 [n64][project64] (dev)"]],
+    "persist": ["Config", "Logs", "Save", "Screenshots", "Textures", "Games", "ROMs"],
     "checkver": {
         "url": "https://www.pj64-emu.com/nightly-builds",
         "regex": "href=\"/file/project64-win32-dev-(?<major>[\\d]+)-(?<minor>[\\d]+)-(?<patch>[\\d]+)-(?<build>[\\d]+)-(?<commit>[\\da-f]+).*btn zip",

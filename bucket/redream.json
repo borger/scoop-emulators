@@ -19,17 +19,8 @@
         "}"
     ],
     "bin": "redream.exe",
-    "shortcuts": [
-        [
-            "redream.exe",
-            "Sega Dreamcast [sdc][redream] "
-        ]
-    ],
-    "persist": [
-        "cache",
-        "saves",
-        "redream.cfg"
-    ],
+    "shortcuts": [["redream.exe", "Sega Dreamcast [sdc][redream] "]],
+    "persist": ["cache", "saves", "redream.cfg"],
     "checkver": {
         "url": "https://redream.io/download",
         "regex": "v(\\d\\.\\d\\.\\d)"

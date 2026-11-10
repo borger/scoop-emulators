@@ -30,18 +30,8 @@
         "    New-Item -ItemType File \"$dir\\settings.xml\" | Out-Null",
         "}"
     ],
-    "bin": [
-        [
-            "Cemu.exe",
-            "cemu"
-        ]
-    ],
-    "shortcuts": [
-        [
-            "Cemu.exe",
-            "Nintendo WiiU [wiiu][cemu]"
-        ]
-    ],
+    "bin": [["Cemu.exe", "cemu"]],
+    "shortcuts": [["Cemu.exe", "Nintendo WiiU [wiiu][cemu]"]],
     "persist": [
         "controllerProfiles",
         "gameProfiles",

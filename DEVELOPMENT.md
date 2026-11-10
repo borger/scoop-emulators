@@ -16,8 +16,8 @@ This system automates the creation of emulator manifests for the Scoop Emulators
 
 1. Go to [GitHub Issues](https://github.com/borger/scoop-emulators/issues)
 2. Create a new issue with:
-   - Label: `request-manifest`
-   - Include a GitHub repository URL
+    - Label: `request-manifest`
+    - Include a GitHub repository URL
 
 The system will automatically create the manifest and update your issue!
 
@@ -124,23 +124,23 @@ Add to `.github/workflows/manifest-requests.yml`:
 name: Create Manifest from Issue
 
 on:
-  issues:
-    types: [opened, labeled]
+    issues:
+        types: [opened, labeled]
 
 jobs:
-  create-manifest:
-    runs-on: windows-latest
-    if: contains(github.event.issue.labels.*.name, 'request-manifest')
+    create-manifest:
+        runs-on: windows-latest
+        if: contains(github.event.issue.labels.*.name, 'request-manifest')
 
-    steps:
-      - uses: actions/checkout@v7
+        steps:
+            - uses: actions/checkout@v7
 
-      - name: Create Manifest
-        shell: pwsh
-        run: |
-          .\bin\create-emulator-manifest.ps1 `
-            -IssueNumber ${{ github.event.issue.number }} `
-            -GitHubToken ${{ secrets.GITHUB_TOKEN }}
+            - name: Create Manifest
+              shell: pwsh
+              run: |
+                  .\bin\create-emulator-manifest.ps1 `
+                    -IssueNumber ${{ github.event.issue.number }} `
+                    -GitHubToken ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Supported Emulator Platforms
@@ -175,21 +175,21 @@ The system auto-detects:
 ## Next Steps
 
 1. **Read the Docs**
-   - Start with [QUICKSTART.md](QUICKSTART.md)
-   - Full guide: [MANIFEST_CREATION.md](MANIFEST_CREATION.md)
+    - Start with [QUICKSTART.md](QUICKSTART.md)
+    - Full guide: [MANIFEST_CREATION.md](MANIFEST_CREATION.md)
 
 2. **Set Up GitHub Actions** (optional)
-   - Automatically process issues
-   - Enable manifest requests
+    - Automatically process issues
+    - Enable manifest requests
 
 3. **Start Creating Manifests**
-   - Request via issues
-   - Or run script directly
+    - Request via issues
+    - Or run script directly
 
 4. **Validate and Deploy**
-   - Run validation tests
-   - Commit to main
-   - Automatic merge on success
+    - Run validation tests
+    - Commit to main
+    - Automatic merge on success
 
 ## Documentation
 
@@ -265,6 +265,16 @@ GPLv2 (same as bucket)
 ## PowerShell Scripts Reference
 
 Quick reference for all PowerShell scripts in the `bin/` directory.
+
+## Formatting and Linting
+
+Pre-commit formats changed JSON manifests with Oxfmt. Run it manually for all files with:
+
+```powershell
+pre-commit run oxfmt --all-files
+```
+
+The repository does not currently contain JavaScript or TypeScript files, so Oxlint is not configured.
 
 ## Manifest Creation & Automation
 
@@ -476,7 +486,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 
 ### formatjson.ps1
 
-**Purpose**: Format and validate JSON structure.
+**Purpose**: Format and validate JSON structure using Scoop's formatter.
 
 **Usage**:
 
@@ -494,7 +504,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 - Valid JSON structure
 - Consistent formatting
 
-**Recommended**: Before committing
+**Note**: Oxfmt is used by the pre-commit hook to format bucket manifests.
 
 ---
 

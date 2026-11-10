@@ -7,32 +7,17 @@
         "64bit": {
             "url": "https://ppsspp.org/files/1_20_4/ppsspp_win.zip",
             "hash": "a60f04ebdb0b5f1655422bd7f88349a46999b17ad5115d6ddb290c3934bd5163",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows64.exe",
-                    "PPSSPP"
-                ]
-            ]
+            "shortcuts": [["PPSSPPWindows64.exe", "PPSSPP"]]
         },
         "32bit": {
             "url": "https://ppsspp.org/files/1_20_4/ppsspp_win.zip",
             "hash": "a60f04ebdb0b5f1655422bd7f88349a46999b17ad5115d6ddb290c3934bd5163",
-            "shortcuts": [
-                [
-                    "PPSSPPWindows.exe",
-                    "Sony PlayStation Portable [psp][ppsspp]"
-                ]
-            ]
+            "shortcuts": [["PPSSPPWindows.exe", "Sony PlayStation Portable [psp][ppsspp]"]]
         },
         "arm64": {
             "url": "https://ppsspp.org/files/1_20_4/PPSSPPWindowsARM64.zip",
             "hash": "12886da78f8e5bcc597e1022314fce50280938379b5903b5654db20d96d9b724",
-            "shortcuts": [
-                [
-                    "PPSSPPWindowsARM64.exe",
-                    "PPSSPP"
-                ]
-            ]
+            "shortcuts": [["PPSSPPWindowsARM64.exe", "PPSSPP"]]
         }
     },
     "pre_install": [
@@ -41,11 +26,7 @@
         "   New-item \"$persist_dir\\memstick\" -ItemType Directory | Out-Null",
         "}"
     ],
-    "persist": [
-        "assets",
-        "demos",
-        "memstick"
-    ],
+    "persist": ["assets", "demos", "memstick"],
     "checkver": {
         "url": "https://api.github.com/repos/hrydgard/ppsspp/releases/latest",
         "jsonpath": "$.tag_name",

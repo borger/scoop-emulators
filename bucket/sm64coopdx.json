@@ -14,12 +14,7 @@
         }
     },
     "bin": "sm64coopdx.exe",
-    "shortcuts": [
-        [
-            "sm64coopdx.exe",
-            "sm64coopdx [win][sm64]"
-        ]
-    ],
+    "shortcuts": [["sm64coopdx.exe", "sm64coopdx [win][sm64]"]],
     "checkver": "github",
     "autoupdate": {
         "architecture": {

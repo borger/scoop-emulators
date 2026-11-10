@@ -33,12 +33,7 @@
         "}"
     ],
     "bin": "xenia_canary.exe",
-    "shortcuts": [
-        [
-            "xenia_canary.exe",
-            "Microsoft Xbox 360 [x360][xenia] (canary)"
-        ]
-    ],
+    "shortcuts": [["xenia_canary.exe", "Microsoft Xbox 360 [x360][xenia] (canary)"]],
     "persist": [
         "cache",
         "cache_host",

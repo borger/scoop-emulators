@@ -13,12 +13,7 @@
             "hash": "73222d37627be796a63ad7ab6bccb9fbd8a3e9247bfe7b2ca04885fd17aca58b"
         }
     },
-    "shortcuts": [
-        [
-            "eglantine.exe",
-            "Nintendo Switch 2 [nsw2][eglantine]"
-        ]
-    ],
+    "shortcuts": [["eglantine.exe", "Nintendo Switch 2 [nsw2][eglantine]"]],
     "checkver": {
         "url": "https://api.github.com/repos/Eglantine-Community/Eglantine/releases/latest",
         "jsonpath": "$.tag_name",

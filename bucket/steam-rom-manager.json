@@ -15,12 +15,7 @@
     "installer": {
         "script": "Rename-Item \"$dir\\steam-rom-manager-portable-$version.exe\" 'steam-rom-manager.exe' -Force"
     },
-    "shortcuts": [
-        [
-            "steam-rom-manager.exe",
-            "Steam ROM Manager"
-        ]
-    ],
+    "shortcuts": [["steam-rom-manager.exe", "Steam ROM Manager"]],
     "persist": "userData",
     "checkver": {
         "github": "https://github.com/SteamGridDB/steam-rom-manager",

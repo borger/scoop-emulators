@@ -22,18 +22,8 @@
         ]
     },
     "bin": "scummvm.exe",
-    "shortcuts": [
-        [
-            "scummvm.exe",
-            "ScummVM (nightly)"
-        ]
-    ],
-    "persist": [
-        "scummvm.ini",
-        "saves",
-        "themes",
-        "extras"
-    ],
+    "shortcuts": [["scummvm.exe", "ScummVM (nightly)"]],
+    "persist": ["scummvm.ini", "saves", "themes", "extras"],
     "autoupdate": {
         "architecture": {
             "64bit": {

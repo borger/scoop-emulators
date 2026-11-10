@@ -28,12 +28,7 @@
         "}"
     ],
     "bin": "eden-cli.exe",
-    "shortcuts": [
-        [
-            "lichii.exe",
-            "Nintendo Switch 2 [nsw2][lichii]"
-        ]
-    ],
+    "shortcuts": [["lichii.exe", "Nintendo Switch 2 [nsw2][lichii]"]],
     "persist": "user",
     "checkver": {
         "url": "https://api.github.com/repos/zortos293/Lichii/releases?per_page=20",

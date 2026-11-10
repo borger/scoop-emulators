@@ -12,13 +12,13 @@ If you are not comfortable writing code or JSON manifests, you can simply reques
 2. Click **New Issue**.
 3. Use the following format in your issue:
 
-   ```text
-   Title: Add [Emulator Name]
+    ```text
+    Title: Add [Emulator Name]
 
-   Body:
-   Please add support for [Emulator Name]
-   GitHub: https://github.com/owner/repo
-   ```
+    Body:
+    Please add support for [Emulator Name]
+    GitHub: https://github.com/owner/repo
+    ```
 
 4. Add the label: `request-manifest` or `emulator-request`.
 5. Click **Submit new issue**.

@@ -14,16 +14,8 @@
     },
     "extract_dir": "bsnes_v115-windows",
     "bin": "bsnes.exe",
-    "shortcuts": [
-        [
-            "bsnes.exe",
-            "Super Nintendo Entertainment System [snes][bsnes]"
-        ]
-    ],
-    "persist": [
-        "Firmware",
-        "settings.bml"
-    ],
+    "shortcuts": [["bsnes.exe", "Super Nintendo Entertainment System [snes][bsnes]"]],
+    "persist": ["Firmware", "settings.bml"],
     "checkver": {
         "github": "https://github.com/bsnes-emu/bsnes",
         "regex": "v(\\d{3,})"

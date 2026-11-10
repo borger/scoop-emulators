@@ -46,12 +46,7 @@
         "}"
     ],
     "bin": "xemu.exe",
-    "shortcuts": [
-        [
-            "xemu.exe",
-            "Microsoft Xbox [xbx][xemu]"
-        ]
-    ],
+    "shortcuts": [["xemu.exe", "Microsoft Xbox [xbx][xemu]"]],
     "persist": [
         "bootrom",
         "flashrom",

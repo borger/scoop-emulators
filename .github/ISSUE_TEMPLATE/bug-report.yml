@@ -3,66 +3,65 @@ description: Report issues when an emulator fails to install or update via Scoop
 title: "[Bug]: "
 labels: ["bug"]
 body:
-- type: checkboxes
-  attributes:
-    label: Prerequisites
-    description: Please verify before reporting
-    options:
-    - label: I have run `scoop update` and verified the problem still exists
+  - type: checkboxes
+    attributes:
+      label: Prerequisites
+      description: Please verify before reporting
+      options:
+        - label: I have run `scoop update` and verified the problem still exists
+          required: true
+        - label: I have checked that this is not a manifest validation issue (use the Manifest Error template for those)
+          required: false
+
+  - type: input
+    attributes:
+      label: Emulator Name
+      description: Name of the emulator package
+      placeholder: e.g. duckstation
+    validations:
       required: true
-    - label: I have checked that this is not a manifest validation issue (use the Manifest Error template for those)
+
+  - type: input
+    attributes:
+      label: Windows Version
+      description: Your Windows version
+      placeholder: e.g. Windows 11 22H2, Windows 10 21H2
+    validations:
       required: false
 
-- type: input
-  attributes:
-    label: Emulator Name
-    description: Name of the emulator package
-    placeholder: e.g. duckstation
-  validations:
-    required: true
+  - type: textarea
+    attributes:
+      label: Error Message
+      description: Complete error output from Scoop
+      render: console
+      placeholder: |
+        Paste the full error message from:
+        scoop install <app-name>
+        or
+        scoop update <app-name>
+    validations:
+      required: true
 
-- type: input
-  attributes:
-    label: Windows Version
-    description: Your Windows version
-    placeholder: e.g. Windows 11 22H2, Windows 10 21H2
-  validations:
-    required: false
-
-- type: textarea
-  attributes:
-    label: Error Message
-    description: Complete error output from Scoop
-    render: console
-    placeholder: |
-      Paste the full error message from:
-      scoop install <app-name>
-      or
-      scoop update <app-name>
-  validations:
-    required: true
-
-- type: textarea
-  attributes:
-    label: Additional Context
-    description: Any other information that might help debug the issue
-    placeholder: Steps taken, what you were trying to do, etc.
-    required: false
-
-- type: checkboxes
-  attributes:
-    label: Troubleshooting
-    options:
-    - label: I have run the validation scripts locally to test the manifest
-      required: false
-    - label: I have checked for known issues with this emulator's upstream project
+  - type: textarea
+    attributes:
+      label: Additional Context
+      description: Any other information that might help debug the issue
+      placeholder: Steps taken, what you were trying to do, etc.
       required: false
 
-- type: markdown
-  attributes:
-    value: |
-      **Helpful Links:**
-      - [Validation Scripts](../CONTRIBUTING.md#automated-validation--merge-workflow)
-      - [Manifest Error Reporting](./manifest-error.yml)
-      - [Contributing Guide](../CONTRIBUTING.md)
+  - type: checkboxes
+    attributes:
+      label: Troubleshooting
+      options:
+        - label: I have run the validation scripts locally to test the manifest
+          required: false
+        - label: I have checked for known issues with this emulator's upstream project
+          required: false
 
+  - type: markdown
+    attributes:
+      value: |
+        **Helpful Links:**
+        - [Validation Scripts](../CONTRIBUTING.md#automated-validation--merge-workflow)
+        - [Manifest Error Reporting](./manifest-error.yml)
+        - [Contributing Guide](../CONTRIBUTING.md)

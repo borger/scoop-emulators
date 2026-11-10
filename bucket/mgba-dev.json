@@ -37,21 +37,10 @@
         "}"
     ],
     "bin": [
-        [
-            "mGBA.exe",
-            "mgba-dev"
-        ],
-        [
-            "mgba-sdl.exe",
-            "mgba-sdl-dev"
-        ]
+        ["mGBA.exe", "mgba-dev"],
+        ["mgba-sdl.exe", "mgba-sdl-dev"]
     ],
-    "shortcuts": [
-        [
-            "mGBA.exe",
-            "Nintendo Gane Boy Advance [gba][mgba] (dev)"
-        ]
-    ],
+    "shortcuts": [["mGBA.exe", "Nintendo Gane Boy Advance [gba][mgba] (dev)"]],
     "persist": [
         "bios",
         "cheats",

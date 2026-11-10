@@ -14,12 +14,7 @@
     },
     "pre_install": "if (!(Test-Path \"$persist_dir\\settings.json\")) { New-Item -ItemType File \"$dir\\settings.json\" | Out-Null }",
     "bin": "Mesen.exe",
-    "shortcuts": [
-        [
-            "Mesen.exe",
-            "Nintendo Entertainment System [nes][mesen]"
-        ]
-    ],
+    "shortcuts": [["Mesen.exe", "Nintendo Entertainment System [nes][mesen]"]],
     "persist": [
         "settings.json",
         "RecentGames",
