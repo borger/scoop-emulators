@@ -41,10 +41,14 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `bsnes-hd-beta` | SNES (HD mode7 fork) | — | [github.com/DerKoun/bsnes-hd](https://github.com/DerKoun/bsnes-hd) |
 | `bsnes-mt` | SNES (pixel-perfect fork) | — | [tanalin.com/en/projects/bsnes-mt](https://tanalin.com/en/projects/bsnes-mt/) |
 | `cemu` | Wii U | `dev` | [cemu.info](https://cemu.info) |
+| `citron` | Switch | `nightly` | [citron-neo.org](https://citron-neo.org/) |
 | `dolphin` | GameCube / Wii | `dev` | [dolphin-emu.org](https://dolphin-emu.org/) |
 | `eden` | Switch | `nightly` | [eden-emu.dev](https://eden-emu.dev/) |
+| `eglantine` | Switch 2 | — | [github.com/Eglantine-Community/Eglantine](https://github.com/Eglantine-Community/Eglantine) |
 | `fceux` | NES | — | [fceux.com](https://fceux.com) |
+| `fritchii` | Switch 2 | — | [github.com/Frizti/Fritchii](https://github.com/Frizti/Fritchii) |
 | `gopher64` | N64 | — | [github.com/gopher64/gopher64](https://github.com/gopher64/gopher64) |
+| `lichii` | Switch / Switch 2 | — | [lichiiemulator.app](https://lichiiemulator.app/) |
 | `melonds` | DS | — | [melonds.kuribo64.net](https://melonds.kuribo64.net/) |
 | `mesen` | NES / multi-system | — | [mesen.ca](https://www.mesen.ca) |
 | `mesen-s` | SNES | — | [mesen.ca](https://www.mesen.ca) |
@@ -55,6 +59,7 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `sameboy` | GB / GBC | — | [sameboy.github.io](https://sameboy.github.io/) |
 | `snes9x` | SNES | `dev` | [snes9x.com](https://www.snes9x.com/) |
 | `visualboyadvance-m` | GB / GBC / GBA | `nightly` | [visualboyadvance-m.org](https://visualboyadvance-m.org) |
+| `zakantine` | Switch 2 | — | [github.com/kanade333/Zakantine](https://github.com/kanade333/Zakantine) |
 
 ### PlayStation
 
@@ -64,6 +69,7 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `pcsx2` | PS2 | `dev` | [pcsx2.net](https://pcsx2.net/) |
 | `ppsspp` | PSP | `dev` | [ppsspp.org](https://www.ppsspp.org) |
 | `ps3-system-software` | PS3 firmware | — | [playstation.com](https://www.playstation.com/en-us/support/hardware/ps3/system-software/) |
+| `psv-system-software` | PS Vita firmware | — | [playstation.com](https://www.playstation.com/en-us/support/hardware/psvita/system-software/) |
 | `rpcs3` | PS3 | — | [rpcs3.net](https://rpcs3.net/) |
 | `shadps4` | PS4 | `dev` | [shadps4.net](https://shadps4.net/) |
 | `vita3k` | PS Vita | — | [vita3k.org](https://vita3k.org) |
@@ -81,7 +87,7 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 |-----|---------|----------|----------|
 | `cxbx-reloaded` | Xbox | — | [cxbx-reloaded.co.uk](https://cxbx-reloaded.co.uk/) |
 | `xemu` | Xbox | `dev` | [xemu.app](https://xemu.app) |
-| `xenia` | Xbox 360 | `canary` | [xenia.jp](https://xenia.jp) |
+| `xenia` | Xbox 360 | `canary`, `edge` | [xenia.jp](https://xenia.jp) |
 
 ### PC / Engine ports
 
