@@ -32,6 +32,20 @@ Describe 'Invoke-ManifestCreation' {
         } | Should -BeTrue
     }
 
+    It 'requires request context before treating a GitHub link as a manifest request' {
+        Test-ManifestRequest -Issue @{
+            labels = @(@{ name = 'bug' })
+            title  = 'Installation error'
+            body   = 'Source repository: https://github.com/owner/repo'
+        } | Should -BeFalse
+
+        Test-ManifestRequest -Issue @{
+            labels = @()
+            title  = 'Please add this emulator'
+            body   = 'Repository: https://github.com/owner/repo'
+        } | Should -BeTrue
+    }
+
     It 'passes supported issue-creation options to the child script' {
         $childScript = Join-Path $TestDrive 'manifest creator.ps1'
         @'

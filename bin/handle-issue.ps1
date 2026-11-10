@@ -57,9 +57,10 @@ function Test-ManifestRequest {
         return $true
     }
 
-    # Also check for GitHub URL in title or body
-    if ($Issue.title -match 'https?://github\.com/[^/\s]+/[^/\s]+' -or
-        $Issue.body -match 'https?://github\.com/[^/\s]+/[^/\s]+') {
+    $issueText = '{0}{1}{2}' -f $Issue.title, [Environment]::NewLine, $Issue.body
+    $hasGitHubUrl = $issueText -match 'https?://github\.com/[^/\s]+/[^/\s]+'
+    $hasRequestContext = $issueText -match '(?i)\b(?:request(?:ing)?|add(?:ing)?|creat(?:e|ing))\b.{0,80}\b(?:emulator|manifest|app)\b|\b(?:emulator|manifest|app)\b.{0,80}\b(?:request|add|create)\b'
+    if ($hasGitHubUrl -and $hasRequestContext) {
         return $true
     }
 
