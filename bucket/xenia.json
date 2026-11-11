@@ -29,8 +29,17 @@
     ],
     "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
     "bin": "xenia.exe",
-    "shortcuts": [["xenia.exe", "Xenia"]],
-    "persist": ["cache", "content", "xenia.config.toml"],
+    "shortcuts": [
+        [
+            "xenia.exe",
+            "Xenia"
+        ]
+    ],
+    "persist": [
+        "cache",
+        "content",
+        "xenia.config.toml"
+    ],
     "checkver": {
         "github": "https://github.com/xenia-project/release-builds-windows",
         "regex": "v([\\d.]+)-master"

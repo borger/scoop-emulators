@@ -27,8 +27,17 @@
         "}"
     ],
     "bin": "soh.exe",
-    "shortcuts": [["soh.exe", "The Legend of Zelda - Ocarina of Time [oot][soh]"]],
-    "persist": ["mods", "Save", "shipofharkinian.json"],
+    "shortcuts": [
+        [
+            "soh.exe",
+            "The Legend of Zelda - Ocarina of Time [oot][soh]"
+        ]
+    ],
+    "persist": [
+        "mods",
+        "Save",
+        "shipofharkinian.json"
+    ],
     "uninstaller": {
         "script": [
             "if (Test-Path \"$dir\\shipofharkinian.json\") {",

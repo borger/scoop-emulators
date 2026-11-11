@@ -30,8 +30,16 @@
         "}"
     ],
     "post_install": "Set-Content -Value $null -Path \"$dir\\portable.txt\"",
-    "bin": ["Dolphin.exe", "DolphinTool.exe"],
-    "shortcuts": [["Dolphin.exe", "Nintendo GameCube & Wii [ngc][dolphin]"]],
+    "bin": [
+        "Dolphin.exe",
+        "DolphinTool.exe"
+    ],
+    "shortcuts": [
+        [
+            "Dolphin.exe",
+            "Nintendo GameCube & Wii [ngc][dolphin]"
+        ]
+    ],
     "persist": "User",
     "checkver": {
         "url": "https://dolphin-emu.org/update/latest/beta",

@@ -31,10 +31,21 @@
     ],
     "post_install": "Set-Content -Value $null -Path \"$dir\\portable.txt\"",
     "bin": [
-        ["Dolphin.exe", "dolphin-dev"],
-        ["DolphinTool.exe", "dolphintool-dev"]
+        [
+            "Dolphin.exe",
+            "dolphin-dev"
+        ],
+        [
+            "DolphinTool.exe",
+            "dolphintool-dev"
+        ]
     ],
-    "shortcuts": [["Dolphin.exe", "Nintendo GameCube & Wii [ngc][dolphin] (dev)"]],
+    "shortcuts": [
+        [
+            "Dolphin.exe",
+            "Nintendo GameCube & Wii [ngc][dolphin] (dev)"
+        ]
+    ],
     "persist": "User",
     "checkver": {
         "url": "https://dolphin-emu.org/update/latest/dev",

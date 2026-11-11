@@ -33,8 +33,19 @@
         "}"
     ],
     "bin": "Spaghettify.exe",
-    "shortcuts": [["Spaghettify.exe", "Mario Kart 64 [n64][mk64]"]],
-    "persist": ["mods", "Save", "spaghettify.cfg.json", "default.sav", "imgui.ini"],
+    "shortcuts": [
+        [
+            "Spaghettify.exe",
+            "Mario Kart 64 [n64][mk64]"
+        ]
+    ],
+    "persist": [
+        "mods",
+        "Save",
+        "spaghettify.cfg.json",
+        "default.sav",
+        "imgui.ini"
+    ],
     "uninstaller": {
         "script": [
             "$files = @('spaghettify.cfg.json', 'default.sav', 'imgui.ini')",

@@ -26,8 +26,18 @@
         "   New-Item -Path \"$dir\" -Name \"scummvm.ini\" -ItemType \"File\" | Out-Null",
         "}"
     ],
-    "shortcuts": [["scummvm.exe", "ScummVM"]],
-    "persist": ["scummvm.ini", "saves", "themes", "extras"],
+    "shortcuts": [
+        [
+            "scummvm.exe",
+            "ScummVM"
+        ]
+    ],
+    "persist": [
+        "scummvm.ini",
+        "saves",
+        "themes",
+        "extras"
+    ],
     "checkver": {
         "github": "https://github.com/scummvm/scummvm"
     },

@@ -14,20 +14,33 @@
         "Microsoft Visual C++ Runtime 2022": "extras/vcredist2022"
     },
     "shortcuts": [
-        ["duckstation-qt-x64-ReleaseLTCG.exe", "Sony PlayStation [ps1][duckstation] (preview)"]
+        [
+            "duckstation-qt-x64-ReleaseLTCG.exe",
+            "Sony PlayStation [ps1][duckstation] (preview)"
+        ]
     ],
     "architecture": {
         "64bit": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-x64-release.zip",
             "hash": "e0beb0dc6a86e4c1bceb4e092dfc6be998b24787ec249f542109c4c0f475c32a",
             "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
-            "bin": [["duckstation-qt-x64-ReleaseLTCG.exe", "duckstation"]]
+            "bin": [
+                [
+                    "duckstation-qt-x64-ReleaseLTCG.exe",
+                    "duckstation"
+                ]
+            ]
         },
         "arm64": {
             "url": "https://github.com/stenzek/duckstation/releases/download/preview/duckstation-windows-arm64-release.zip",
             "hash": "bc00e489b320076b66d8fd21b3655bbf77467adb2ea011c3123f3a700ca01012",
             "post_install": "New-item \"$dir\\portable.txt\" -ItemType File | Out-Null",
-            "bin": [["duckstation-qt-ARM64-ReleaseLTCG.exe", "duckstation"]]
+            "bin": [
+                [
+                    "duckstation-qt-ARM64-ReleaseLTCG.exe",
+                    "duckstation"
+                ]
+            ]
         }
     },
     "pre_install": [

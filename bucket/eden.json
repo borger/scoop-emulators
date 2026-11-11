@@ -35,7 +35,12 @@
         "}"
     ],
     "bin": "eden.exe",
-    "shortcuts": [["eden.exe", "Nintendo Switch [nsw][eden]"]],
+    "shortcuts": [
+        [
+            "eden.exe",
+            "Nintendo Switch [nsw][eden]"
+        ]
+    ],
     "persist": "user",
     "checkver": {
         "url": "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases/latest",

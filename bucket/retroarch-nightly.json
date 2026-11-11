@@ -27,8 +27,18 @@
         "    if (!(Test-Path \"$persist_dir\\content_$type.lpl\")) { New-Item \"$dir\\content_$type.lpl\" | Out-Null }",
         "}"
     ],
-    "bin": [["retroarch.exe", "retroarch-nightly"]],
-    "shortcuts": [["retroarch.exe", "RetroArch (nightly)"]],
+    "bin": [
+        [
+            "retroarch.exe",
+            "retroarch-nightly"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "retroarch.exe",
+            "RetroArch (nightly)"
+        ]
+    ],
     "persist": [
         "assets\\wallpapers",
         "autoconfig",

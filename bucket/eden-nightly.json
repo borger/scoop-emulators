@@ -34,8 +34,18 @@
         "   }",
         "}"
     ],
-    "bin": [["eden.exe", "eden-nightly"]],
-    "shortcuts": [["eden.exe", "Nintendo Switch [nsw][eden] (nightly)"]],
+    "bin": [
+        [
+            "eden.exe",
+            "eden-nightly"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "eden.exe",
+            "Nintendo Switch [nsw][eden] (nightly)"
+        ]
+    ],
     "persist": "user",
     "checkver": {
         "url": "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases/latest",

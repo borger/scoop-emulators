@@ -27,8 +27,18 @@
         "}"
     ],
     "bin": "ares.exe",
-    "shortcuts": [["ares.exe", "ares"]],
-    "persist": ["Systems", "Saves", "Screenshots", "Debugging"],
+    "shortcuts": [
+        [
+            "ares.exe",
+            "ares"
+        ]
+    ],
+    "persist": [
+        "Systems",
+        "Saves",
+        "Screenshots",
+        "Debugging"
+    ],
     "uninstaller": {
         "script": [
             "if (Test-Path \"$dir\\settings.bml\") {",

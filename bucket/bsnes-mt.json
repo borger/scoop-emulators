@@ -17,9 +17,24 @@
         "   New-Item -ItemType File \"$dir\\bsnes-mt-settings.bml\" | Out-Null",
         "}"
     ],
-    "bin": [["bsnes-mt.exe", "bsnes-mt"]],
-    "shortcuts": [["bsnes-mt.exe", "Super Nintendo Entertainment System [snes][bsnes-hd] (mt)"]],
-    "persist": ["Database", "Firmware", "Shaders", "bsnes-mt-settings.bml"],
+    "bin": [
+        [
+            "bsnes-mt.exe",
+            "bsnes-mt"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "bsnes-mt.exe",
+            "Super Nintendo Entertainment System [snes][bsnes-hd] (mt)"
+        ]
+    ],
+    "persist": [
+        "Database",
+        "Firmware",
+        "Shaders",
+        "bsnes-mt-settings.bml"
+    ],
     "checkver": {
         "github": "https://github.com/Marat-Tanalin/bsnes-mt"
     },

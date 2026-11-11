@@ -12,8 +12,13 @@
         }
     },
     "bin": "GoldenEye.exe",
-    "shortcuts": [["GoldenEye.exe", "GoldenEye 64 [n64][ge64]"]],
-    "persist": ["assets"],
+    "shortcuts": [
+        [
+            "GoldenEye.exe",
+            "GoldenEye 64 [n64][ge64]"
+        ]
+    ],
+    "persist": "assets",
     "checkver": {
         "github": "https://github.com/SunJaycy/GoldenEye-Recomp",
         "regex": "Goldeneye([\\d.]+)"

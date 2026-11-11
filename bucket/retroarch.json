@@ -22,7 +22,12 @@
         "}"
     ],
     "bin": "retroarch.exe",
-    "shortcuts": [["retroarch.exe", "RetroArch"]],
+    "shortcuts": [
+        [
+            "retroarch.exe",
+            "RetroArch"
+        ]
+    ],
     "persist": [
         "assets\\wallpapers",
         "cores",

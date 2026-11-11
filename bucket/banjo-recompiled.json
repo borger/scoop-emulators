@@ -17,7 +17,12 @@
     ],
     "post_install": "Set-Content -Value $null -Path \"$dir\\portable.txt\"",
     "bin": "BanjoRecompiled.exe",
-    "shortcuts": [["BanjoRecompiled.exe", "Banjo - Recompiled"]],
+    "shortcuts": [
+        [
+            "BanjoRecompiled.exe",
+            "Banjo - Recompiled"
+        ]
+    ],
     "persist": [
         "mods",
         "mod_config",

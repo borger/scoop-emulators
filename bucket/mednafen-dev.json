@@ -31,8 +31,18 @@
             "}"
         ]
     },
-    "bin": [["mednafen.exe", "mednafen-dev"]],
-    "shortcuts": [["mednafen.exe", "mednafen (dev)"]],
+    "bin": [
+        [
+            "mednafen.exe",
+            "mednafen-dev"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "mednafen.exe",
+            "mednafen (dev)"
+        ]
+    ],
     "persist": [
         "cheats",
         "firmware",

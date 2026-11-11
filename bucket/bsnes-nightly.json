@@ -14,8 +14,16 @@
     },
     "extract_dir": "bsnes-nightly",
     "bin": "bsnes.exe",
-    "shortcuts": [["bsnes.exe", "Super Nintendo Entertainment System [snes][bsnes] (nightly)"]],
-    "persist": ["Firmware", "settings.bml"],
+    "shortcuts": [
+        [
+            "bsnes.exe",
+            "Super Nintendo Entertainment System [snes][bsnes] (nightly)"
+        ]
+    ],
+    "persist": [
+        "Firmware",
+        "settings.bml"
+    ],
     "checkver": {
         "url": "https://github.com/bsnes-emu/bsnes/releases",
         "regex": "nightly (\\d{4}\\-\\d{2}\\-\\d{2})"

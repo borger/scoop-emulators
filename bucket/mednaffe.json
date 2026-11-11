@@ -56,7 +56,12 @@
         ]
     },
     "bin": "mednaffe.exe",
-    "shortcuts": [["mednaffe.exe", "Mednaffe"]],
+    "shortcuts": [
+        [
+            "mednaffe.exe",
+            "Mednaffe"
+        ]
+    ],
     "persist": "mednafen.cfg",
     "checkver": "github",
     "autoupdate": {

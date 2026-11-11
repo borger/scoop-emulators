@@ -29,7 +29,12 @@
     ],
     "post_install": "New-Item \"$dir\\portable.txt\" -ItemType File | Out-Null",
     "bin": "xenia_edge.exe",
-    "shortcuts": [["xenia_edge.exe", "Microsoft Xbox 360 [x360][xenia] (edge)"]],
+    "shortcuts": [
+        [
+            "xenia_edge.exe",
+            "Microsoft Xbox 360 [x360][xenia] (edge)"
+        ]
+    ],
     "persist": [
         "cache",
         "cache_host",

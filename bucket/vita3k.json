@@ -29,8 +29,16 @@
         "}"
     ],
     "bin": "Vita3K.exe",
-    "shortcuts": [["Vita3K.exe", "Sony PlayStation Vita [vita][vita3k]"]],
-    "persist": ["cache", "config.yml"],
+    "shortcuts": [
+        [
+            "Vita3K.exe",
+            "Sony PlayStation Vita [vita][vita3k]"
+        ]
+    ],
+    "persist": [
+        "cache",
+        "config.yml"
+    ],
     "checkver": {
         "script": [
             "$url = 'https://github.com/Vita3K/Vita3K/releases/tag/continuous'",

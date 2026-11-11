@@ -25,7 +25,12 @@
         "   }",
         "}"
     ],
-    "shortcuts": [["lichii.exe", "Nintendo Switch 2 [nsw2][fritchii]"]],
+    "shortcuts": [
+        [
+            "lichii.exe",
+            "Nintendo Switch 2 [nsw2][fritchii]"
+        ]
+    ],
     "persist": "user",
     "checkver": {
         "url": "https://api.github.com/repos/Frizti/Fritchii/releases?per_page=20",

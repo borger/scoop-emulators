@@ -268,7 +268,7 @@ Quick reference for all PowerShell scripts in the `bin/` directory.
 
 ## JSON Formatting
 
-Pre-commit formats JSON manifests with the PowerShell `formatjson.ps1` wrapper, which keeps short arrays and nested-array entries inline style. Run it manually for all manifests with:
+Pre-commit formats JSON manifests with the PowerShell `formatjson.ps1` wrapper, which uses Scoop's canonical formatter. Run it manually for all manifests with:
 
 ```powershell
 pre-commit run formatjson --all-files
@@ -484,7 +484,7 @@ pre-commit run formatjson --all-files
 
 ### formatjson.ps1
 
-**Purpose**: Format and validate JSON structure using Scoop's formatter with inline array layout.
+**Purpose**: Format and validate JSON structure using Scoop's canonical formatter.
 
 **Usage**:
 
@@ -502,7 +502,7 @@ pre-commit run formatjson --all-files
 - Valid JSON structure
 - Consistent formatting
 
-**Note**: The pre-commit hook uses this script and applies inline formatting to short arrays.
+**Note**: Keeping Scoop's canonical formatting ensures manifests pass the Scoop GitHub Actions lint check.
 
 ---
 

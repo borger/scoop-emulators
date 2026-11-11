@@ -30,8 +30,16 @@
         ]
     },
     "bin": "melonDS.exe",
-    "shortcuts": [["melonDS.exe", "Nintendo DS [nds][melonds]"]],
-    "persist": ["melonDS.ini", "melonDS.toml"],
+    "shortcuts": [
+        [
+            "melonDS.exe",
+            "Nintendo DS [nds][melonds]"
+        ]
+    ],
+    "persist": [
+        "melonDS.ini",
+        "melonDS.toml"
+    ],
     "checkver": {
         "github": "https://github.com/melonDS-emu/melonDS"
     },
