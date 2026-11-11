@@ -1,5 +1,5 @@
 {
-    "version": "4301-374cf8a",
+    "version": "4303-e96df7a",
     "description": "Sony PlayStation Vita emulator",
     "homepage": "https://vita3k.org",
     "license": "GPL-2.0-only",
@@ -16,11 +16,11 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/windows-latest.zip",
-            "hash": "381cfa1562b0fe762a21339f6e2ffb9554d2d869225fd994d155d22dfd270df8"
+            "hash": "f9d790d1936bb7eac1b810dd10e142bb455042aec2a6a60ad313de7b8166d234"
         },
         "arm64": {
             "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/windows-arm64-latest.zip",
-            "hash": "69b7246b4a721e759b2f6df405f144b17c17920a57140d6f0d0d71df8be301f3"
+            "hash": "179f1306dbd873680b79a2d58f8e5b61a015d92bee87d1c878303b985f7e282c"
         }
     },
     "pre_install": [
@@ -29,8 +29,16 @@
         "}"
     ],
     "bin": "Vita3K.exe",
-    "shortcuts": [["Vita3K.exe", "Sony PlayStation Vita [vita][vita3k]"]],
-    "persist": ["cache", "config.yml"],
+    "shortcuts": [
+        [
+            "Vita3K.exe",
+            "Sony PlayStation Vita [vita][vita3k]"
+        ]
+    ],
+    "persist": [
+        "cache",
+        "config.yml"
+    ],
     "checkver": {
         "script": [
             "$url = 'https://github.com/Vita3K/Vita3K/releases/tag/continuous'",
