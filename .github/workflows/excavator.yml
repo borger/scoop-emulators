@@ -23,14 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Record commit before Excavator
-        id: before-excavator
-        shell: pwsh
-        run: |
-          $sha = (git rev-parse HEAD).Trim()
-          if ($LASTEXITCODE -ne 0) { throw "Could not determine checkout commit" }
-          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
       - name: Check for new versions
         id: excavator
         uses: ScoopInstaller/GithubActions@main
@@ -38,63 +30,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_UPDATED: "1"
-
-      - name: Format Excavator manifest updates
-        if: always()
-        shell: pwsh
-        env:
-          BASE_SHA: ${{ steps.before-excavator.outputs.sha }}
-          BRANCH_NAME: ${{ github.ref_name }}
-        run: |
-          $head = (git rev-parse HEAD).Trim()
-          if ($LASTEXITCODE -ne 0) { throw "Could not determine current commit" }
-
-          $changedManifests = @()
-          if ($env:BASE_SHA -and $env:BASE_SHA -ne $head) {
-            $changedManifests += @(git diff --name-only --diff-filter=ACMRT $env:BASE_SHA $head -- bucket)
-            if ($LASTEXITCODE -ne 0) { throw "Could not list Excavator's committed manifest changes" }
-          }
-          $changedManifests += @(git diff --name-only --diff-filter=ACMRT -- bucket)
-          if ($LASTEXITCODE -ne 0) { throw "Could not list uncommitted manifest changes" }
-          $changedManifests += @(git diff --cached --name-only --diff-filter=ACMRT -- bucket)
-          if ($LASTEXITCODE -ne 0) { throw "Could not list staged manifest changes" }
-          $changedManifests += @(git ls-files --others --exclude-standard -- bucket)
-          if ($LASTEXITCODE -ne 0) { throw "Could not list new manifest files" }
-          $changedManifests = @($changedManifests | Where-Object { $_ -match '^bucket/.+\.json$' } | Select-Object -Unique)
-
-          if ($changedManifests.Count -eq 0) {
-            Write-Host "No manifest updates to format"
-            exit 0
-          }
-
-          $env:SCOOP = Join-Path $env:USERPROFILE 'scoop'
-          $env:SCOOP_HOME = Join-Path $env:SCOOP 'apps\scoop\current'
-          $formatScript = Join-Path $env:GITHUB_WORKSPACE 'bin\formatjson.ps1'
-          foreach ($relativePath in $changedManifests) {
-            $manifestPath = Join-Path $env:GITHUB_WORKSPACE $relativePath
-            if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { continue }
-            $directory = Split-Path -Parent $manifestPath
-            $app = [System.IO.Path]::GetFileNameWithoutExtension($manifestPath)
-            $formatOutput = & $formatScript -Dir $directory -App $app 2>&1
-            if (-not $?) {
-              throw "Failed to format manifest '$relativePath': $formatOutput"
-            }
-          }
-
-          $status = git status --porcelain -- bucket
-          if ($LASTEXITCODE -ne 0) { throw "Could not check formatted manifest changes" }
-          if ($status) {
-            git config user.name "Scoop Auto-Updater"
-            if ($LASTEXITCODE -ne 0) { throw "git config user.name failed" }
-            git config user.email "auto-updater@scoop.sh"
-            if ($LASTEXITCODE -ne 0) { throw "git config user.email failed" }
-            git add -- $changedManifests
-            if ($LASTEXITCODE -ne 0) { throw "git add formatted manifests failed" }
-            git commit -m "style: Format Excavator manifest updates"
-            if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
-            git push origin "HEAD:$env:BRANCH_NAME"
-            if ($LASTEXITCODE -ne 0) { throw "git push failed; formatted manifests were not persisted" }
-          }
 
       # Auto-Fix reads the completed job log through workflow_run. Keep this
       # marker stable so it can distinguish a complete log from a failed lookup.
