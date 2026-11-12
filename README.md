@@ -95,19 +95,6 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | --------- | ----------------------------- | --------- | --------------------------------------- |
 | `scummvm` | Classic adventure game engine | `nightly` | [scummvm.org](https://www.scummvm.org/) |
 
-### Fan projects & PC ports
-
-| App                | Description             | Homepage                                                                                       |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| `2ship2harkinian`  | Majora's Mask PC port   | [github.com/HarbourMasters/2ship2harkinian](https://github.com/HarbourMasters/2ship2harkinian) |
-| `banjo-recompiled` | Banjo-Kazooie PC port   | [github.com/BanjoRecomp/BanjoRecomp](https://github.com/BanjoRecomp/BanjoRecomp)               |
-| `goldeneye-recomp` | GoldenEye 007 PC port   | [github.com/SunJaycy/GoldenEye-Recomp](https://github.com/SunJaycy/GoldenEye-Recomp)           |
-| `shipwright`       | Ocarina of Time PC port | [shipofharkinian.com](https://www.shipofharkinian.com)                                         |
-| `sm64coopdx`       | SM64 online co-op       | [sm64coopdx.com](https://sm64coopdx.com/)                                                      |
-| `spaghettikart`    | Mario Kart 64 PC port   | [github.com/HarbourMasters/SpaghettiKart](https://github.com/HarbourMasters/SpaghettiKart)     |
-| `starship`         | Star Fox 64 PC port     | [github.com/HarbourMasters/Starship](https://github.com/HarbourMasters/Starship)               |
-| `zelda64recomp`    | Zelda 64 recompilation  | [github.com/Zelda64Recomp/Zelda64Recomp](https://github.com/Zelda64Recomp/Zelda64Recomp)       |
-
 ### Tools
 
 | App                 | Description                    | Homepage                                                                                    |
