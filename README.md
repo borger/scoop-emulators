@@ -9,6 +9,8 @@ This is a [Scoop](https://scoop.sh) bucket for emulators. It's focused on Window
 
 This bucket is curated and not intended to be a catch-all. All emulators in this bucket are maintained, have active development, and have a strong active user-base. For other emulators, games, and other apps, check out [scoop-games](https://github.com/Calinou/scoop-games) or other scoop buckets.
 
+Recomp projects have been moved to [Scoop-Recomps](https://github.com/beyondmeat/scoop-recomps)
+
 Interested in adding something? To add a new emulator, please read the [Contributing Guide](./CONTRIBUTING.md).
 
 ## Installation and Usage
