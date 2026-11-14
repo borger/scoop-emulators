@@ -47,10 +47,14 @@ jobs:
     steps:
       - name: Parse excavator log for failing apps
         id: parse-logs
-        continue-on-error: true
         uses: actions/github-script@v9
         with:
           script: |
+            const fs = require('node:fs');
+            const os = require('node:os');
+            const path = require('node:path');
+            const { execFileSync } = require('node:child_process');
+
             const jobs = await github.rest.actions.listJobsForWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -71,9 +75,42 @@ jobs:
               repo: context.repo.repo,
               job_id: job.id,
             });
-            const text = typeof logs.data === 'string'
-              ? logs.data
-              : Buffer.from(logs.data).toString('utf8');
+
+            let logData = logs.data;
+            if (typeof logData === 'string' && /^https?:\/\//.test(logData)) {
+              const response = await fetch(logData);
+              if (!response.ok) {
+                throw new Error(`Failed to download Excavator logs: HTTP ${response.status}`);
+              }
+              logData = Buffer.from(await response.arrayBuffer());
+            }
+
+            let text;
+            if (typeof logData === 'string') {
+              text = logData;
+            } else {
+              const archive = Buffer.from(logData);
+              if (archive[0] === 0x50 && archive[1] === 0x4b) {
+                const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'excavator-logs-'));
+                const archivePath = path.join(tempDir, 'logs.zip');
+                try {
+                  fs.writeFileSync(archivePath, archive);
+                  const entries = execFileSync('unzip', ['-Z1', archivePath], { encoding: 'utf8' })
+                    .split(/\r?\n/)
+                    .filter(entry => entry.endsWith('.txt'));
+                  text = entries
+                    .map(entry => execFileSync('unzip', ['-p', archivePath, entry], {
+                      encoding: 'utf8',
+                      maxBuffer: 50 * 1024 * 1024,
+                    }))
+                    .join('\n');
+                } finally {
+                  fs.rmSync(tempDir, { recursive: true, force: true });
+                }
+              } else {
+                text = archive.toString('utf8');
+              }
+            }
 
             const outcome = text.match(/^AUTOFIX_EXCAVATOR_OUTCOME:\s*(success|failure)$/m);
             if (!outcome) {
