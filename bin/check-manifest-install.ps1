@@ -16,6 +16,9 @@
 
 .PARAMETER AutoRetry
     Check asset URLs and attempt to repair unavailable manifests before installing.
+
+.NOTES
+    Verifies declared persist entries and always removes the temporary install.
 #>
 
 param(
@@ -37,6 +40,44 @@ $ErrorActionPreference = 'Stop'
 if (-not (Get-Command 'scoop' -ErrorAction SilentlyContinue)) {
     Write-Error "Scoop is not installed or not in PATH."
     exit 1
+}
+
+$scoopCommand = Get-Command 'scoop'
+if (-not [string]::IsNullOrWhiteSpace($env:SCOOP)) {
+    $scoopRoot = $env:SCOOP
+} elseif ($scoopCommand.Source -and
+    (Split-Path -Leaf (Split-Path -Parent $scoopCommand.Source)) -eq 'shims') {
+    $scoopRoot = Split-Path -Parent (Split-Path -Parent $scoopCommand.Source)
+} else {
+    Write-Error 'Unable to determine the local Scoop root.'
+    exit 1
+}
+$localAppsDirectory = Join-Path $scoopRoot 'apps'
+$testExitCode = 0
+
+function Uninstall-TestApp {
+    param([string]$Name)
+
+    $localAppPath = Join-Path $localAppsDirectory $Name
+    if (-not (Test-Path -LiteralPath $localAppPath)) { return }
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        if ($attempt -gt 1) { Start-Sleep -Seconds 3 }
+
+        $uninstallOutput = @(scoop uninstall $Name 2>&1)
+        $uninstallExitCode = $LASTEXITCODE
+        if (-not (Test-Path -LiteralPath $localAppPath)) {
+            Write-Host "Removed test install '$Name'." -ForegroundColor Green
+            return
+        }
+
+        if ($attempt -eq 3) {
+            $uninstallOutput | ForEach-Object { Write-Host $_ }
+            throw "Unable to uninstall test app '$Name' after $attempt attempts (exit code $uninstallExitCode)."
+        }
+
+        Write-Host "App '$Name' is still installed after cleanup attempt $attempt; retrying." -ForegroundColor Yellow
+    }
 }
 
 try {
@@ -203,9 +244,10 @@ try {
     }
 
     # Clean previous state
-    if (scoop list $AppName) {
+    $localAppPath = Join-Path $localAppsDirectory $AppName
+    if (Test-Path -LiteralPath $localAppPath) {
         Write-Host "Cleaning up previous installation..." -ForegroundColor Yellow
-        scoop uninstall $AppName | Out-Null
+        Uninstall-TestApp -Name $AppName
     }
 
     Write-Host "Installing $AppName..." -ForegroundColor Cyan
@@ -217,22 +259,48 @@ try {
     }
 
     # Verify
-    if (-not (scoop list $AppName)) {
-        throw "Installation reported success but app not found in list"
+    if (-not (Test-Path -LiteralPath $localAppPath)) {
+        throw "Installation reported success but local app '$AppName' was not found."
+    }
+
+    $installPath = Convert-Path (scoop prefix $AppName)
+    if ($json.persist) {
+        $persistDirectory = Join-Path (Join-Path $scoopRoot 'persist') $AppName
+        foreach ($entry in @($json.persist)) {
+            $source = [string]$entry
+            $target = $source
+            if ($entry -is [array]) {
+                $source = [string]$entry[0]
+                if ($entry.Count -gt 1) { $target = [string]$entry[1] }
+            }
+
+            $installedPath = Join-Path $installPath $source
+            $storedPath = Join-Path $persistDirectory $target
+            if (-not (Test-Path -LiteralPath $installedPath) -or -not (Test-Path -LiteralPath $storedPath)) {
+                throw "Persist entry '$source' was not created in both the app directory and persist store."
+            }
+
+            $persistedItem = Get-Item -LiteralPath $storedPath
+            $itemType = if ($persistedItem.PSIsContainer) { 'folder' } else { 'file' }
+            Write-Host "Persist verified ($itemType): $source" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "No persist entries declared."
     }
 
     Write-Host "Installation successful!" -ForegroundColor Green
-    exit 0
 
 } catch {
-    Write-Error $_.Exception.Message
-    exit 1
+    Write-Error $_.Exception.Message -ErrorAction Continue
+    $testExitCode = 1
 } finally {
     # Cleanup
     if (Get-Command 'scoop' -ErrorAction SilentlyContinue) {
-        if (scoop list $AppName) {
+        if (Test-Path -LiteralPath (Join-Path $localAppsDirectory $AppName)) {
             Write-Host "Uninstalling cleanup..." -ForegroundColor Gray
-            scoop uninstall $AppName | Out-Null
+            Uninstall-TestApp -Name $AppName
         }
     }
 }
+
+exit $testExitCode
