@@ -285,20 +285,9 @@ function New-GitHubIssue {
     }
 
     try {
-        # Keep the label set minimal: provenance (auto-fix) plus the problem
-        # type. "review-needed" would be redundant with assigning the issue, and
-        # a label named "@someone" notifies nobody while cluttering the repo's
-        # label list - routing to people is done with assignees below.
-        $labels = @("auto-fix")
-
-        # Add issue type labels. Names match the labels already defined on the
-        # repository (and used by .github/ISSUE_TEMPLATE) so auto-filed issues
-        # share one vocabulary with hand-filed ones.
-        switch ($IssueType) {
-            "bug" { $labels += "bug" }
-            "manifest-error" { $labels += "manifest-fix-needed" }
-            "hash-error" { $labels += "hash-fix-needed" }
-        }
+        # Use the repository's default label; custom auto-fix labels are not
+        # present in every bucket and make GitHub reject issue creation.
+        $labels = @("bug")
 
         # Route to people via assignees - the mechanism that actually notifies
         # and shows up in "assigned to me" filters.
@@ -363,6 +352,51 @@ This issue closes automatically once auto-fix sees the manifest healthy again.
     }
 }
 
+function Publish-AutoFixFailureIssue {
+    param(
+        [string]$Title,
+        [string]$Description
+    )
+
+    if ($issues.Count -gt 0 -and $NotifyOnIssues -and $IssueLog) {
+        $issues | ConvertTo-Json -Depth 10 | Add-Content -Path $IssueLog
+    }
+
+    if (-not $AutoCreateIssues) { return }
+
+    $issueNum = New-GitHubIssue `
+        -Title $Title `
+        -Description $Description `
+        -Repository $GitHubRepo `
+        -Token $GitHubToken `
+        -IssueType 'manifest-error' `
+        -TagCopilot
+
+    if (-not $issueNum) {
+        New-GitHubIssue `
+            -Title "ESCALATION: Manual fix needed for $appName" `
+            -Description $Description `
+            -Repository $GitHubRepo `
+            -Token $GitHubToken `
+            -IssueType 'bug' `
+            -TagEscalation | Out-Null
+    }
+}
+
+function Invoke-ManifestInstallCheck {
+    param(
+        [string]$InstallScriptPath,
+        [string]$ManifestPath,
+        [string]$AppName
+    )
+
+    Invoke-PowerShellScript -Path $InstallScriptPath -ArgumentList @(
+        '-ManifestPath', $ManifestPath,
+        '-AppName', $AppName,
+        '-AutoRetry', 'False'
+    )
+}
+
 # Validate manifest structure
 function Test-ManifestStructure {
     param([object]$Manifest)
@@ -411,16 +445,20 @@ function Test-ManifestDownloadAccessibility {
     return @{ Success = ($failures.Count -eq 0); Failures = $failures }
 }
 
-# Validate any proposed fix by running update-manifest and attempting an install.
+# Validate proposed fixes with update-manifest and the install-manifest checker.
 function Test-FixIntegrity {
     param(
         [string]$ManifestPath,
-        [string]$AppName
+        [string]$AppName,
+        [string]$ScriptDirectory = $PSScriptRoot
     )
 
-    $updateScript = "$PSScriptRoot/update-manifest.ps1"
+    $updateScript = Join-Path $ScriptDirectory 'update-manifest.ps1'
     if (-not (Test-Path $updateScript)) {
         Write-Host '  [WARN] update-manifest.ps1 not available for validation' -ForegroundColor Yellow
+        $description = 'update-manifest.ps1 was not available to validate the proposed repair.'
+        Add-Issue -Title 'Validation failed' -Description $description -Severity 'error'
+        Publish-AutoFixFailureIssue -Title "Auto-fix failed for $AppName - Copilot review needed" -Description $description
         return $false
     }
 
@@ -433,23 +471,30 @@ function Test-FixIntegrity {
     $updateOutput = $updateResult.Output
     if ($updateResult.ExitCode -ne 0) {
         Write-Host ('  [WARN] update-manifest failed for {0}' -f $AppName) -ForegroundColor Yellow
-        Add-Issue -Title "Validation failed" -Description "update-manifest.ps1 failed:\n$updateOutput" -Severity "error"
+        $description = "update-manifest.ps1 failed:`n$updateOutput"
+        Add-Issue -Title 'Validation failed' -Description $description -Severity 'error'
+        Publish-AutoFixFailureIssue -Title "Auto-fix failed for $AppName - Copilot review needed" -Description $description
         return $false
     }
 
-    if (-not (Get-Command 'scoop' -ErrorAction SilentlyContinue)) {
-        Write-Host '  [WARN] scoop is not installed; skipping installation verification' -ForegroundColor Yellow
-        return $true
+    $installScript = Join-Path $ScriptDirectory 'check-manifest-install.ps1'
+    if (-not (Test-Path $installScript -PathType Leaf)) {
+        $description = "check-manifest-install.ps1 was not available to verify the repaired manifest."
+        Add-Issue -Title 'Install verification failed' -Description $description -Severity 'error'
+        Publish-AutoFixFailureIssue -Title "Auto-fix failed for $AppName - Copilot review needed" -Description $description
+        return $false
     }
 
-    Write-Host ('  [INFO] Attempting ''scoop install {0}'' to verify the manifest' -f $AppName) -ForegroundColor Cyan
-    $installOutput = ''
-    try {
-        $installOutput = & scoop install $AppName 2>&1 | Out-String
-        if ($LASTEXITCODE -ne 0) { throw "scoop install failed" }
-    } catch {
-        Write-Host ('  [WARN] scoop install failed for {0}' -f $AppName) -ForegroundColor Yellow
-        Add-Issue -Title "Install verification failed" -Description "scoop install $AppName failed:\n$installOutput" -Severity "warning"
+    Write-Host ('  [INFO] Running check-manifest-install.ps1 for {0}' -f $AppName) -ForegroundColor Cyan
+    $installResult = Invoke-ManifestInstallCheck `
+        -InstallScriptPath $installScript `
+        -ManifestPath $ManifestPath `
+        -AppName $AppName
+    if ($installResult.ExitCode -ne 0) {
+        Write-Host ('  [WARN] Manifest installation verification failed for {0}' -f $AppName) -ForegroundColor Yellow
+        $description = "check-manifest-install.ps1 failed for ${AppName}:`n$($installResult.Output)"
+        Add-Issue -Title 'Install verification failed' -Description $description -Severity 'error'
+        Publish-AutoFixFailureIssue -Title "Auto-fix failed for $AppName - Copilot review needed" -Description $description
         return $false
     }
 
@@ -981,6 +1026,54 @@ function Get-ReleaseAsset {
     return @()
 }
 
+function Get-ReleaseAssetForArchitecture {
+    param(
+        [object[]]$Assets,
+        [string]$Architecture
+    )
+
+    $assets = @($Assets)
+    if (-not $assets) { return $null }
+
+    $windowsAssets = @($assets | Where-Object { $_.name -match 'windows|win' })
+    $archiveAssets = @($assets | Where-Object { $_.name -match '\.(zip|exe|msi|7z)$' })
+    if (-not $archiveAssets) { $archiveAssets = $assets }
+
+    if ($Architecture -eq '64bit') {
+        $asset = $windowsAssets | Where-Object { $_.name -match 'x86.?64|win64|x64|amd64' -and $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        if (-not $asset) {
+            $asset = $archiveAssets | Where-Object { $_.name -match 'x86.?64|win64|x64|amd64' -and $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        }
+        if (-not $asset) {
+            $asset = $windowsAssets | Where-Object { $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        }
+        if (-not $asset) {
+            $asset = $archiveAssets | Sort-Object { $_.size } -Descending | Select-Object -First 1
+        }
+    } elseif ($Architecture -eq '32bit') {
+        $asset = $windowsAssets | Where-Object { $_.name -match 'x86\.?32|win32|i386|386|ia32' -and $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        if (-not $asset) {
+            $asset = $archiveAssets | Where-Object { $_.name -match 'x86\.?32|win32|i386|386|ia32' -and $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        }
+        if (-not $asset) {
+            $asset = $windowsAssets | Where-Object { $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.size } | Select-Object -First 1
+        }
+        if (-not $asset) {
+            $asset = $archiveAssets | Sort-Object { $_.size } | Select-Object -First 1
+        }
+    } else {
+        $asset = $windowsAssets | Where-Object { $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        if (-not $asset) {
+            $asset = $archiveAssets | Where-Object { $_.name -match '\.(zip|exe|msi|7z)$' } | Sort-Object { $_.name -match '\.zip$' } -Descending | Select-Object -First 1
+        }
+        if (-not $asset) {
+            $asset = $archiveAssets | Select-Object -First 1
+        }
+    }
+
+    return $asset
+}
+
 # Detect and repair hash mismatches
 function Test-HashMismatch {
     param([string]$Url, [string]$StoredHash)
@@ -1044,10 +1137,35 @@ function Get-RepositoryInfo {
 
     $info = @{ Platform = $null; Path = $null; Base = $null }
 
-    if ($Manifest.checkver.github) {
+    $checkverIsString = $Manifest.checkver -is [string]
+    if (($checkverIsString -and $Manifest.checkver -eq 'github') -or
+        (-not $checkverIsString -and $Manifest.checkver.github) -or
+        ($Manifest.checkver.url -match '(?:api\.)?github\.com/')) {
         $info.Platform = "github"
-        if ($Manifest.checkver.github -match 'github\.com/([^/]+/[^/]+)') {
-            $info.Path = $matches[1]
+        $repositorySources = @()
+        if (-not $checkverIsString) {
+            $repositorySources += $Manifest.checkver.github
+            $repositorySources += $Manifest.checkver.url
+        }
+        $repositorySources += $Manifest.homepage
+        $repositorySources += $Manifest.autoupdate.url
+        if ($Manifest.autoupdate.architecture) {
+            foreach ($architecture in $Manifest.autoupdate.architecture.PSObject.Properties) {
+                $repositorySources += $architecture.Value.url
+            }
+        }
+
+        foreach ($source in $repositorySources) {
+            if (-not $source) { continue }
+            $match = [regex]::Match(
+                [string]$source,
+                '(?:api\.)?github\.com/(?:repos/)?(?<owner>[^/]+)/(?<repo>[^/?#]+)|^(?<owner>[^/]+)/(?<repo>[^/?#]+)$',
+                [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+            )
+            if ($match.Success) {
+                $info.Path = "$($match.Groups['owner'].Value)/$($match.Groups['repo'].Value)" -replace '\.git$', ''
+                break
+            }
         }
     } elseif ($Manifest.checkver.gitlab) {
         $info.Platform = "gitlab"
@@ -1063,6 +1181,40 @@ function Get-RepositoryInfo {
     }
 
     return $info
+}
+
+function Get-GitHubReleaseVersion {
+    param(
+        [string]$Repository,
+        [string]$Regex
+    )
+
+    $apiUrl = "https://api.github.com/repos/$Repository/releases?per_page=100"
+    $releases = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
+    foreach ($release in @($releases)) {
+        if ($release.draft) { continue }
+
+        foreach ($releaseValue in @($release.tag_name, $release.name)) {
+            if (-not $releaseValue) { continue }
+
+            if ($Regex) {
+                $match = [regex]::Match([string]$releaseValue, $Regex)
+                if (-not $match.Success) { continue }
+                $version = if ($match.Groups.Count -gt 1 -and $match.Groups[1].Success) {
+                    $match.Groups[1].Value
+                } else {
+                    $match.Value
+                }
+            } else {
+                $version = [string]$releaseValue
+            }
+
+            $version = $version -replace '^[vV]', '' -replace '^\.', ''
+            if (Test-VersionLooksValid -v $version) { return $version }
+        }
+    }
+
+    return $null
 }
 
 # Helpers for safe access/modification of architecture entries
@@ -1168,6 +1320,9 @@ try {
 
     if (!(Test-Path $checkverScript)) {
         Write-Host '[WARN] checkver script not found, cannot validate updates'
+        $description = 'checkver.ps1 was not available to validate the manifest.'
+        Add-Issue -Title 'Validation failed' -Description $description -Severity 'error'
+        Publish-AutoFixFailureIssue -Title "Auto-fix failed for $appName - Copilot review needed" -Description $description
         exit 1
     }
 
@@ -1189,6 +1344,16 @@ try {
             }
         } catch {
             Write-Host ('  [WARN] Failed to check GitHub Releases: {0}' -f $_) -ForegroundColor Yellow
+            try {
+                $latestVersion = Get-GitHubReleaseVersion `
+                    -Repository $repoInfo.Path `
+                    -Regex ([string]$manifest.checkver.regex)
+                if ($latestVersion) {
+                    Write-Host ('  [INFO] Found version from GitHub release list: {0}' -f $latestVersion) -ForegroundColor Cyan
+                }
+            } catch {
+                Write-Host ('  [WARN] Failed to list GitHub Releases: {0}' -f $_) -ForegroundColor Yellow
+            }
         }
     } elseif ($repoInfo.Platform -eq "gitlab" -and $repoInfo.Path) {
         Write-Host "Checking GitLab Releases for $($repoInfo.Path)..."
@@ -1271,19 +1436,14 @@ try {
             Repair-VersionPattern -RepoPath $repoInfo.Path -Platform $repoInfo.Platform | Out-Null
 
             try {
-                $apiUrl = "https://api.github.com/repos/$($repoInfo.Path)/releases/latest"
-                $latestRelease = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
-
-                if ($latestRelease) {
-                    $latestVersion = if ($latestRelease.tag_name) { $latestRelease.tag_name } else { $latestRelease.name }
-                    $latestVersion = $latestVersion -replace '^v', '' -replace '^\.', ''
-
-                    if ($latestVersion) {
-                        Write-Host '[OK] Recovered version from latest release: ' -NoNewline; Write-Host $latestVersion -ForegroundColor Green
-                    }
+                $latestVersion = Get-GitHubReleaseVersion `
+                    -Repository $repoInfo.Path `
+                    -Regex ([string]$manifest.checkver.regex)
+                if ($latestVersion) {
+                    Write-Host '[OK] Recovered version from GitHub release list: ' -NoNewline; Write-Host $latestVersion -ForegroundColor Green
                 }
             } catch {
-                Write-Host ('  [WARN] API fallback also failed: {0}' -f $_) -ForegroundColor Yellow
+                Write-Host ('  [WARN] GitHub release-list fallback also failed: {0}' -f $_) -ForegroundColor Yellow
             }
         }
     }
@@ -1322,7 +1482,9 @@ try {
         # Basic sanity check: ensure the extracted version looks like a version token (contains digits, date, or short SHA)
         if (-not (Test-VersionLooksValid -v $latestVersion)) {
             Write-Host '[WARN] Extracted version looks invalid: ' -NoNewline; Write-Host "'$latestVersion'" -NoNewline; Write-Host ' — aborting auto-fix to avoid corrupting manifest' -ForegroundColor Yellow
-            Add-Issue -Title "Invalid version extracted" -Description "Extracted version '$latestVersion' for $appName does not resemble a valid version token" -Severity "error"
+            $description = "Extracted version '$latestVersion' for $appName does not resemble a valid version token."
+            Add-Issue -Title 'Invalid version extracted' -Description $description -Severity 'error'
+            Publish-AutoFixFailureIssue -Title "Auto-fix failed for $appName - Copilot review needed" -Description $description
             exit 2
         }
 
@@ -1456,7 +1618,11 @@ try {
                             }
                         }
                     }
-                    continue
+                    if (-not $urlChanged) {
+                        continue
+                    }
+
+                    Write-Host '  [INFO] Current asset is reachable, but a versioned URL failed; checking release assets for renamed files'
                 } catch {
                     Write-Host ('  [FAIL] Current URL returned error: {0}' -f $_.Exception.Message)
                 }
@@ -1519,56 +1685,7 @@ try {
                 }
 
                 if ($assets) {
-                    # Find matching asset based on architecture
-                    $asset = $null
-
-                    # Separate Windows-specific and all archive assets
-                    $windowsAssets = $assets | Where-Object { $_.name -match "windows|win" }
-                    $archiveAssets = $assets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" }
-                    if (!$archiveAssets) {
-                        $archiveAssets = $assets
-                    }
-
-                    if ($arch -eq "64bit") {
-                        # First try: Windows assets with 64-bit patterns, prefer .zip
-                        $asset = $windowsAssets | Where-Object { $_.name -match "x86.?64|win64|x64|amd64" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        # Second try: Any asset with 64-bit patterns
-                        if (!$asset) {
-                            $asset = $archiveAssets | Where-Object { $_.name -match "x86.?64|win64|x64|amd64" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        }
-                        # Third try: Windows asset (assume 64-bit if only one version)
-                        if (!$asset) {
-                            $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        }
-                        # Last resort: largest archive (likely 64-bit)
-                        if (!$asset) {
-                            $asset = $archiveAssets | Sort-Object { $_.size } -Descending | Select-Object -First 1
-                        }
-                    } elseif ($arch -eq "32bit") {
-                        # First try: Windows assets with 32-bit patterns, prefer .zip
-                        $asset = $windowsAssets | Where-Object { $_.name -match "x86\.?32|win32|i386|386|ia32" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        # Second try: Any asset with 32-bit patterns
-                        if (!$asset) {
-                            $asset = $archiveAssets | Where-Object { $_.name -match "x86\.?32|win32|i386|386|ia32" -and $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        }
-                        # Third try: Windows asset (assume 32-bit if smaller)
-                        if (!$asset) {
-                            $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.size } | Select-Object -First 1
-                        }
-                        # Last resort: smallest archive (likely 32-bit)
-                        if (!$asset) {
-                            $asset = $archiveAssets | Sort-Object { $_.size } | Select-Object -First 1
-                        }
-                    } else {
-                        # Generic - prefer Windows archives, then zip files
-                        $asset = $windowsAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        if (!$asset) {
-                            $asset = $archiveAssets | Where-Object { $_.name -match "\.(zip|exe|msi|7z)$" } | Sort-Object { $_.name -match "\.zip$" } -Descending | Select-Object -First 1
-                        }
-                        if (!$asset) {
-                            $asset = $archiveAssets | Select-Object -First 1
-                        }
-                    }
+                    $asset = Get-ReleaseAssetForArchitecture -Assets $assets -Architecture $arch
 
                     if ($asset) {
                         $fixedUrl = $asset.browser_download_url
@@ -2018,6 +2135,11 @@ try {
         exit -1
     }
 } catch {
+    $description = "Unexpected auto-fix error: $($_.Exception.Message)"
+    if ($appName) {
+        Add-Issue -Title 'Auto-fix error' -Description $description -Severity 'error'
+        Publish-AutoFixFailureIssue -Title "Auto-fix failed for $appName - Copilot review needed" -Description $description
+    }
     Write-Error "Error in auto-fix: $($_.Exception.Message)"
     exit -1
 }

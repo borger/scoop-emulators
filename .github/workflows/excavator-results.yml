@@ -1,0 +1,204 @@
+on:
+  workflow_run:
+    workflows: ["Excavator"]
+    types: [completed]
+
+name: Excavator Results
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+
+jobs:
+  process-results:
+    name: Detect manifest errors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse excavator log for failing apps
+        id: parse-logs
+        uses: actions/github-script@v9
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const { execFileSync } = require('node:child_process');
+            const runId = context.payload.workflow_run.id;
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            const job = jobs.data.jobs.find(j => j.name === 'Check for Updates');
+            if (!job) {
+              core.warning('Could not locate the excavator job; skipping log parse');
+              core.setOutput('parsed', 'false');
+              return;
+            }
+
+            const text = execFileSync('gh', [
+              'run',
+              'view',
+              String(runId),
+              '--repo',
+              `${context.repo.owner}/${context.repo.repo}`,
+              '--job',
+              String(job.id),
+              '--log',
+            ], {
+              encoding: 'utf8',
+              env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN },
+              maxBuffer: 50 * 1024 * 1024,
+            });
+
+            const logLines = text.split(/\r?\n/).map(line =>
+              line.replace(/^.*?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\s+/, '')
+            );
+            const normalizedText = logLines.join('\n');
+            const outcome = normalizedText.match(/AUTOFIX_EXCAVATOR_OUTCOME:\s*(success|failure)/);
+            if (!outcome) {
+              core.warning('Excavator outcome marker is missing; skipping Auto-Fix');
+              core.setOutput('parsed', 'false');
+              return;
+            }
+            core.setOutput('excavator-outcome', outcome[1]);
+
+            const apps = new Set();
+            const checkverApps = new Set();
+            const appColonRe = /^\s*([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|\berr(?:or)?\b))(?!.*autoupdate available).*$/gim;
+            const checkverFailureRe = /^\s*([A-Za-z0-9._-]+):\s+couldn't (?:match|find|retrieve)\b.*$/gim;
+            const errorUpdateRe = /\bERR(?:OR)?\s*:?\s*Could not update\s+([A-Za-z0-9._-]+)/gim;
+            let updatingApp = null;
+            for (const line of logLines) {
+              const updating = line.match(/^\s*Autoupdating\s+([A-Za-z0-9._-]+)/i);
+              if (updating) {
+                updatingApp = updating[1];
+                continue;
+              }
+
+              const appLine = line.match(/^\s*([A-Za-z0-9._-]+):\s+/);
+              if (appLine && updatingApp && appLine[1] !== updatingApp && /\bautoupdate available\b/i.test(line)) {
+                updatingApp = null;
+              }
+
+              for (const match of line.matchAll(appColonRe)) apps.add(match[1]);
+              for (const match of line.matchAll(checkverFailureRe)) {
+                apps.add(match[1]);
+                checkverApps.add(match[1]);
+              }
+              for (const match of line.matchAll(errorUpdateRe)) apps.add(match[1]);
+
+              if (updatingApp && /\b(?:error|failed|not found|404|couldn't (?:match|find|retrieve|parse)|is not valid)\b/i.test(line)) {
+                apps.add(updatingApp);
+              }
+            }
+
+            const failedApps = [...apps];
+            const checkverFailedApps = [...checkverApps];
+            core.info(failedApps.length
+              ? `Apps with errors in excavator log: ${failedApps.join(', ')}`
+              : 'No per-manifest errors found in excavator log');
+            if (checkverFailedApps.length) {
+              core.info(`Apps with checkver match failures: ${checkverFailedApps.join(', ')}`);
+            }
+            core.setOutput('failed-apps', failedApps.join(','));
+            core.setOutput('checkver-failed-apps', checkverFailedApps.join(','));
+            core.setOutput('parsed', 'true');
+
+      - name: Close resolved issues
+        if: >-
+          steps.parse-logs.outputs.parsed == 'true' &&
+          steps.parse-logs.outputs.excavator-outcome == 'success'
+        continue-on-error: true
+        uses: actions/github-script@v9
+        env:
+          FAILED_APPS: ${{ steps.parse-logs.outputs.failed-apps }}
+        with:
+          script: |
+            const failing = new Set(
+              (process.env.FAILED_APPS || '')
+                .split(',')
+                .map(app => app.trim())
+                .filter(Boolean)
+            );
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const markerRe = /<!--\s*autofix-app:\s*([A-Za-z0-9._-]+)\s*-->/;
+
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+              const match = (issue.body || '').match(markerRe);
+              if (!match || failing.has(match[1])) continue;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Excavator no longer reports an error for \`${match[1]}\`, so this looks resolved. Closing automatically.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.info(`Closed #${issue.number}; ${match[1]} is no longer failing`);
+            }
+
+      - name: Determine manifests to fix
+        id: parse-errors
+        if: steps.parse-logs.outputs.parsed == 'true'
+        uses: actions/github-script@v9
+        env:
+          FAILED_APPS: ${{ steps.parse-logs.outputs.failed-apps }}
+        with:
+          script: |
+            const apps = [...new Set(
+              (process.env.FAILED_APPS || '')
+                .split(',')
+                .map(app => app.trim())
+                .filter(Boolean)
+            )];
+
+            if (apps.length > 10) {
+              core.warning(`${apps.length} manifests reported failing at once; treating this as systemic and skipping Auto-Fix`);
+              core.setOutput('should-run', 'false');
+            } else if (apps.length > 0) {
+              core.info(`Dispatching Auto-Fix for: ${apps.join(', ')}`);
+              core.setOutput('manifests-to-fix', apps.join(','));
+              core.setOutput('should-run', 'true');
+            } else {
+              core.info('No specific manifest reported as failing; nothing to dispatch');
+              core.setOutput('should-run', 'false');
+            }
+
+      - name: Dispatch Auto-Fix Manifests
+        if: steps.parse-errors.outputs.should-run == 'true'
+        uses: actions/github-script@v9
+        env:
+          MANIFESTS_TO_FIX: ${{ steps.parse-errors.outputs.manifests-to-fix }}
+          CHECKVER_FAILED_APPS: ${{ steps.parse-logs.outputs.checkver-failed-apps }}
+          EXCAVATOR_REF: ${{ github.event.workflow_run.head_branch }}
+        with:
+          script: |
+            const ref = process.env.EXCAVATOR_REF;
+            if (!ref || !/^[A-Za-z0-9._/-]+$/.test(ref)) {
+              throw new Error(`Refusing to dispatch Auto-Fix for invalid branch: ${ref}`);
+            }
+            await github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              event_type: 'autofix-manifests',
+              client_payload: {
+                manifests_to_fix: process.env.MANIFESTS_TO_FIX,
+                checkver_failed_apps: process.env.CHECKVER_FAILED_APPS || '',
+                excavator_ref: ref,
+              },
+            });
+            core.info(`Dispatched Auto-Fix Manifests for ${process.env.MANIFESTS_TO_FIX}`);
