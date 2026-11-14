@@ -58,6 +58,7 @@ Dev/nightly variants (e.g. `dolphin-dev`) track unstable builds and are listed u
 | `mupen64plus`        | N64                       | —         | [github.com/mupen64plus](https://github.com/mupen64plus/mupen64plus-core)                    |
 | `project64-dev`      | N64                       | —         | [pj64-emu.com](https://www.pj64-emu.com/)                                                    |
 | `rmg`                | N64                       | —         | [github.com/Rosalie241/RMG](https://github.com/Rosalie241/RMG)                               |
+| `ryujinx`           | Switch                    | `canary`  | [ryujinx.app](https://ryujinx.app)                                                            |
 | `sameboy`            | GB / GBC                  | —         | [sameboy.github.io](https://sameboy.github.io/)                                              |
 | `snes9x`             | SNES                      | `dev`     | [snes9x.com](https://www.snes9x.com/)                                                        |
 | `visualboyadvance-m` | GB / GBC / GBA            | `nightly` | [visualboyadvance-m.org](https://visualboyadvance-m.org)                                     |
