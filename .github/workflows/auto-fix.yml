@@ -1,17 +1,15 @@
 on:
-  workflow_run:
-    # Only run after the Excavator workflow completes
-    workflows: [Excavator]
-    types: [completed]
+  repository_dispatch:
+    types: [autofix-manifests]
 
 name: Auto-Fix Manifests
 
 permissions:
   # auto-fix commits repaired manifests
   contents: write
-  # required to read the completed excavator run's job log and dispatch a retry
+  # required to dispatch a retry after committing manifest fixes
   actions: write
-  # required to open/close tracking issues for unfixable manifests
+  # required to open tracking issues for unfixable manifests
   issues: write
 
 # Ensure only one run per branch/workflow executes at a time. When a new run
@@ -25,214 +23,69 @@ jobs:
   autofix:
     name: Fix Broken Manifests
     runs-on: windows-latest
-    # Run on all triggers
+    if: github.event.client_payload.manifests_to_fix != ''
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Log trigger reason
+      - name: Validate Auto-Fix request
+        id: validate-request
         shell: pwsh
+        env:
+          EXCAVATOR_REF: ${{ github.event.client_payload.excavator_ref }}
+          MANIFESTS_TO_FIX: ${{ github.event.client_payload.manifests_to_fix }}
+          CHECKVER_FAILED_APPS: ${{ github.event.client_payload.checkver_failed_apps }}
         run: |
-          $triggerEvent = "${{ github.event_name }}"
-          Write-Host "=== Auto-Fix Workflow Triggered ===" -ForegroundColor Cyan
-          Write-Host "Trigger: $triggerEvent" -ForegroundColor Gray
-
-          if ($triggerEvent -eq "workflow_run") {
-            $status = "${{ github.event.workflow_run.conclusion }}"
-            Write-Host "Excavator status: $status" -ForegroundColor $(if ($status -eq "failure") { "Red" } else { "Yellow" })
+          $ref = $env:EXCAVATOR_REF
+          if (-not $ref -or $ref -notmatch '^[A-Za-z0-9._/-]+$') {
+            throw "Refusing to check out invalid Excavator branch: $ref"
           }
 
-      # The upstream ScoopInstaller/GithubActions action exposes no step outputs
-      # (steps.excavator.outputs is always {}), so per-app failures are only
-      # visible in the excavator job log. This workflow runs on workflow_run
-      # AFTER excavator completes, so the log is final and fetchable here -
-      # it is not available while that job is still in progress.
-      - name: Parse excavator log for failing apps
-        id: parse-logs
-        if: github.event_name == 'workflow_run'
-        continue-on-error: true
-        uses: actions/github-script@v9
+          $brokenManifests = @($env:MANIFESTS_TO_FIX -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+          $checkverManifests = @($env:CHECKVER_FAILED_APPS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+
+          if ($brokenManifests.Count -eq 0) {
+            throw 'No manifest names were provided; refusing to run an unscoped auto-fix.'
+          }
+          if ($brokenManifests.Count -gt 10) {
+            throw "Refusing to auto-fix $($brokenManifests.Count) manifests; this may be a systemic failure."
+          }
+          if (@($brokenManifests | Where-Object { $_ -notmatch '^[A-Za-z0-9._-]+$' }).Count -gt 0) {
+            throw 'Manifest list contains an invalid name.'
+          }
+          if (@($checkverManifests | Where-Object { $_ -notmatch '^[A-Za-z0-9._-]+$' }).Count -gt 0) {
+            throw 'Checkver failure list contains an invalid name.'
+          }
+          if (@($checkverManifests | Where-Object { $_ -notin $brokenManifests }).Count -gt 0) {
+            throw 'Checkver failure list must be a subset of the failing manifest list.'
+          }
+
+          "ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "checkver-failed-apps=$($checkverManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - uses: actions/checkout@v7
         with:
-          script: |
-            const runId = context.payload.workflow_run.id;
-            const jobs = await github.rest.actions.listJobsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId,
-            });
+          ref: ${{ steps.validate-request.outputs.ref }}
 
-            // Match the job's display name, not the job key - the API returns
-            // display names, and matching 'excavate' here silently no-opped.
-            const job = jobs.data.jobs.find(j => j.name === 'Check for Updates');
-            if (!job) {
-              console.log('Could not locate the excavator job; skipping log parse');
-              core.setOutput('failed-apps', '');
-              core.setOutput('parsed', 'false');
-              return;
-            }
-
-            const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              job_id: job.id,
-            });
-
-            const text = typeof logs.data === 'string'
-              ? logs.data
-              : Buffer.from(logs.data).toString('utf8');
-
-            // Excavator emits this after its update step. Without it, a
-            // truncated/unavailable log must not be treated as "no failures".
-            const outcome = text.match(/^AUTOFIX_EXCAVATOR_OUTCOME:\s*(success|failure)$/m);
-            if (!outcome) {
-              console.log('Excavator outcome marker is missing; skipping auto-fix');
-              core.setOutput('failed-apps', '');
-              core.setOutput('checkver-failed-apps', '');
-              core.setOutput('parsed', 'false');
-              return;
-            }
-
-            // Excavator reports per-app failures in various formats:
-            // - "<app>: <error message>" (e.g. "shadps4: The remote server returned an error: (404) Not Found.")
-            // - "<app>: couldn't match..." (e.g. "dolphin-dev: couldn't match '...' in ...")
-            // - "ERROR Could not update <app>..." (e.g. "ERROR Could not update dolphin, hash for dolphin-2606a-ARM64.7z failed!")
-            const apps = new Set();
-            const checkverApps = new Set();
-
-            const appColonRe = /^\s*(?:\S+\s+)?([A-Za-z0-9._-]+):\s+(?=.*(?:The remote server returned an error|\b404\b|couldn't match|not found|failed|\berr(?:or)?\b))(?!.*autoupdate available).*$/gim;
-            for (const m of text.matchAll(appColonRe)) {
-              apps.add(m[1]);
-            }
-
-            const checkverFailureRe = /^\s*(?:\S+\s+)?([A-Za-z0-9._-]+):\s+couldn't (?:match|find|retrieve)\b.*$/gim;
-            for (const m of text.matchAll(checkverFailureRe)) {
-              apps.add(m[1]);
-              checkverApps.add(m[1]);
-            }
-
-            const errorUpdateRe = /\bERR(?:OR)?\s*:?\s*Could not update\s+([A-Za-z0-9._-]+)/gim;
-            for (const m of text.matchAll(errorUpdateRe)) {
-              apps.add(m[1]);
-            }
-
-            const list = [...apps];
-            const checkverList = [...checkverApps];
-            if (list.length) {
-              console.log(`Apps with errors in excavator log: ${list.join(', ')}`);
-            } else {
-              console.log('No per-app errors found in excavator log');
-            }
-            if (checkverList.length) {
-              console.log(`Apps with checkver match failures: ${checkverList.join(', ')}`);
-            }
-            core.setOutput('failed-apps', list.join(','));
-            core.setOutput('checkver-failed-apps', checkverList.join(','));
-            // Signals that the list below is trustworthy. Without it, a failed
-            // lookup would be indistinguishable from "nothing is broken" and the
-            // reconcile step would close every open issue.
-            core.setOutput('parsed', 'true');
-
-      # An issue only auto-closes from inside autofix-manifest.ps1 if auto-fix
-      # actually processes that manifest - which only happens while excavator is
-      # still reporting it as broken. Once a manifest is repaired by hand it
-      # drops off that list entirely, so its issue would linger forever.
-      # Reconcile here: any app excavator no longer reports is healthy.
-      - name: Close resolved issues
-        if: >-
-          github.event_name == 'workflow_run' &&
-          steps.parse-logs.outputs.parsed == 'true' &&
-          github.event.workflow_run.conclusion == 'success'
-        continue-on-error: true
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const failing = new Set(
-              (process.env.FAILED_APPS || '')
-                .split(',')
-                .map(s => s.trim())
-                .filter(Boolean)
-            );
-
-            // Not filtered by the auto-fix label: if label creation ever fails
-            // the issue lands unlabelled and would become unclosable. The body
-            // marker below is the authoritative key.
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              per_page: 100,
-            });
-
-            // Must stay in sync with Get-IssueMarker in bin/autofix-manifest.ps1
-            const markerRe = /<!--\s*autofix-app:\s*([A-Za-z0-9._-]+)\s*-->/;
-
-            for (const issue of issues) {
-              if (issue.pull_request) continue;
-
-              const m = (issue.body || '').match(markerRe);
-              if (!m) continue;
-
-              const app = m[1];
-              if (failing.has(app)) continue;
-
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                body: `Excavator no longer reports an error for \`${app}\`, so this looks resolved. Closing automatically.`,
-              });
-
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                state: 'closed',
-                state_reason: 'completed',
-              });
-
-              console.log(`Closed #${issue.number} - ${app} is no longer failing`);
-            }
-        env:
-          FAILED_APPS: ${{ steps.parse-logs.outputs.failed-apps }}
-
-      - name: Determine manifests to fix
+      - name: Validate manifest names
         id: parse-errors
         shell: pwsh
+        env:
+          MANIFESTS_TO_FIX: ${{ steps.validate-request.outputs.manifests-to-fix }}
+          CHECKVER_FAILED_APPS: ${{ steps.validate-request.outputs.checkver-failed-apps }}
         run: |
-          $failedApps = "${{ steps.parse-logs.outputs.failed-apps }}"
-          $excavatorResult = "${{ github.event.workflow_run.conclusion }}"
-
-          $brokenManifests = @()
-          if ($failedApps -and $failedApps.Trim() -ne '') {
-            $brokenManifests = @($failedApps -split ',' | Where-Object { $_ -and $_.Trim() -ne '' } | ForEach-Object { $_.Trim() })
+          $bucketPath = Join-Path $env:GITHUB_WORKSPACE 'bucket'
+          $requestedManifests = @($env:MANIFESTS_TO_FIX -split ',' | Where-Object { $_ })
+          $validNames = @(
+            Get-ChildItem -Path $bucketPath -Filter '*.json' -File |
+              ForEach-Object { $_.BaseName }
+          )
+          $unknownManifests = @($requestedManifests | Where-Object { $_ -notin $validNames })
+          if ($unknownManifests.Count -gt 0) {
+            throw "Manifest list contains unknown manifests: $($unknownManifests -join ', ')"
           }
 
-          # A few manifests breaking at once is plausible. A large fraction of the
-          # bucket breaking simultaneously is not - that is an outage, a rate
-          # limit, or an API problem, and acting on it files issues against
-          # perfectly healthy manifests.
-          $systemicThreshold = 10
-
-          if ($brokenManifests.Count -gt $systemicThreshold) {
-            Write-Host "$($brokenManifests.Count) manifests reported failing at once - treating as systemic, not per-manifest." -ForegroundColor Yellow
-            Write-Host "Skipping auto-fix so a transient outage cannot raise issues against healthy manifests." -ForegroundColor Yellow
-            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
-            "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-            "should-run=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-          } elseif ($brokenManifests.Count -gt 0) {
-            Write-Host "Found $($brokenManifests.Count) broken manifest(s) to fix:" -ForegroundColor Yellow
-            $brokenManifests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
-            "manifests-to-fix=$($brokenManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-            "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-          } else {
-            # Nothing named, so there is nothing to act on - regardless of whether
-            # excavator succeeded or failed. Deliberately NO full-bucket sweep on
-            # excavator failure: that tells us nothing about which manifest is at
-            # fault, and if one really is, the log parse above names it. Sweeping
-            # during an outage makes every manifest look broken.
-            Write-Host "No specific manifest reported as failing (excavator: $excavatorResult) - nothing to do" -ForegroundColor Green
-            "manifests-to-fix=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-            "should-run=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
-          }
+          "manifests-to-fix=$($requestedManifests -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "checkver-failed-apps=$env:CHECKVER_FAILED_APPS" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "should-run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Cache Scoop
         if: steps.parse-errors.outputs.should-run == 'true'
@@ -293,10 +146,10 @@ jobs:
           if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) { scoop install 7zip }
 
       - name: Repair known GitHub checkver patterns
-        if: steps.parse-errors.outputs.should-run == 'true' && steps.parse-logs.outputs.checkver-failed-apps != ''
+        if: steps.parse-errors.outputs.should-run == 'true' && steps.parse-errors.outputs.checkver-failed-apps != ''
         shell: pwsh
         env:
-          CHECKVER_FAILED_APPS: ${{ steps.parse-logs.outputs.checkver-failed-apps }}
+          CHECKVER_FAILED_APPS: ${{ steps.parse-errors.outputs.checkver-failed-apps }}
         run: |
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE 'bucket'
           $scriptsPath = Join-Path $env:GITHUB_WORKSPACE 'bin'
@@ -474,37 +327,25 @@ jobs:
       - name: Auto-fix broken manifests
         if: steps.parse-errors.outputs.should-run == 'true'
         shell: pwsh
+        env:
+          MANIFESTS_TO_FIX: ${{ steps.parse-errors.outputs.manifests-to-fix }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           $bucketPath = "${{ github.workspace }}/bucket"
           $scriptsPath = "${{ github.workspace }}/bin"
           . (Join-Path $scriptsPath 'lib-releasehelpers.ps1')
-          # No manual inputs available when triggered by workflow_run from Excavator
-          $manualInput = ""
           $dryRun = "false"
-
-          # Prefer manual inputs (from workflow_dispatch) when provided, otherwise use excavator artifacts
-          if ($manualInput -and $manualInput.Trim() -ne '') {
-            Write-Host "Manual run requested for: $manualInput" -ForegroundColor Cyan
-            $manifestsToFix = $manualInput
-          } else {
-            $manifestsToFix = "${{ steps.parse-errors.outputs.manifests-to-fix }}"
-          }
+          $manifestsToFix = $env:MANIFESTS_TO_FIX
 
           Write-Host "Starting auto-fix process..." -ForegroundColor Cyan
           Write-Host "SCOOP_HOME: $env:SCOOP_HOME" -ForegroundColor Gray
           Write-Host "SCOOP: $env:SCOOP" -ForegroundColor Gray
 
-          # Determine which manifests to process
-          if ($manifestsToFix) {
-            Write-Host "Processing specific manifests from excavator errors..." -ForegroundColor Yellow
-            $appNames = $manifestsToFix -split ','
-            $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
-              Where-Object { $appNames -contains $_.BaseName }
-          } else {
-            Write-Host "Processing all manifests..." -ForegroundColor Gray
-            $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
-              Where-Object { $_.Name -notmatch '(-nightly|-dev)' }
-          }
+          Write-Host "Processing specific manifests from Excavator errors..." -ForegroundColor Yellow
+          $appNames = $manifestsToFix -split ','
+          $manifests = Get-ChildItem -Path $bucketPath -Filter "*.json" -File |
+            Where-Object { $appNames -contains $_.BaseName }
 
           Write-Host "Found $($manifests.Count) manifests to check"
 
@@ -574,9 +415,6 @@ jobs:
           # Unfixable manifests are reported above, not treated as a build failure.
           $global:LASTEXITCODE = 0
           exit 0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Commit and push changes
         id: commit-fixes
@@ -611,9 +449,11 @@ jobs:
       - name: Rerun Excavator after persisted fixes
         if: steps.commit-fixes.outputs.committed == 'true'
         uses: actions/github-script@v9
+        env:
+          EXCAVATOR_REF: ${{ steps.validate-request.outputs.ref }}
         with:
           script: |
-            const ref = context.payload.workflow_run.head_branch;
+            const ref = process.env.EXCAVATOR_REF;
             if (!ref || !/^[A-Za-z0-9._/-]+$/.test(ref)) {
               throw new Error(`Refusing to dispatch Excavator for invalid branch: ${ref}`);
             }
