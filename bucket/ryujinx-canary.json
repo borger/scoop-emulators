@@ -30,7 +30,7 @@
             "Nintendo Switch [nsw][ryujinx]"
         ]
     ],
-    "persist": "user",
+    "persist": "portable",
     "checkver": {
         "url": "https://git.ryujinx.app/Ryubing/Canary/releases",
         "regex": "ryujinx-canary-(?<version>\\d+\\.\\d+\\.\\d+)-win_x64\\.zip"
