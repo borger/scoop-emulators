@@ -34,12 +34,6 @@
         "   }",
         "}"
     ],
-    "bin": [
-        [
-            "eden.exe",
-            "eden-nightly"
-        ]
-    ],
     "shortcuts": [
         [
             "eden.exe",

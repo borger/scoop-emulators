@@ -33,7 +33,6 @@
         "   '[Meta]', 'checkUpdateStart=false' | Set-Content \"$dir\\GuiConfigs\\CurrentSettings.ini\"",
         "}"
     ],
-    "bin": "rpcs3.exe",
     "shortcuts": [
         [
             "rpcs3.exe",
