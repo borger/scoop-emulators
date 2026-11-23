@@ -1,12 +1,12 @@
 {
-    "version": "2126.2",
+    "version": "2127.0",
     "description": "Nintendo 3DS Emulator",
     "homepage": "https://github.com/azahar-emu/azahar",
     "license": "GPL-2.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/azahar-emu/azahar/releases/download/2126.2/azahar-windows-msys2-2126.2.zip",
-            "hash": "aa6d4c631c883355e50f5f62fd26a0e053d63e4cc29b8ded6b3b7d175ec3864e"
+            "url": "https://github.com/azahar-emu/azahar/releases/download/2127.0/azahar-libretro-windows-x86_64-2127.0.zip",
+            "hash": "System.Collections.Specialized.OrderedDictionary"
         }
     },
     "extract_dir": "azahar-windows-msys2-2126.2",
