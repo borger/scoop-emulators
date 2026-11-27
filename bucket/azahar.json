@@ -6,7 +6,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/azahar-emu/azahar/releases/download/2127.0.1/azahar-libretro-windows-x86_64-2127.0.1.zip",
-            "hash": "System.Collections.Specialized.OrderedDictionary"
+            "hash": "4a310ff6bb3d5ec43996b5d651b42aa1d6344298a8fc811d3b8f3391faf86df9"
         }
     },
     "extract_dir": "azahar-windows-msys2-2126.2",
